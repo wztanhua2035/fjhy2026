@@ -1,4 +1,4 @@
-import { _decorator,Component,Node,Canvas,Camera,UITransform,Graphics,Color,Label,input,Input,EventKeyboard,KeyCode,Layers,view,ResolutionPolicy,resources,TiledMap,TiledMapAsset } from 'cc';
+import { _decorator,Component,Node,Canvas,Camera,UITransform,Graphics,Color,Label,Sprite,SpriteFrame,ImageAsset,input,Input,EventKeyboard,KeyCode,Layers,view,ResolutionPolicy,resources,TiledMap,TiledMapAsset } from 'cc';
 import { GameController,drawAppearance,type Painter,type Direction,type Transport } from './generated/client-runtime/index';
 import type { Appearance } from './generated/shared-types/index';
 import { environment } from './Environment';
@@ -7,13 +7,14 @@ const {ccclass}=_decorator;
 const W=960,H=640;
 @ccclass('GameRuntime')
 export class GameRuntime extends Component {
-  private controller!:GameController;private graphics!:Graphics;private world!:Node;private hud!:Node;private labels:Node[]=[];private labelIndex=0;private tileNode!:Node;private tiled!:TiledMap;private tileReady=false;
+  private controller!:GameController;private graphics!:Graphics;private world!:Node;private hud!:Node;private labels:Node[]=[];private labelIndex=0;private tileNode!:Node;private tiled!:TiledMap;private sceneArt!:Node;private sceneArtSprite!:Sprite;private tileReady=false;private sceneArtReady=false;
   private keys=new Set<number>();private touchX=0;private touchY=0;private selected=1;private gender:'MALE'|'FEMALE'='FEMALE';private colors=['INK','SAGE','CREAM'];private direction:Direction='down';private sceneId='';private appearanceIndex=0;private appearanceColor='SAGE';private status='正在登录…';
   start(){
     view.setDesignResolutionSize(W,H,ResolutionPolicy.SHOW_ALL);
     const canvas=new Node('Canvas');canvas.layer=Layers.Enum.UI_2D;this.node.addChild(canvas);canvas.addComponent(UITransform).setContentSize(W,H);canvas.addComponent(Canvas);
     const cameraNode=new Node('Camera');canvas.addChild(cameraNode);cameraNode.setPosition(0,0,1000);const camera=cameraNode.addComponent(Camera);camera.projection=Camera.ProjectionType.ORTHO;camera.orthoHeight=H/2;camera.visibility=Layers.Enum.UI_2D;camera.clearColor=new Color(239,242,228,255);
     this.tileNode=new Node('Tiled Terrain');this.tileNode.layer=Layers.Enum.UI_2D;canvas.addChild(this.tileNode);this.tileNode.addComponent(UITransform);this.tiled=this.tileNode.addComponent(TiledMap);
+    this.sceneArt=new Node('Scene Art');this.sceneArt.layer=Layers.Enum.UI_2D;canvas.addChild(this.sceneArt);this.sceneArt.addComponent(UITransform);this.sceneArtSprite=this.sceneArt.addComponent(Sprite);this.sceneArt.active=false;
     this.world=new Node('World');this.world.layer=Layers.Enum.UI_2D;canvas.addChild(this.world);this.world.addComponent(UITransform).setContentSize(W,H);this.graphics=this.world.addComponent(Graphics);
     this.hud=new Node('HUD');this.hud.layer=Layers.Enum.UI_2D;canvas.addChild(this.hud);this.hud.addComponent(UITransform).setContentSize(W,H);
     const transport:Transport=async(path,body,token)=>{
@@ -52,9 +53,9 @@ export class GameRuntime extends Component {
   private painter():Painter{const g=this.graphics;return {rect:(x,y,w,h,c)=>{g.fillColor=new Color().fromHEX(c);g.rect(x-W/2,H/2-y-h,w,h);g.fill();},circle:(x,y,r,c)=>{g.fillColor=new Color().fromHEX(c);g.circle(x-W/2,H/2-y,r);g.fill();},text:(text,x,y,size)=>{let n=this.labels[this.labelIndex];if(!n){n=this.label(text,x,y,size,this.world);this.labels.push(n);}n.active=true;n.setPosition(x-W/2,H/2-y);const l=n.getComponent(Label)!;l.string=text;l.fontSize=size;this.labelIndex++;}};}
   update(dt:number){if(!this.controller||!this.graphics)return;const c=this.controller,k=this.keys;c.tick(Math.min(dt,.05),this.touchX+Number(k.has(KeyCode.KEY_D)||k.has(KeyCode.ARROW_RIGHT))-Number(k.has(KeyCode.KEY_A)||k.has(KeyCode.ARROW_LEFT)),this.touchY+Number(k.has(KeyCode.KEY_S)||k.has(KeyCode.ARROW_DOWN))-Number(k.has(KeyCode.KEY_W)||k.has(KeyCode.ARROW_UP)));
     this.graphics.clear();this.labelIndex=0;const p=this.painter();
-    if(c.view&&this.sceneId!==c.view.scene.id){this.sceneId=c.view.scene.id;this.tileReady=false;this.tileNode.active=false;const requested=this.sceneId;resources.load(c.view.scene.mapAsset.replace(/\.tmx$/,''),TiledMapAsset,(err,asset)=>{if(err||requested!==this.sceneId)return;this.tiled.tmxAsset=asset;this.tileReady=true;this.tileNode.active=true;});}
-    if(c.view){this.tileNode.setPosition((c.view.scene.width/2-c.x)*32,(c.y-c.view.scene.height/2)*32);}
-    if(c.player?.appearance)c.render(p,W,H,!this.tileReady);else if(c.boot){p.rect(0,0,W,H,'#edf1e6');const a:Appearance={gender:this.gender,baseAvatarId:`${this.gender}_${String(this.selected).padStart(2,'0')}`,hairStyleId:`HAIR_${this.gender}_01`,topStyleId:`TOP_${this.gender}_01`,bottomStyleId:`BOTTOM_${this.gender}_01`,shoesId:`SHOES_${this.gender}_01`,hairColorId:this.colors[0],topColorId:this.colors[1],bottomColorId:this.colors[2],accessoryIds:[]};drawAppearance(p,a,c.boot.colors,710,280,4,this.direction,c.walkTime);}
+    if(c.view&&this.sceneId!==c.view.scene.id){this.sceneId=c.view.scene.id;this.tileReady=false;this.sceneArtReady=false;this.tileNode.active=false;this.sceneArt.active=false;const requested=this.sceneId;resources.load(c.view.scene.mapAsset.replace(/\\.tmx$/,''),TiledMapAsset,(err,asset)=>{if(err||requested!==this.sceneId)return;this.tiled.tmxAsset=asset;this.tileReady=true;this.tileNode.active=true;});if(this.sceneId==='STREET_BAISHI_01')resources.load('scenes/baishi_street_scene_day_v01',ImageAsset,(err,image)=>{if(err||requested!==this.sceneId)return;const frame=new SpriteFrame();frame.texture=image;this.sceneArtSprite.spriteFrame=frame;const scale=(c.view!.scene.width*c.view!.scene.tileSize)/image.width;this.sceneArt.setScale(scale,scale,1);this.sceneArtReady=true;this.sceneArt.active=true;});}
+    if(c.view){const x=(c.view.scene.width/2-c.x)*32,y=(c.y-c.view.scene.height/2)*32;this.tileNode.setPosition(x,y);this.sceneArt.setPosition(x,y);}
+    if(c.player?.appearance)c.render(p,W,H,!this.tileReady&&!this.sceneArtReady);else if(c.boot){p.rect(0,0,W,H,'#edf1e6');const a:Appearance={gender:this.gender,baseAvatarId:`${this.gender}_${String(this.selected).padStart(2,'0')}`,hairStyleId:`HAIR_${this.gender}_01`,topStyleId:`TOP_${this.gender}_01`,bottomStyleId:`BOTTOM_${this.gender}_01`,shoesId:`SHOES_${this.gender}_01`,hairColorId:this.colors[0],topColorId:this.colors[1],bottomColorId:this.colors[2],accessoryIds:[]};drawAppearance(p,a,c.boot.colors,710,280,4,this.direction,c.walkTime);}
     for(let i=this.labelIndex;i<this.labels.length;i++)this.labels[i].active=false;
   }
   onDestroy(){input.off(Input.EventType.KEY_DOWN,this.keyDown,this);input.off(Input.EventType.KEY_UP,this.keyUp,this);}
