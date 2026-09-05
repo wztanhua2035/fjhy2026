@@ -1,0 +1,5 @@
+[
+ {"__type__":"cc.SceneAsset","_name":"Boot","_objFlags":0,"__editorExtras__":{},"_native":"","scene":{"__id__":1}},
+ {"__type__":"cc.Scene","_name":"Boot","_objFlags":0,"__editorExtras__":{},"_parent":null,"_children":[],"_active":true,"_components":[{"__id__":2}],"_prefab":null,"_lpos":{"__type__":"cc.Vec3","x":0,"y":0,"z":0},"_lrot":{"__type__":"cc.Quat","x":0,"y":0,"z":0,"w":1},"_lscale":{"__type__":"cc.Vec3","x":1,"y":1,"z":1},"_layer":1073741824,"_id":"d0b7d81e-e2d1-4a9a-89a0-135c13f04478","autoReleaseAssets":false},
+ {"__type__":"13c51yJJABPdZkwv4kfQhq8","_name":"","_objFlags":0,"__editorExtras__":{},"node":{"__id__":1},"_enabled":true,"__prefab":null,"_id":"boot-runtime"}
+]

@@ -1,0 +1,12 @@
+node_modules
+.npm-cache
+.git
+.env
+.env.*
+参考资料
+artifacts
+dist
+apps/client-wechat/library
+apps/client-wechat/temp
+apps/client-wechat/build
+*.log

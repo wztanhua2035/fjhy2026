@@ -1,0 +1,16 @@
+node_modules/
+.npm-cache/
+.env
+.env.*
+!.env.example
+dist/
+coverage/
+artifacts/
+*.log
+apps/client-wechat/library/
+apps/client-wechat/temp/
+apps/client-wechat/local/
+apps/client-wechat/build/
+apps/client-wechat/assets/scripts/generated/
+apps/client-wechat/settings/local/
+deploy/*.local.*

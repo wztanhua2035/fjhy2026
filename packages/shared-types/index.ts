@@ -1,0 +1,43 @@
+export type Gender = 'MALE' | 'FEMALE';
+export interface Appearance {
+  gender: Gender; baseAvatarId: string; hairStyleId: string; hairColorId: string;
+  topStyleId: string; topColorId: string; bottomStyleId: string; bottomColorId: string; shoesId: string; accessoryIds: string[];
+}
+export interface Rect { x: number; y: number; width: number; height: number }
+export interface PlotConfig extends Rect {
+  id: string; townId: string; districtId: string; sceneId: string; plotType: string; facing: string;
+  entranceX: number; entranceY: number; status: string; allowedBuildingTypes: string[]; buildingId: string | null; version: number;
+}
+export interface BuildingConfig {
+  id: string; name: string; buildingType: string; assetKey: string; interiorSceneId: string;
+  openingHours: [string, string]; enabled: boolean; buyable: boolean; baseValue: number;
+  stock: Record<string, { buy: number; sell: number; dailyLimit: number }>;
+}
+export interface NPCConfig {
+  id: string; name: string; nameLocked: boolean; enabled: boolean; sceneId: string;
+  x: number; y: number; priority: number; hours: [string, string]; dialogue: string[]; route: {x: number; y: number}[];
+}
+export interface Portal { id: string; x: number; y: number; toSceneId: string; spawnX: number; spawnY: number }
+export interface SceneConfig {
+  id: string; name: string; townId: string; width: number; height: number; tileSize: number;
+  mapAsset: string; roads: Rect[]; collision: Rect[]; portals: Portal[]; buildingId?: string;
+  spawnX: number; spawnY: number;
+}
+export interface ItemConfig { id: string; name: string; basePrice: number; giftable: boolean; stackMax: number }
+export interface AppearanceDefinition { id: string; partType: string; name: string; genderScope: Gender | 'ALL'; assetKey: string; price: number; colors: string[]; enabled: boolean; starter: boolean }
+export interface QuestConfig { id: string; name: string; steps: {type: string; target: string; count: number}[]; reward: number; enabled: boolean }
+export interface WorldConfig {
+  worldVersion: number; configVersion: number; assetVersion: number; scenes: SceneConfig[]; plots: PlotConfig[];
+  buildings: BuildingConfig[]; npcs: NPCConfig[]; items: ItemConfig[]; appearances: AppearanceDefinition[];
+  colors: Record<string, string>; quests: QuestConfig[]; roads: {id: string; name: string; connects: string[]}[];
+}
+export interface LedgerEntry { id: string; type: string; amount: number; before: number; after: number; referenceId: string; requestId: string; createdAt: string }
+export interface PlayerState {
+  id: string; nickname: string; cash: number; stamina: number; status: string;
+  sceneId: string; x: number; y: number; appearance: Appearance | null; inventory: Record<string, number>;
+  cosmetics: string[]; ledger: LedgerEntry[]; tradeCounts: Record<string, number>; metNpcs: string[];
+}
+export interface GhostProfile { playerId: string; nickname: string; appearance: Appearance; title: string; updatedAt: string }
+export interface MailboxPayload { items: {itemId: string; quantity: number}[]; cash: number }
+export interface SceneView { scene: SceneConfig; plots: PlotConfig[]; buildings: BuildingConfig[]; npcs: NPCConfig[]; phase: string }
+export interface Bootstrap { player: PlayerState; serverTime: string; worldVersion: number; configVersion: number; assetVersion: number; assetManifest: string; colors: Record<string,string>; appearances: AppearanceDefinition[]; features: Record<string,boolean> }

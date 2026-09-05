@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+model Player {
+  id String @id @default(uuid()) @db.Uuid
+  subjectHash String @unique @map("wechat_subject_hash")
+  nickname String
+  cash BigInt @default(0)
+  stamina Int @default(100)
+  status String @default("ACTIVE")
+  sceneId String @default("INTERIOR_B_INN")
+  x Float @default(12)
+  y Float @default(15)
+  tradeCounts Json @default("{}")
+  metNpcs Json @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastLoginAt DateTime @default(now())
+  appearance PlayerAppearance?
+  inventory Inventory[]
+  cosmetics PlayerCosmetic[]
+  ledger PlayerLedger[]
+  requests IdempotencyRequest[]
+  ghost GhostSnapshot?
+  @@map("players")
+}
+model PlayerAppearance {
+  playerId String @id @db.Uuid
+  player Player @relation(fields:[playerId],references:[id])
+  gender String
+  baseAvatarId String
+  hairStyleId String
+  hairColorId String
+  topStyleId String
+  topColorId String
+  bottomStyleId String
+  bottomColorId String
+  shoesId String
+  accessoryIds Json
+  updatedAt DateTime @updatedAt
+  @@map("player_appearance")
+}
+model Inventory {
+  playerId String @db.Uuid
+  player Player @relation(fields:[playerId],references:[id])
+  itemId String
+  quantity Int
+  @@id([playerId,itemId])
+  @@map("player_inventory")
+}
+model PlayerCosmetic {
+  playerId String @db.Uuid
+  player Player @relation(fields:[playerId],references:[id])
+  appearanceId String
+  obtainedAt DateTime @default(now())
+  @@id([playerId,appearanceId])
+  @@map("player_cosmetics")
+}
+model PlayerLedger {
+  id String @id @db.Uuid
+  playerId String @db.Uuid
+  player Player @relation(fields:[playerId],references:[id])
+  type String
+  amount BigInt
+  before BigInt
+  after BigInt
+  referenceId String
+  requestId String
+  createdAt DateTime @default(now())
+  @@unique([playerId,requestId])
+  @@index([playerId,createdAt])
+  @@map("player_ledger")
+}
+model IdempotencyRequest {
+  playerId String @db.Uuid
+  player Player @relation(fields:[playerId],references:[id])
+  requestId String
+  hash String
+  result Json
+  createdAt DateTime @default(now())
+  @@id([playerId,requestId])
+  @@map("idempotency_requests")
+}
+model GhostSnapshot {
+  playerId String @id @db.Uuid
+  player Player @relation(fields:[playerId],references:[id])
+  snapshot Json
+  updatedAt DateTime @updatedAt
+  @@map("ghost_snapshots")
+}
+model WorldRelease {
+  id String @id @default(uuid()) @db.Uuid
+  version Int @unique
+  status String @default("DRAFT")
+  config Json
+  basedOn Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@map("world_releases")
+}
+model AdminAudit {
+  id String @id @default(uuid()) @db.Uuid
+  actor String
+  action String
+  releaseId String
+  details Json
+  createdAt DateTime @default(now())
+  @@map("admin_audit")
+}
+// Phase 2/3 tables are reserved; no reward-bearing endpoints are enabled yet.
+model Mailbox {
+  id String @id @default(uuid()) @db.Uuid
+  playerId String @db.Uuid
+  mailType String
+  senderPlayerId String? @db.Uuid
+  title String
+  payload Json
+  status String @default("UNCLAIMED")
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  claimedAt DateTime?
+  @@index([playerId,status])
+  @@map("player_mailbox")
+}
+model GiftTransaction {
+  id String @id @default(uuid()) @db.Uuid
+  senderPlayerId String @db.Uuid
+  receiverPlayerId String @db.Uuid
+  itemId String
+  quantity Int
+  affinityDelta Int
+  sceneId String
+  status String
+  createdAt DateTime @default(now())
+  claimedAt DateTime?
+  @@index([senderPlayerId,createdAt])
+  @@map("gift_transactions")
+}
+model Relationship {
+  playerA String @db.Uuid
+  playerB String @db.Uuid
+  affinity Int @default(0)
+  relationshipLevel Int @default(0)
+  giftCount Int @default(0)
+  lastInteractionAt DateTime @default(now())
+  @@id([playerA,playerB])
+  @@map("player_relationships")
+}
+model Property {
+  id String @id @default(uuid()) @db.Uuid
+  playerId String @db.Uuid
+  plotId String @unique
+  buildingId String
+  propertyType String
+  purchasePrice BigInt
+  currentValue BigInt
+  level Int @default(1)
+  customName String
+  acquiredAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@map("properties")
+}

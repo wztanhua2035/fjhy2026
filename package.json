@@ -1,0 +1,48 @@
+{
+  "name": "fujia-hengyang",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "node --env-file=.env --import tsx apps/server/src/main.ts",
+    "dev:demo": "node --import tsx apps/server/src/demo.ts",
+    "dev:admin": "vite --config apps/admin/vite.config.ts",
+    "build": "tsc --noEmit && vite build --config apps/admin/vite.config.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/game.test.ts tests/postgres.test.ts tests/client.test.ts",
+    "db:generate": "prisma generate --schema database/prisma/schema.prisma",
+    "db:migrate": "prisma migrate deploy --schema database/prisma/schema.prisma",
+    "db:seed": "node --env-file=.env --import tsx database/seed.ts",
+    "worker": "node --env-file=.env --import tsx apps/worker/src/main.ts",
+    "assets:build": "node --import tsx tools/build-assets.ts",
+    "client:configure": "node --import tsx tools/configure-client.ts",
+    "release:check": "node --import tsx tools/preflight.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.0.0",
+    "@fastify/jwt": "^10.2.2",
+    "@fastify/rate-limit": "^10.2.0",
+    "@fastify/static": "^10.1.3",
+    "@prisma/client": "6.12.0",
+    "antd": "^5.27.0",
+    "bullmq": "^5.58.0",
+    "fastify": "^5.6.0",
+    "ioredis": "^5.7.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "prisma": "6.12.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vite": "^6.3.0"
+  }
+}
