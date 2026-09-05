@@ -43,7 +43,7 @@ export class PostgresRepository implements Repository {
   async mutate(id:string,requestId:string,hash:string,fn:(p:PlayerState)=>unknown){
     return this.db.$transaction(async tx=>{
       // One actor's transactions serialize across all API replicas. State and request record commit together.
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${id}))`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${id}))::text`;
       const old=await tx.idempotencyRequest.findUnique({where:{playerId_requestId:{playerId:id,requestId}}});
       if(old){ensure(old.hash===hash,'REQUEST_CONFLICT','请求编号已被其他操作使用',409);return old.result;}
       const row=await tx.player.findUnique({where:{id},include});ensure(row,'UNAUTHORIZED','请重新登录',401);
@@ -60,7 +60,7 @@ export class PostgresRepository implements Repository {
   }
   async world(){const r=await this.db.worldRelease.findFirst({where:{status:'PUBLISHED'},orderBy:{version:'desc'}});ensure(r,'NOT_SEEDED','请先初始化世界配置',503);return r.config as unknown as WorldConfig;}
   async releases(){return await this.db.worldRelease.findMany({orderBy:{version:'desc'}}) as unknown as Release[];}
-  async draft(config:WorldConfig,basedOn:number){return this.db.$transaction(async tx=>{await tx.$queryRaw`SELECT pg_advisory_xact_lock(782233)`;const max=await tx.worldRelease.aggregate({_max:{version:true}}),version=(max._max.version??0)+1;
+  async draft(config:WorldConfig,basedOn:number){return this.db.$transaction(async tx=>{await tx.$queryRaw`SELECT pg_advisory_xact_lock(782233)::text`;const max=await tx.worldRelease.aggregate({_max:{version:true}}),version=(max._max.version??0)+1;
     const r=await tx.worldRelease.create({data:{version,basedOn,config:json({...config,configVersion:version})}});await tx.adminAudit.create({data:{actor:'admin',action:'DRAFT',releaseId:r.id,details:{basedOn}}});return r as unknown as Release;});}
   async transition(id:string,status:string){return this.db.$transaction(async tx=>{await tx.$queryRaw`SELECT pg_advisory_xact_lock(782233)`;const r=await tx.worldRelease.findUnique({where:{id}});ensure(r,'NOT_FOUND','版本不存在',404);checkTransition(r as unknown as Release,status);
     if(status==='PUBLISHED'){const live=await tx.worldRelease.findFirst({where:{status:'PUBLISHED'}});ensure(live?.version===r.basedOn,'STALE_DRAFT','线上版本已更新，请重新建草稿',409);await tx.worldRelease.updateMany({where:{status:'PUBLISHED'},data:{status:'ARCHIVED'}});}
