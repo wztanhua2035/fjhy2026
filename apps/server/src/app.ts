@@ -34,7 +34,16 @@ export async function buildApp(repo:Repository,env:Environment,options:{logger?:
     if(err instanceof ZodError)return reply.code(400).send({code:'INVALID_INPUT',message:'输入格式不正确',issues:err.issues.map(i=>({path:i.path,message:i.message}))});
     if(err instanceof GameError)return reply.code(err.status).send({code:err.code,message:err.message});
     const status=(err as any).statusCode??500;
-    if(status>=500)app.log.error({name:(err as Error).name},'Request failed');
+  
+if(status>=500){
+  app.log.error({
+    name:(err as Error).name,
+    message:(err as Error).message,
+    code:(err as any).code,
+    meta:(err as any).meta
+  },'Request failed');
+}
+
     return reply.code(status).send({code:status===401?'UNAUTHORIZED':'REQUEST_FAILED',message:status===401?'登录已过期，请重新登录':'请求失败，请稍后重试'});
   });
   app.addHook('onRequest',async req=>{
