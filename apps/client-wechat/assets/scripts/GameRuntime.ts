@@ -8,7 +8,7 @@ const W=960,H=640;
 @ccclass('GameRuntime')
 export class GameRuntime extends Component {
   private controller!:GameController;private graphics!:Graphics;private world!:Node;private hud!:Node;private labels:Node[]=[];private labelIndex=0;private tileNode!:Node;private tiled!:TiledMap;private tileReady=false;
-  private keys=new Set<number>();private touchX=0;private touchY=0;private selected=1;private gender:'MALE'|'FEMALE'='FEMALE';private colors=['INK','SAGE','CREAM'];private direction:Direction='down';private sceneId='';private uiScene='';private redrawTimer=0;private status='正在登录…';
+  private keys=new Set<number>();private touchX=0;private touchY=0;private selected=1;private gender:'MALE'|'FEMALE'='FEMALE';private colors=['INK','SAGE','CREAM'];private direction:Direction='down';private sceneId='';private appearanceIndex=0;private appearanceColor='SAGE';private status='正在登录…';
   start(){
     view.setDesignResolutionSize(W,H,ResolutionPolicy.SHOW_ALL);
     const canvas=new Node('Canvas');canvas.layer=Layers.Enum.UI_2D;this.node.addChild(canvas);canvas.addComponent(UITransform).setContentSize(W,H);canvas.addComponent(Canvas);
@@ -25,6 +25,7 @@ export class GameRuntime extends Component {
     this.buildHUD();void this.login();
   }
   private async login(){try{if(typeof wx!=='undefined'){const code=await new Promise<string>((resolve,reject)=>wx!.login({success:r=>resolve(r.code),fail:reject}));await this.controller.loginWechat(code);}else if(environment.allowDevLogin)await this.controller.loginDev(environment.devAccount);else throw new Error('请在微信小游戏中打开');}catch(e:any){this.status=e.message;this.buildHUD();}}
+  private async relogin(){this.keys.clear();this.controller.logout();this.sceneId='';this.tileReady=false;this.tileNode.active=false;this.status='重新登录中…';this.buildHUD();await this.login();}
   private keyDown(e:EventKeyboard){this.keys.add(e.keyCode);if(e.keyCode===KeyCode.KEY_E)void this.run(()=>this.controller.interact());}
   private keyUp(e:EventKeyboard){this.keys.delete(e.keyCode);}
   private async run(fn:()=>Promise<unknown>){try{await fn();}catch(e:any){this.status=e.message;}this.buildHUD();}
@@ -38,11 +39,13 @@ export class GameRuntime extends Component {
       this.button('旋转预览',710,405,150,()=>{const dirs:Direction[]=['down','left','up','right'];this.direction=dirs[(dirs.indexOf(this.direction)+1)%4];});
       this.button('确认形象，入住客栈',480,525,300,()=>void this.run(()=>c.create(this.gender,`${this.gender}_${String(this.selected).padStart(2,'0')}`,this.colors[0],this.colors[1],this.colors[2])));
     }else{
-      this.label(`${c.view?.scene.name??'横阳'} · ${c.view?.phase??''}　|　铜钱 ${c.player.cash} 文　|　大米 ${c.player.inventory.RICE_01??0}`,480,28,20);
+      this.label(`${c.view?.scene.name??'横阳'} · ${c.view?.phase??''}　|　铜钱 ${c.player.cash} 文　|　大米 ${c.player.inventory.RICE_01??0}`,430,28,20);
+      this.button('重登验存档',850,28,120,()=>void this.relogin());
       const dirs=[['↑',0,-1,95,500],['←',-1,0,45,550],['↓',0,1,95,600],['→',1,0,145,550]] as const;
       for(const [text,dx,dy,x,y] of dirs){const n=this.button(text,x,y,44,()=>{});n.on(Node.EventType.TOUCH_START,()=>{this.touchX=dx;this.touchY=dy;});for(const type of [Node.EventType.TOUCH_END,Node.EventType.TOUCH_CANCEL])n.on(type,()=>{this.touchX=0;this.touchY=0;this.buildHUD();});}
       this.button(c.nearby()?.label??'靠近门口 / NPC',765,560,280,()=>void this.run(()=>c.interact()));
-      const b=c.view?.buildings.find(b=>b.id===c.view?.scene.buildingId);if(b){let y=100;for(const [id,s] of Object.entries(b.stock)){this.button(`${id==='RICE_01'?'大米':'米糕'} 买入 ${s.buy}文`,750,y,180,()=>void this.run(()=>c.trade('buy',id)));this.button(`卖出 ${s.sell}文`,750,y+45,180,()=>void this.run(()=>c.trade('sell',id)));y+=110;}}
+      const b=c.view?.buildings.find(b=>b.id===c.view?.scene.buildingId);if(b){let y=100;for(const [id,s] of Object.entries(b.stock)){this.button(`${id==='RICE_01'?'大米':'米糕'} 买入 ${s.buy}文`,750,y,180,()=>void this.run(()=>c.trade('buy',id)));this.button(`卖出 ${s.sell}文`,750,y+45,180,()=>void this.run(()=>c.trade('sell',id)));y+=110;}
+        if(b.buildingType==='SALON'||b.buildingType==='CLOTH'){const catalog=c.boot.appearances.filter(a=>a.genderScope===c.player!.appearance!.gender&&(b.buildingType==='SALON'?a.partType==='HAIR':['TOP','BOTTOM','SHOES'].includes(a.partType)));if(catalog.length){const item=catalog[this.appearanceIndex%catalog.length],owned=c.player.cosmetics.includes(item.id);this.label(`${item.name} · ${item.price} 文`,750,95,18);this.button('上一款',690,145,105,()=>{this.appearanceIndex=(this.appearanceIndex+catalog.length-1)%catalog.length;this.buildHUD();});this.button('下一款',810,145,105,()=>{this.appearanceIndex=(this.appearanceIndex+1)%catalog.length;this.buildHUD();});this.button(`配色 · ${this.appearanceColor}`,750,195,225,()=>{const choices=item.colors.length?item.colors:Object.keys(c.boot!.colors);this.appearanceColor=choices[(choices.indexOf(this.appearanceColor)+1+choices.length)%choices.length];this.buildHUD();});if(b.buildingType==='CLOTH'&&!owned)this.button('购买并永久拥有',750,245,225,()=>void this.run(()=>c.write('/v1/appearance/purchase',{buildingId:b!.id,appearanceId:item.id})));else this.button(b.buildingType==='SALON'?'付费理发并应用':'穿上已拥有服饰',750,245,225,()=>void this.run(()=>c.write('/v1/appearance/change',{buildingId:b!.id,appearanceId:item.id,colorId:this.appearanceColor})));}}}
     }
     this.label(this.status.slice(0,64),480,625,13);if(c.pending||c.offline)this.button(c.pending?'重试待确认操作':'重新连接',760,465,240,()=>void this.run(()=>c.retry()));
   }

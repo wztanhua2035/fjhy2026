@@ -25,6 +25,7 @@ export class GameController {
   onChange=()=>{};
   constructor(public transport:Transport){}
   get player(){return this.boot?.player??null;}
+  logout(){this.token='';this.boot=null;this.view=null;this.ghosts=[];this.pending=null;this.busy=false;this.offline=false;this.x=12;this.y=15;this.message='已退出，可以重新登录验证存档';this.onChange();}
   async loginDev(account:string){const data=await this.transport('/v1/auth/dev',{account});this.token=data.token;await this.refresh();}
   async loginWechat(code:string){const data=await this.transport('/v1/auth/wechat',{code});this.token=data.token;await this.refresh();}
   async refresh(){this.boot=await this.transport('/v1/bootstrap',undefined,this.token);this.x=this.player!.x;this.y=this.player!.y;if(this.player!.appearance)await this.loadScene();this.onChange();}
