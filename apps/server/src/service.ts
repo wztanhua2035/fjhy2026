@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { Repository } from './repository.js';
 import type { PlayerState, WorldConfig } from '../../../packages/shared-types/index.js';
-import { ensure, canStand, isOpen, starterAppearance, publicPlayer, sceneView } from '../../../packages/game-rules/index.js';
+import { ensure, canStand, isOpen, starterAppearance, publicPlayer, sceneView, plotEntrances, inEntranceArea } from '../../../packages/game-rules/index.js';
 function money(p:PlayerState,amount:number,type:string,referenceId:string,requestId:string){
   ensure(Number.isSafeInteger(p.cash+amount)&&p.cash+amount>=0&&p.cash+amount<=1e12,'INSUFFICIENT_CASH','铜钱不足或超出余额上限');
   const before=p.cash;p.cash+=amount;p.ledger.push({id:randomUUID(),type,amount,before,after:p.cash,referenceId,requestId,createdAt:new Date().toISOString()});
@@ -12,12 +12,13 @@ export class GameService {
     const world=await this.repo.world();
     const hash=createHash('sha256').update(JSON.stringify({action,body})).digest('hex');
     return this.repo.mutate(playerId,body.requestId,hash,p=>{
+      let questDialogue:string|undefined;
       ensure(p.status==='ACTIVE','BANNED','账号不可用',403);
       if(action!=='create')ensure(p.appearance,'CHARACTER_REQUIRED','请先创建角色',409);
       switch(action){
         case 'create':{
           ensure(!p.appearance,'ALREADY_CREATED','角色已创建',409);
-          p.appearance=starterAppearance(world,body.gender,body.baseAvatarId,{hairColorId:body.hairColorId,topColorId:body.topColorId,bottomColorId:body.bottomColorId});
+          p.appearance=starterAppearance(world,body.gender,body.baseAvatarId,{skinColorId:body.skinColorId,hairColorId:body.hairColorId,topColorId:body.topColorId,bottomColorId:body.bottomColorId});
           p.cosmetics=[p.appearance.hairStyleId,p.appearance.topStyleId,p.appearance.bottomStyleId,p.appearance.shoesId];
           money(p,120,'SYSTEM_GRANT','NEW_PLAYER',body.requestId);break;
         }
@@ -28,8 +29,9 @@ export class GameService {
         }
         case 'enter':{
           const plot=world.plots.find(t=>t.id===body.plotId&&t.sceneId===p.sceneId),b=world.buildings.find(b=>b.id===plot?.buildingId&&b.enabled);
-          ensure(plot&&b,'NO_ENTRANCE','这里暂时没有可进入的建筑');ensure(Math.hypot(p.x-plot.entranceX,p.y-plot.entranceY)<4,'TOO_FAR','请走到门口');ensure(isOpen(b.openingHours,this.now()),'CLOSED','店铺已打烊');
-          const s=world.scenes.find(s=>s.id===b.interiorSceneId)!;p.sceneId=s.id;p.x=s.spawnX;p.y=s.spawnY;break;
+          ensure(plot&&b,'NO_ENTRANCE','这里暂时没有可进入的建筑');const entrance=plotEntrances(plot).find(e=>e.id===body.entranceId)??plotEntrances(plot)[0];
+          ensure(entrance&&entrance.targetScene===b.interiorSceneId,'NO_ENTRANCE','入口没有有效的室内目标');ensure(inEntranceArea(entrance,p.x,p.y),'TOO_FAR','请走到门口');ensure(isOpen(b.openingHours,this.now()),'CLOSED','店铺已打烊');
+          p.sceneId=entrance.targetScene;p.x=entrance.targetSpawnPoint.x;p.y=entrance.targetSpawnPoint.y;break;
         }
         case 'portal':{
           const portal=sceneView(world,p.sceneId,this.now()).scene.portals.find(t=>t.id===body.portalId);ensure(portal,'NO_PORTAL','出口不存在');ensure(Math.hypot(p.x-portal.x,p.y-portal.y)<4,'TOO_FAR','请走到出口');
@@ -43,11 +45,19 @@ export class GameService {
           const held=p.inventory[item.id]??0;
           if(action==='buy'){ensure(held+body.quantity<=item.stackMax&&Object.values(p.inventory).reduce((a,b)=>a+b,0)+body.quantity<=100,'BAG_FULL','行囊容量不足');money(p,-stock.buy*body.quantity,'SHOP_BUY',`${shop.id}:${item.id}`,body.requestId);p.inventory[item.id]=held+body.quantity;}
           else{ensure(held>=body.quantity,'INSUFFICIENT_ITEM','库存不足');money(p,stock.sell*body.quantity,'SHOP_SELL',`${shop.id}:${item.id}`,body.requestId);if(held===body.quantity)delete p.inventory[item.id];else p.inventory[item.id]=held-body.quantity;}
-          p.tradeCounts[key]=(p.tradeCounts[key]??0)+body.quantity;break;
+          p.tradeCounts[key]=(p.tradeCounts[key]??0)+body.quantity;
+          if(action==='sell'&&body.itemId==='RICE_01'&&!p.ledger.some(l=>l.type==='QUEST_REWARD'&&l.referenceId==='Q_001')&&p.ledger.some(l=>l.type==='SHOP_BUY'&&l.referenceId.includes('RICE_01'))){money(p,20,'QUEST_REWARD','Q_001',body.requestId);questDialogue='任务完成：第一桶金，获得 20 文奖励';}
+          break;
         }
-        case 'talk':{
+        case 'acceptQuest':{
+          const quest=world.quests.find(q=>q.id===body.questId&&q.enabled);ensure(quest,'QUEST_NOT_FOUND','任务不存在或未开放');
+          ensure(p.sceneId==='INTERIOR_B_INN'&&Math.hypot(p.x-8,p.y-9)<6,'TOO_FAR','请先与陈掌柜交谈');
+          ensure(!p.ledger.some(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId===quest.id),'QUEST_ALREADY_ACCEPTED','任务已经接取');
+          p.ledger.push({id:randomUUID(),type:'QUEST_ACCEPTED',amount:0,before:p.cash,after:p.cash,referenceId:quest.id,requestId:body.requestId,createdAt:new Date().toISOString()});
+          questDialogue=`已接取任务：${quest.name}`;break;
+        }        case 'talk':{
           const npc=world.npcs.find(n=>n.id===body.npcId&&n.enabled&&n.sceneId===p.sceneId&&isOpen(n.hours,this.now()));ensure(npc,'NPC_ABSENT','此刻该人物不在这里');ensure(Math.hypot(p.x-npc.x,p.y-npc.y)<6,'TOO_FAR','请靠近对话');
-          const met=p.metNpcs.includes(npc.id);if(!met)p.metNpcs.push(npc.id);return {player:publicPlayer(p),dialogue:npc.dialogue[met?Math.min(1,npc.dialogue.length-1):0]};
+          const met=p.metNpcs.includes(npc.id);if(!met)p.metNpcs.push(npc.id);let dialogue=npc.dialogue[met?Math.min(1,npc.dialogue.length-1):0];if(npc.questId&&!p.ledger.some(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId===npc.questId)){const quest=world.quests.find(q=>q.id===npc.questId&&q.enabled);if(quest){p.ledger.push({id:randomUUID(),type:'QUEST_ACCEPTED',amount:0,before:p.cash,after:p.cash,referenceId:quest.id,requestId:body.requestId,createdAt:new Date().toISOString()});dialogue='任务已接取\n任务：'+quest.name+'\n当前目标：前往街坊杂货铺购买 1 份鸣山大米。\n'+dialogue;}}return {player:publicPlayer(p),dialogue};
         }
         case 'purchaseAppearance':{
           const shop=this.shop(world,p,body.buildingId),a=world.appearances.find(a=>a.id===body.appearanceId&&a.enabled);
@@ -61,7 +71,7 @@ export class GameService {
           const ap=p.appearance!;if(a.partType==='HAIR'){ap.hairStyleId=a.id;ap.hairColorId=body.colorId;}if(a.partType==='TOP'){ap.topStyleId=a.id;ap.topColorId=body.colorId;}if(a.partType==='BOTTOM'){ap.bottomStyleId=a.id;ap.bottomColorId=body.colorId;}if(a.partType==='SHOES')ap.shoesId=a.id;break;
         }
       }
-      return {player:publicPlayer(p)};
+      return {player:publicPlayer(p),dialogue:questDialogue};
     });
   }
   shop(world:WorldConfig,p:PlayerState,id:string){const b=world.buildings.find(b=>b.id===id&&b.enabled);ensure(b&&b.interiorSceneId===p.sceneId,'WRONG_SHOP','请先进入对应店铺');ensure(isOpen(b.openingHours,this.now()),'CLOSED','店铺已打烊');return b;}

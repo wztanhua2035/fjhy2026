@@ -1,0 +1,41 @@
+#quest-panel {
+  position: absolute;
+  top: max(48px, calc(env(safe-area-inset-top) + 42px));
+  right: max(14px, env(safe-area-inset-right));
+  width: min(310px, 42vw);
+  overflow: hidden;
+  border: 1px solid #c9d8c5;
+  border-radius: 10px;
+  background: #fffffff0;
+  box-shadow: 0 5px 18px #2e453926;
+  color: #456d58;
+}
+
+#quest-toggle {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  padding: 9px 12px;
+  border: 0;
+  background: #e8f0e3;
+  color: #456d58;
+  font: 600 13px "Microsoft YaHei", sans-serif;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+#hud #quest {
+  position: static;
+  padding: 10px 12px;
+  border-radius: 0;
+  background: transparent;
+  white-space: pre-line;
+  line-height: 1.55;
+  font-size: 12px;
+}
+
+#quest-panel.completed #quest-toggle { background: #dcebd7; }
+
+@media (orientation: landscape) and (max-height: 600px) {
+  #quest-panel { top: max(50px, calc(env(safe-area-inset-top) + 44px)); width: min(290px, 38vw); }
+}

@@ -1,0 +1,1 @@
+ALTER TABLE "player_appearance" ADD COLUMN "skinColorId" TEXT NOT NULL DEFAULT 'SKIN_LIGHT';

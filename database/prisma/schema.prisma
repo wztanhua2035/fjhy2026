@@ -33,6 +33,7 @@ model PlayerAppearance {
   player Player @relation(fields:[playerId],references:[id])
   gender String
   baseAvatarId String
+  skinColorId String @default("SKIN_LIGHT")
   hairStyleId String
   hairColorId String
   topStyleId String

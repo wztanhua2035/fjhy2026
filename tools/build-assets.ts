@@ -20,6 +20,6 @@ const files=['maps/terrain.png','maps/baishi.tmx','maps/interior.tmx'];
 const manifest={version:1,minClientVersion:'0.1.0',prototypeAssets:true,files:await Promise.all(files.map(async file=>{const data=await fs.readFile(path.join(root,file));return {path:file,bytes:data.length,sha256:createHash('sha256').update(data).digest('hex')};}))};
 await fs.writeFile(path.join(root,'manifest.json'),JSON.stringify(manifest,null,2));
 const dest=path.resolve('apps/client-wechat/assets/scripts/generated');
-for(const pkg of ['shared-types','client-runtime']){await fs.mkdir(path.join(dest,pkg),{recursive:true});let source=await fs.readFile(`packages/${pkg}/index.ts`,'utf8');source=source.replaceAll('../shared-types/index.js','../shared-types/index');await fs.writeFile(path.join(dest,pkg,'index.ts'),source);}
+for(const pkg of ['shared-types','game-rules','platform-adapter','client-runtime']){await fs.mkdir(path.join(dest,pkg),{recursive:true});let source=await fs.readFile(`packages/${pkg}/index.ts`,'utf8');source=source.replaceAll('../shared-types/index.js','../shared-types/index');await fs.writeFile(path.join(dest,pkg,'index.ts'),source);}
 await fs.mkdir('apps/client-wechat/assets/resources/maps',{recursive:true});for(const file of files)await fs.copyFile(path.join(root,file),`apps/client-wechat/assets/resources/${file}`);
 console.log('已生成 TMX、原型瓦片、SHA256 清单，以及 Cocos 共享 Runtime。');

@@ -1,0 +1,20 @@
+.quest-hud button {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #527c69;
+  font: 600 12px "Microsoft YaHei", sans-serif;
+  text-align: left;
+  pointer-events: auto;
+}
+
+.quest-hud span {
+  margin-top: 6px;
+  max-width: 270px;
+  white-space: pre-line;
+}
+
+.quest-hud.collapsed { padding-bottom: 7px; }
+.quest-card summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+.quest-card p { white-space: pre-line; margin-bottom: 0; }

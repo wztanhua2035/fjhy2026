@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "minClientVersion": "0.1.0",
+  "prototypeAssets": true,
+  "files": [
+    {
+      "path": "maps/terrain.png",
+      "bytes": 178,
+      "sha256": "92baaa3b002755fcf9cf2be66d4bfd05cc28b393178c5894657055c5dd6ecb02"
+    },
+    {
+      "path": "maps/baishi.tmx",
+      "bytes": 14249,
+      "sha256": "b566d06baed14e29241988d37c7e3ea2c1edaff704ef34b4d92e9a65707bfa54"
+    },
+    {
+      "path": "maps/interior.tmx",
+      "bytes": 2114,
+      "sha256": "9ccad5e62e572be6d0545ec06204b362b4ecd30590f0c0c9c999b2821916ed8b"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "compileType": "game",
+  "setting": {
+    "es6": true,
+    "minified": true,
+    "urlCheck": true
+  },
+  "appid": "wxfc014d3e0daebf38",
+  "projectname": "富甲横阳-真机体验"
+}

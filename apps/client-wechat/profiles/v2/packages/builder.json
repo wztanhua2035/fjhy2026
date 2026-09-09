@@ -1,0 +1,96 @@
+{
+  "__version__": "1.3.9",
+  "log": {
+    "level": 4
+  },
+  "common": {
+    "binGroupConfig": {
+      "threshold": 16,
+      "enable": false
+    },
+    "polyfills": {
+      "asyncFunctions": true
+    },
+    "buildPath": "project://build",
+    "outputName": "wechatgame",
+    "mainBundleCompressionType": "merge_dep",
+    "platform": "wechatgame",
+    "name": "富甲横阳",
+    "debug": true
+  },
+  "BuildTaskManager": {
+    "taskMap": {
+      "1788865312654": {
+        "type": "build",
+        "id": "1788865312654",
+        "progress": 1,
+        "state": "failure",
+        "stage": "build",
+        "message": "2026-9-8 19:01:57 build task failed! Error: execute-task buildScriptCommand failed with code -1!\n    at ChildProcess.<anonymous> (C:\\ProgramData\\cocos\\editors\\Creator\\3.8.8\\resources\\app.asar\\builtin\\builder\\dist\\worker\\worker-pools\\sub-process-manager.ccc:1:2253)\n    at ChildProcess.emit (node:events:519:28)\n    at emit (node:internal/child_process:951:14)\n    at processTicksAndRejections (node:internal/process/task_queues:83:21)",
+        "detailMessage": "构建项目脚本 start..., progress: 13%\r",
+        "options": {
+          "name": "富甲横阳",
+          "server": "",
+          "engineModulesConfigKey": "defaultConfig",
+          "platform": "wechatgame",
+          "buildPath": "project://build",
+          "debug": true,
+          "buildMode": "normal",
+          "mangleProperties": false,
+          "md5Cache": false,
+          "skipCompressTexture": false,
+          "sourceMaps": false,
+          "overwriteProjectSettings": {
+            "macroConfig": {
+              "cleanupImageCache": "on"
+            },
+            "includeModules": {
+              "physics": "inherit-project-setting",
+              "physics-2d": "inherit-project-setting",
+              "gfx-webgl2": "off"
+            }
+          },
+          "nativeCodeBundleMode": "wasm",
+          "polyfills": {
+            "asyncFunctions": false
+          },
+          "experimentalEraseModules": false,
+          "startSceneAssetBundle": false,
+          "bundleConfigs": [],
+          "inlineEnum": true,
+          "useBuiltinServer": false,
+          "md5CacheOptions": {
+            "excludes": [],
+            "includes": [],
+            "replaceOnly": [],
+            "handleTemplateMd5Link": true
+          },
+          "mainBundleIsRemote": false,
+          "mainBundleCompressionType": "merge_dep",
+          "useSplashScreen": true,
+          "bundleCommonChunk": false,
+          "packAutoAtlas": true,
+          "startScene": "d0b7d81e-e2d1-4a9a-89a0-135c13f04478",
+          "outputName": "wechatgame",
+          "taskName": "wechatgame",
+          "scenes": [
+            {
+              "url": "db://assets/Boot.scene",
+              "uuid": "d0b7d81e-e2d1-4a9a-89a0-135c13f04478"
+            }
+          ],
+          "wasmCompressionMode": false,
+          "binGroupConfig": {
+            "threshold": 16,
+            "enable": false
+          },
+          "packages": {},
+          "__version__": "1.3.9",
+          "logDest": "project://temp/builder/log/wechatgame2026-9-8 19-01.log"
+        },
+        "time": "2026-9-8 19:01:52",
+        "dirty": false
+      }
+    }
+  }
+}

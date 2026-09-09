@@ -1,0 +1,5 @@
+.shop-card { padding: 0; overflow: hidden; border-color: #d7bd94; }
+.shop-card>header { display: flex; align-items: center; gap: 10px; padding: 13px 16px; background: #7a9a77; color: #fffdf3; }
+.shop-card>header>span,.shop-card i { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 8px; background: #f1d58d; color: #6a472c; font-style: normal; font-weight: 700; }
+.shop-card>header div { flex: 1; }.shop-card>header small { display: block; font-size: 10px; opacity: .85; }.shop-card>header h3 { margin: 1px 0 0; color: inherit; }.shop-card>header>b { font-size: 12px; white-space: nowrap; }
+.shop-card .goods { display: grid; grid-template-columns: 34px 1fr auto auto; align-items: center; padding: 12px 16px; margin: 0; border-top: 1px solid #ecdfca; }.shop-card .goods div { min-width: 0; }.shop-card .goods strong,.shop-card .goods small { display: block; }.shop-card .goods small { margin-top: 3px; }.shop-card .goods .ant-btn { font-size: 11px; }.shop-result { margin: 0!important; padding: 8px 16px; border-top: 1px solid #ecdfca; background: #fbf2df; color: #7a6046!important; white-space: pre-line; }
