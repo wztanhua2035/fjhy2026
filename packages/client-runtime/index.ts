@@ -47,7 +47,7 @@ export class GameController {
     this.pending={path,body:{...body,requestId:uuid()}};return this.retry();
   }
   async retry(){if(this.busy)return;if(!this.pending){try{await this.refresh();this.offline=false;this.message='连接已恢复';}catch{this.offline=true;this.message='场景加载失败，请再次重连';}this.onChange();return;}this.busy=true;this.onChange();const op=this.pending;
-    try{const result=await this.transport(op.path,op.body,this.token);this.pending=null;this.offline=false;this.dialogue=typeof result.dialogue==='string'?result.dialogue:null;this.dialogueSpeaker=this.dialogue?(this.view?.npcs.find(n=>n.id===op.body?.npcId)?.name??'白石街'):null;if(result.player){const old=this.player?.sceneId;this.boot!.player=result.player;this.x=result.player.x;this.y=result.player.y;if(old!==result.player.sceneId||!this.view)await this.loadScene();}this.message=result.dialogue??'操作已完成';return result;}
+    try{const knownNpcs=new Set(this.player?.metNpcs??[]),npc=this.view?.npcs.find(n=>n.id===op.body?.npcId);const result=await this.transport(op.path,op.body,this.token);this.pending=null;this.offline=false;this.dialogue=typeof result.dialogue==='string'?result.dialogue:null;this.dialogueSpeaker=this.dialogue?(npc?.name??'白石街'):null;if(result.player){const old=this.player?.sceneId;this.boot!.player=result.player;this.x=result.player.x;this.y=result.player.y;if(old!==result.player.sceneId||!this.view)await this.loadScene();}const introduction=op.path==='/v1/npc/talk'&&npc&&!knownNpcs.has(npc.id)?'初次结识：'+npc.name+'。\n关系记录：已认识。\n':'';this.message=introduction+(result.dialogue??'操作已完成');return result;}
     catch(e:any){this.dialogue=null;this.dialogueSpeaker=null;this.message=e.message;if(e.status){this.pending=null;this.x=this.player?.x??this.x;this.y=this.player?.y??this.y;}else{this.offline=true;this.message=this.pending?'网络中断，操作结果待确认。点击重试，使用同一请求编号。':'操作已确认，场景加载失败，请重新连接。';}throw e;}
     finally{this.busy=false;this.onChange();}
   }
@@ -89,14 +89,16 @@ export class GameController {
   async interact(){const target=this.nearby();if(!target)return;const entrance=target.path==='/v1/world/enter'?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===target.body.entranceId):undefined;const portal=target.path==='/v1/world/portal'?this.view?.scene.portals.find(p=>p.id===target.body.portalId):undefined;const returned=portal?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===portal.returnEntranceId):undefined;await this.sync();await this.write(target.path,target.body);if(entrance){this.direction=entrance.direction==='south'?'up':entrance.direction==='west'?'right':entrance.direction==='east'?'left':'down';this.message='进入建筑…';}else if(portal){if(returned)this.direction=returned.direction==='south'?'down':returned.direction==='west'?'left':returned.direction==='east'?'right':'up';this.interactionCooldown=.8;this.message='回到白石街…';}this.onChange();}
   async trade(action:'buy'|'sell',itemId:string,quantity=1){
     await this.sync();
+    const building=this.view!.buildings.find(candidate=>candidate.id===this.view!.scene.buildingId);const firstTrade=!(this.player?.ledger??[]).some(entry=>(entry.type==='SHOP_BUY'||entry.type==='SHOP_SELL')&&entry.referenceId.startsWith((building?.id??'')+':'));
     const knownEntries=new Set(this.player?.ledger.map(entry=>entry.id)??[]);
     const result:any=await this.write(`/v1/economy/${action}`,{buildingId:this.view!.scene.buildingId,itemId,quantity});
     const entries=(result?.player?.ledger??[]).filter((entry:any)=>!knownEntries.has(entry.id));
     const tradeEntry=entries.find((entry:any)=>entry.type===(action==='buy'?'SHOP_BUY':'SHOP_SELL'));
     const rewardEntry=entries.find((entry:any)=>entry.type==='QUEST_REWARD'&&entry.referenceId==='Q_001');
-    const itemName=itemId==='RICE_01'?'鸣山大米':itemId;
+    const itemName=itemId==='RICE_01'?'鸣山大米':itemId,relationshipNote=firstTrade&&building?'商号往来：'+building.name+'已记住你。':'';
     if(action==='buy')this.message=['购买成功',`获得：${itemName} ×${quantity}`,`花费：${Math.abs(tradeEntry?.amount??0)} 文`,`铜钱：${tradeEntry?.before??this.player?.cash} → ${tradeEntry?.after??this.player?.cash}`,`当前目标：将${itemName}带回白石商行出售。`].join('\n');
     else this.message=['出售成功',`出售：${itemName} ×${quantity}`,`获得：${tradeEntry?.amount??0} 文`,`关键步骤完成：已将${itemName}卖给白石商行。`,...(rewardEntry?['任务完成：第一桶金',`任务奖励：${rewardEntry.amount} 文`]:[]),`铜钱：${tradeEntry?.before??this.player?.cash} → ${rewardEntry?.after??tradeEntry?.after??this.player?.cash}`].join('\n');
+    if(relationshipNote)this.message+='\n'+relationshipNote;
     this.dialogue=null;this.dialogueSpeaker=null;this.onChange();
   }
   shopPanel():ShopPanelView|null{const view=this.view,player=this.player,building=view?.buildings.find(candidate=>candidate.id===view.scene.buildingId);if(!view||!player||!building||!Object.keys(building.stock).length)return null;return {buildingId:building.id,title:building.name,balance:player.cash,items:Object.entries(building.stock).flatMap(([id,stock])=>{const item=view.items.find(candidate=>candidate.id===id);return item?[{id,name:item.name,icon:item.icon??'品',owned:player.inventory[id]??0,buyPrice:stock.buy,sellPrice:stock.sell,dailyLimit:stock.dailyLimit}]:[];})};}
