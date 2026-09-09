@@ -31,12 +31,12 @@ export function uuid(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[x
 export function formatQuestTracker(task:QuestTrackerItem){return task.completed?`${task.name}  ✓ 已完成\n${task.rewardSummary}（已发放）`:`${task.name}\n${task.currentStep}\n目标：${task.currentObjective}\n${task.rewardSummary}`;}
 export function browserTransport(base=''):Transport{return async(path,body,token)=>{const response=await fetch(`${base}${path}`,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(10000)});const data=await response.json();if(!response.ok)throw Object.assign(new Error(data.message??'网络请求失败'),{status:response.status});return data;};}
 export class GameController {
-  token='';boot:Bootstrap|null=null;view:SceneView|null=null;ghosts:GhostProfile[]=[];quests:QuestRuntime[]=[];direction:Direction='down';walkTime=0;
+  token='';boot:Bootstrap|null=null;view:SceneView|null=null;ghosts:GhostProfile[]=[];quests:QuestRuntime[]=[];direction:Direction='down';walkTime=0;private interactionCooldown=0;
   x=12;y=15;busy=false;offline=false;message='欢迎来到横阳';dialogue:string|null=null;dialogueSpeaker:string|null=null;pending:{path:string;body:any}|null=null;private lastSync=0;private syncInFlight:Promise<unknown>|null=null;private correctionX=0;private correctionY=0;
   onChange=()=>{};
   constructor(public transport:Transport){}
   get player(){return this.boot?.player??null;}
-  logout(){this.token='';this.boot=null;this.view=null;this.ghosts=[];this.quests=[];this.pending=null;this.busy=false;this.offline=false;this.x=12;this.y=15;this.message='已退出，可以重新登录验证存档';this.dialogue=null;this.dialogueSpeaker=null;this.onChange();}
+  logout(){this.token='';this.boot=null;this.view=null;this.ghosts=[];this.quests=[];this.pending=null;this.busy=false;this.offline=false;this.x=12;this.y=15;this.interactionCooldown=0;this.message='已退出，可以重新登录验证存档';this.dialogue=null;this.dialogueSpeaker=null;this.onChange();}
   async loginDev(account:string){const data=await this.transport('/v1/auth/dev',{account});this.token=data.token;await this.refresh();}
   async loginWechat(code:string){const data=await this.transport('/v1/auth/wechat',{code});this.token=data.token;await this.refresh();}
   async refresh(){this.boot=await this.transport('/v1/bootstrap',undefined,this.token);const taskData=await this.transport('/v1/quests',undefined,this.token);this.quests=taskData.quests??[];this.x=this.player!.x;this.y=this.player!.y;if(this.player!.appearance)await this.loadScene();this.onChange();}
@@ -52,7 +52,7 @@ export class GameController {
     finally{this.busy=false;this.onChange();}
   }
   async create(gender:'MALE'|'FEMALE',baseAvatarId:string,skinColorId:string,hairColorId:string,topColorId:string,bottomColorId:string){await this.write('/v1/player/appearance/create',{gender,baseAvatarId,skinColorId,hairColorId,topColorId,bottomColorId});}
-  tick(dt:number,dx:number,dy:number){if(!this.view||!this.player?.appearance)return;
+  tick(dt:number,dx:number,dy:number){if(!this.view||!this.player?.appearance)return;this.interactionCooldown=Math.max(0,this.interactionCooldown-dt);
     this.walkTime+=dt;
     const correctionFactor=1-Math.exp(-dt*10);
     const correctionStepX=this.correctionX*correctionFactor,correctionStepY=this.correctionY*correctionFactor;
@@ -86,7 +86,7 @@ export class GameController {
     for(const n of v.npcs)if(Math.hypot(n.x-this.x,n.y-this.y)<6)return {label:`与${n.name}交谈`,path:'/v1/npc/talk',body:{npcId:n.id}};
     return null;
   }
-  async interact(){const target=this.nearby();if(target){await this.sync();await this.write(target.path,target.body);}}
+  async interact(){const target=this.nearby();if(!target)return;const entrance=target.path==='/v1/world/enter'?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===target.body.entranceId):undefined;const portal=target.path==='/v1/world/portal'?this.view?.scene.portals.find(p=>p.id===target.body.portalId):undefined;const returned=portal?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===portal.returnEntranceId):undefined;await this.sync();await this.write(target.path,target.body);if(entrance){this.direction=entrance.direction==='south'?'up':entrance.direction==='west'?'right':entrance.direction==='east'?'left':'down';this.message='进入建筑…';}else if(portal){if(returned)this.direction=returned.direction==='south'?'down':returned.direction==='west'?'left':returned.direction==='east'?'right':'up';this.interactionCooldown=.8;this.message='回到白石街…';}this.onChange();}
   async trade(action:'buy'|'sell',itemId:string,quantity=1){
     await this.sync();
     const knownEntries=new Set(this.player?.ledger.map(entry=>entry.id)??[]);
