@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GameController, drawAppearance, formatQuestTracker, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
+import { GameController, drawAppearance, formatQuestTracker, ImageAssetStore, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
 import type { Appearance } from '../../../packages/shared-types/index.js';
 import { createWeChatPlatform, safeInsets } from './wechat-platform';
 
@@ -7,6 +7,7 @@ declare const __WECHAT_API_BASE_URL__: string;
 const WIDTH = 960, HEIGHT = 540, TILE = 32, groundKey = 'baishi-ground';
 const platform = createWeChatPlatform(__WECHAT_API_BASE_URL__);
 const controller = new GameController(platform.transport);
+const imageAssets = new ImageAssetStore();
 type Draft = { gender: 'MALE' | 'FEMALE'; base: number; skin: string; hair: string; top: string; bottom: string; direction: Direction };
 const draft: Draft = { gender: 'FEMALE', base: 1, skin: 'SKIN_LIGHT', hair: 'INK', top: 'SAGE', bottom: 'CREAM', direction: 'down' };
 // WeChat sends touch coordinates directly to the game canvas. Phaser's web-only

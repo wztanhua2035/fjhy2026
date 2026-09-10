@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GameController, drawAppearance, formatQuestTracker, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
+import { GameController, drawAppearance, formatQuestTracker, ImageAssetStore, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
 import type { Appearance } from '../../../packages/shared-types/index.js';
 import { createWebPlatform } from './web-platform';
 import './style.css';
@@ -9,6 +9,7 @@ import './shop.css';
 const WIDTH=960,HEIGHT=540,TILE=32;
 const platform=createWebPlatform(import.meta.env.VITE_API_BASE_URL??'');
 const controller=new GameController(platform.transport);
+const imageAssets=new ImageAssetStore();
 const pressed=new Set<string>();
 type Draft={gender:'MALE'|'FEMALE';base:number;skin:string;hair:string;top:string;bottom:string;direction:Direction};
 const draft:Draft={gender:'FEMALE',base:1,skin:'SKIN_LIGHT',hair:'INK',top:'SAGE',bottom:'CREAM',direction:'down'};
