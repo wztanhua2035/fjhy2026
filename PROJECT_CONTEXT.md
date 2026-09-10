@@ -259,3 +259,5 @@ pm.cmd run typecheck 通过；定向测试 31 项通过、1 项 PostgreSQL 集�
 - 2026-09-10：已固化白石街角色、美术与对话表现规范，明确统一视觉基准、白石商行样板、主角/NPC 造型、三级对话体系及 Web/微信资源共用原则。详见 [《富甲横阳·白石街角色、美术与对话表现规范 V1》](docs/BAISHI_ART_CHARACTER_DIALOGUE_SPEC.md)。
 - 2026-09-10：白石街正式美术样板方向进一步确认：优先制作白石商行、年轻男伙计及其半身对话立绘，再制作主角正式 Q 版基础样板；样板验证后扩展其他建筑与 NPC。规范见 [白石街角色、美术与对话表现规范](docs/BAISHI_ART_CHARACTER_DIALOGUE_SPEC.md)。
 - 2026-09-10：白石商行正式建筑 V2 已接入 Web；主角与白石商行伙计正式 spritesheet V2.1 已完成人工验收，人物移动残影和明显横向晃动已解决。重要剧情 portrait 模式已接入并完成第一轮缩放校准；foreground 尚未启用。
+
+- 2026-09-10：已固化白石街正式美术资源模板，包含建筑、spritesheet、portrait、跨端规则与“准备素材 → 元数据 → 场景挂载 → 校准 → Web/微信验证 → 提交”流程。详见 [白石街正式美术资源模板 V1](docs/BAISHI_FORMAL_ART_ASSET_TEMPLATE.md)。
