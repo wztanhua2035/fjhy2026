@@ -17,4 +17,6 @@ await cp(path.resolve('apps/wechat-game/project.config.json'), path.join(outputR
 await mkdir(path.join(outputRoot, 'libs'), { recursive: true });
 await cp(path.resolve('apps/wechat-game/libs/weapp-adapter.js'), path.join(outputRoot, 'libs/weapp-adapter.js'));
 await cp(path.resolve('apps/wechat-game/libs/WEAPP_ADAPTER_LICENSE'), path.join(outputRoot, 'libs/WEAPP_ADAPTER_LICENSE'));
+await mkdir(path.join(outputRoot, 'scene-layers/baishi/formal'), { recursive: true });
+await cp(path.resolve('apps/admin/public/scene-layers/baishi/formal'), path.join(outputRoot, 'scene-layers/baishi/formal'), { recursive: true });
 console.log(`微信小游戏真机体验包已生成：${outputRoot}`);

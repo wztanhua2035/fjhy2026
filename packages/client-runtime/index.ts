@@ -32,7 +32,7 @@ export function uuid(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[x
 export function formatQuestTracker(task:QuestTrackerItem){return task.completed?`${task.name}  ✓ 已完成\n${task.rewardSummary}（已发放）`:`${task.name}\n${task.currentStep}\n目标：${task.currentObjective}\n${task.rewardSummary}`;}
 export function browserTransport(base=''):Transport{return async(path,body,token)=>{const response=await fetch(`${base}${path}`,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(10000)});const data=await response.json();if(!response.ok)throw Object.assign(new Error(data.message??'网络请求失败'),{status:response.status});return data;};}
 export class GameController {
-  token='';boot:Bootstrap|null=null;view:SceneView|null=null;ghosts:GhostProfile[]=[];quests:QuestRuntime[]=[];direction:Direction='down';walkTime=0;private interactionCooldown=0;
+  token='';boot:Bootstrap|null=null;view:SceneView|null=null;ghosts:GhostProfile[]=[];quests:QuestRuntime[]=[];direction:Direction='down';walkTime=0;moving=false;private interactionCooldown=0;
   x=12;y=15;busy=false;offline=false;message='欢迎来到横阳';dialogue:string|null=null;dialogueSpeaker:string|null=null;pending:{path:string;body:any}|null=null;private lastSync=0;private syncInFlight:Promise<unknown>|null=null;private correctionX=0;private correctionY=0;
   onChange=()=>{};
   constructor(public transport:Transport){}
@@ -54,7 +54,7 @@ export class GameController {
   }
   async create(gender:'MALE'|'FEMALE',baseAvatarId:string,skinColorId:string,hairColorId:string,topColorId:string,bottomColorId:string){await this.write('/v1/player/appearance/create',{gender,baseAvatarId,skinColorId,hairColorId,topColorId,bottomColorId});}
   tick(dt:number,dx:number,dy:number){if(!this.view||!this.player?.appearance)return;this.interactionCooldown=Math.max(0,this.interactionCooldown-dt);
-    this.walkTime+=dt;
+    this.walkTime+=dt;this.moving=!!(dx||dy)&&(!this.busy||this.offline);
     const correctionFactor=1-Math.exp(-dt*10);
     const correctionStepX=this.correctionX*correctionFactor,correctionStepY=this.correctionY*correctionFactor;
     if(this.stand(this.x+correctionStepX,this.y)&&this.stand(this.x,this.y+correctionStepY)){this.x+=correctionStepX;this.y+=correctionStepY;this.correctionX-=correctionStepX;this.correctionY-=correctionStepY;}
@@ -103,7 +103,7 @@ export class GameController {
     this.dialogue=null;this.dialogueSpeaker=null;this.onChange();
   }
   shopPanel():ShopPanelView|null{const view=this.view,player=this.player,building=view?.buildings.find(candidate=>candidate.id===view.scene.buildingId);if(!view||!player||!building||!Object.keys(building.stock).length)return null;return {buildingId:building.id,title:building.name,balance:player.cash,items:Object.entries(building.stock).flatMap(([id,stock])=>{const item=view.items.find(candidate=>candidate.id===id);return item?[{id,name:item.name,icon:item.icon??'品',owned:player.inventory[id]??0,buyPrice:stock.buy,sellPrice:stock.sell,dailyLimit:stock.dailyLimit}]:[];})};}
-  render(p:Painter,width:number,height:number,drawTerrain=true,drawStructures=true,drawNpcs=true){
+  render(p:Painter,width:number,height:number,drawTerrain=true,drawStructures=true,drawNpcs=true,skipNpcIds:string[]=[],skipPlayer=false){
     const v=this.view;if(!v)return;if(drawTerrain)p.rect(0,0,width,height,'#b7cba5');
     const tile=32,ox=width/2-this.x*tile,oy=height/2-this.y*tile;
     const rect=(x:number,y:number,w:number,h:number,c:string)=>p.rect(ox+x*tile,oy+y*tile,w*tile,h*tile,c);
@@ -117,7 +117,7 @@ export class GameController {
     }
     for(const portal of v.scene.portals){rect(portal.x-.7,portal.y-.25,1.4,.5,'#91b7a3');p.text('出口 ↓',ox+portal.x*tile,oy+(portal.y-1)*tile,16,'#486d5d');}
     const defaultAp=this.player!.appearance!;
-    const people=[...(drawNpcs?v.npcs.map(n=>({x:n.x,y:n.y,name:n.name,appearance:n.appearance??defaultAp,ghost:false})):[]),...this.ghosts.slice(0,6).map((g,i)=>({x:(v.scene.buildingId?5:14)+i*3,y:v.scene.buildingId?12:43,name:`${g.nickname} · 留影`,appearance:g.appearance,ghost:true})),{x:this.x,y:this.y,name:'你',appearance:defaultAp,ghost:false}].sort((a,b)=>a.y-b.y);
+const people=[...(drawNpcs?v.npcs.filter(n=>!skipNpcIds.includes(n.id)).map(n=>({x:n.x,y:n.y,name:n.name,appearance:n.appearance??defaultAp,ghost:false})):[]),...(skipPlayer?[]:[...this.ghosts.slice(0,6).map((g,i)=>({x:(v.scene.buildingId?5:14)+i*3,y:v.scene.buildingId?12:43,name:`${g.nickname} · 留影`,appearance:g.appearance,ghost:true})),{x:this.x,y:this.y,name:'你',appearance:defaultAp,ghost:false}])].sort((a,b)=>a.y-b.y);
     for(const person of people){
       const isPlayer=person.name==='你', scale=isPlayer?1.45:person.ghost?1.05:1.25;
       drawAppearance(p,person.appearance,this.boot!.colors,ox+person.x*tile,oy+person.y*tile,scale,isPlayer?this.direction:'down',isPlayer?this.walkTime:0);

@@ -11,7 +11,7 @@ export interface SpriteSheetAsset {
   assetKey: string; imagePath: string; frameWidth: number; frameHeight: number;
   columns: number; rows: number; directionRows: Record<'down'|'left'|'right'|'up', number>;
   framesPerDirection: number; footAnchorX: number; footAnchorY: number;
-  renderScale: number; startX?: number; startY?: number;
+  renderScale: number; startX?: number; startY?: number; frameOffsets?: Record<'down'|'left'|'right'|'up', {x:number;y:number}[]>;
 }
 
 export interface PortraitAsset {
@@ -34,7 +34,7 @@ export function drawBuildingAsset(target: ImageDrawTarget, image: ImageSource, a
 
 export function drawSpriteSheet(target: ImageDrawTarget, image: ImageSource, asset: SpriteSheetAsset, direction: 'down'|'left'|'right'|'up', frame: number, x: number, y: number) {
   const source = spriteFrame(asset, direction, frame);
-  target.drawImage(image, source.sx, source.sy, source.sw, source.sh, x - asset.footAnchorX * asset.renderScale, y - asset.footAnchorY * asset.renderScale, source.sw * asset.renderScale, source.sh * asset.renderScale);
+  target.drawImage(image, source.sx, source.sy, source.sw, source.sh, x - asset.footAnchorX * asset.renderScale + (asset.frameOffsets?.[direction]?.[frame]?.x??0), y - asset.footAnchorY * asset.renderScale + (asset.frameOffsets?.[direction]?.[frame]?.y??0), source.sw * asset.renderScale, source.sh * asset.renderScale);
 }
 
 export function drawSpriteSheetOrFallback(target: ImageDrawTarget, image: ImageSource|undefined, asset: SpriteSheetAsset, direction: 'down'|'left'|'right'|'up', frame: number, x: number, y: number, fallback: () => void) { if(image) drawSpriteSheet(target,image,asset,direction,frame,x,y); else fallback(); }
@@ -50,3 +50,11 @@ export class ImageAssetStore {
   get(assetKey: string) { return this.images.get(assetKey); }
   has(assetKey: string) { return this.images.has(assetKey); }
 }
+
+export const baishiV2ArtAssets = {
+  building: { assetKey:'building_baishi_shop_base', imagePath:'/scene-layers/baishi/formal/building_baishi_shop_base.png', worldX:32.5, worldY:20, renderWidth:320, renderHeight:384, originX:0, originY:0, depth:30, foreground:{assetKey:'building_baishi_shop_fg',imagePath:'/scene-layers/baishi/formal/building_baishi_shop_fg.png',offsetX:0,offsetY:0,depth:50} },
+  npcClerk: {assetKey:'npc_baishi_clerk_walk',imagePath:'/scene-layers/baishi/formal/npc_baishi_clerk_walk.png',frameWidth:64,frameHeight:64,columns:4,rows:4,directionRows:{down:0,left:1,right:2,up:3},framesPerDirection:4,footAnchorX:32,footAnchorY:59,renderScale:1,frameOffsets:{down:[{x:-14,y:0},{x:5,y:0},{x:-5,y:0},{x:8.5,y:0}],left:[{x:-3.5,y:0},{x:-3.5,y:0},{x:5,y:0},{x:8.5,y:0}],right:[{x:-12.5,y:0},{x:4,y:0},{x:-4,y:0},{x:12.5,y:0}],up:[{x:-14,y:0},{x:5.5,y:0},{x:-4.5,y:0},{x:14,y:0}]}},
+  playerMale: {assetKey:'player_male_base',imagePath:'/scene-layers/baishi/formal/player_male_base.png',frameWidth:64,frameHeight:64,columns:4,rows:4,directionRows:{down:0,left:1,right:2,up:3},framesPerDirection:4,footAnchorX:32,footAnchorY:59,renderScale:1,frameOffsets:{down:[{x:-13.5,y:0},{x:3,y:0},{x:-2.5,y:0},{x:12,y:0}],left:[{x:-12,y:0},{x:3,y:0},{x:.5,y:0},{x:8.5,y:0}],right:[{x:-12,y:0},{x:2.5,y:0},{x:-3,y:0},{x:5,y:0}],up:[{x:-13.5,y:0},{x:1.5,y:0},{x:-4,y:0},{x:10,y:0}]}},
+  playerFemale: {assetKey:'player_female_base',imagePath:'/scene-layers/baishi/formal/player_female_base.png',frameWidth:64,frameHeight:64,columns:4,rows:4,directionRows:{down:0,left:1,right:2,up:3},framesPerDirection:4,footAnchorX:32,footAnchorY:59,renderScale:1,frameOffsets:{down:[{x:-13,y:0},{x:2,y:0},{x:3,y:0},{x:2,y:0}],left:[{x:-13,y:0},{x:3,y:0},{x:6,y:0},{x:0,y:0}],right:[{x:-11.5,y:0},{x:3,y:0},{x:3.5,y:0},{x:6.5,y:0}],up:[{x:-14.5,y:0},{x:2,y:0},{x:1,y:0},{x:7.5,y:0}]}},
+  clerkPortrait: {assetKey:'portrait_baishi_clerk_normal',imagePath:'/scene-layers/baishi/formal/portrait_baishi_clerk_normal.png',preferredWidth:330,preferredHeight:430,slot:'right',originX:.5,originY:1}
+} as const;
