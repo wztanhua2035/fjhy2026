@@ -19,7 +19,7 @@ export interface NPCConfig {
   id: string; name: string; nameLocked: boolean; enabled: boolean; sceneId: string;
   x: number; y: number; priority: number; hours: [string, string]; dialogue: string[]; route: {x: number; y: number}[]; questId?: string;
   /** NPC 的外观与主角解耦；未配置时由客户端使用兼容默认外观。 */
-  appearance?: Appearance; formalArtKey?: string; portraitKey?: string;
+  appearance?: Appearance; facing?: 'down'|'left'|'right'|'up'; formalArtKey?: string; portraitKey?: string;
 }
 export interface Portal { id: string; x: number; y: number; toSceneId: string; spawnX: number; spawnY: number; returnEntranceId?: string }
 export interface SceneConfig {

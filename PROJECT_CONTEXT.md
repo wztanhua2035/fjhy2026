@@ -266,3 +266,5 @@ pm.cmd run typecheck 通过；定向测试 31 项通过、1 项 PostgreSQL 集�
 - 2026-09-10：已确定可进入店铺 NPC 规则：可进入并承担互动/经营/交易/任务/关系功能的店铺原则上配置独立店内核心 NPC，明确实体 ID、建筑、室内场景、位置、朝向、对话、交互、正式 spritesheet 与必要 portrait；青丝美发师 NPC_SALON_HAIRDRESSER 为首个执行案例。详见 [白石街正式美术资源模板 V1](docs/BAISHI_FORMAL_ART_ASSET_TEMPLATE.md)。
 - 2026-09-10：已确定店铺核心 NPC 动态活动规则：核心 NPC 区分职业身份与 working/offDuty/special/night 生活状态，店外保留唯一身份与关系但默认不开放完整店铺功能；第一阶段采用轻量地点配置，不实现复杂 AI 日程。NPC_SALON_HAIRDRESSER 为首个执行案例。
 - 2026-09-10：已确定 Portrait 正式素材规范：正式立绘必须为仅含人物本体的 512×512 透明 alpha PNG，禁止背景、文字、展示板等非人物元素；接入前完成尺寸、alpha、比例、无背景/无文字检查及 Web 验收。陈掌柜透明修复为正确示例；portrait_hairdresser_normal.png 当前标记为待替换不合格素材。
+- 2026-09-10：春衫衣坊新增独立核心 NPC `NPC_CLOTH_SHOPKEEPER`（春衫掌柜），位于 `INTERIOR_B_CLOTH` `(16,9)`，朝下；春衫衣坊正式建筑必须遵守西侧入口 `ENT_BAISHI_CLOTH_W` 与 `(26.5,33)` 门洞对齐约束。
+- 2026-09-10：已确定主角模块化外观系统设计预留：默认 spritesheet / portrait 作为 fallback，未来采用基础身体、发型、服装、饰品分层组合；客户端合成缓存，服务端仅保存当前穿戴与拥有/解锁外观。当前不实现换装、不重构主角或存档。详见 [白石街正式美术资源模板 V1](docs/BAISHI_FORMAL_ART_ASSET_TEMPLATE.md)。
