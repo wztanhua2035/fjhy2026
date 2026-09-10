@@ -58,3 +58,28 @@ export const baishiV2ArtAssets = {
   playerFemale: {assetKey:'player_female_base',imagePath:'/scene-layers/baishi/formal/player_female_base.png',frameWidth:64,frameHeight:64,columns:4,rows:4,directionRows:{down:0,left:1,right:2,up:3},framesPerDirection:4,footAnchorX:32,footAnchorY:59,renderScale:1,frameOffsets:{down:[{x:-13,y:0},{x:2,y:0},{x:3,y:0},{x:2,y:0}],left:[{x:-13,y:0},{x:3,y:0},{x:6,y:0},{x:0,y:0}],right:[{x:-11.5,y:0},{x:3,y:0},{x:3.5,y:0},{x:6.5,y:0}],up:[{x:-14.5,y:0},{x:2,y:0},{x:1,y:0},{x:7.5,y:0}]}},
   clerkPortrait: {assetKey:'portrait_baishi_clerk_normal',imagePath:'/scene-layers/baishi/formal/portrait_baishi_clerk_normal.png',preferredWidth:330,preferredHeight:430,slot:'right',originX:.5,originY:1}
 } as const;
+const standardWalk = (assetKey: string, imagePath: string) => ({ assetKey, imagePath, frameWidth:64, frameHeight:64, columns:4, rows:4, directionRows:{down:0,left:1,right:2,up:3}, framesPerDirection:4, footAnchorX:32, footAnchorY:59, renderScale:1, frameOffsets:{down:[{x:0,y:0}],left:[{x:0,y:0}],right:[{x:0,y:0}],up:[{x:0,y:0}]}});
+
+export const hengyangInnV1ArtAssets = {
+  building: { assetKey:'building_hengyang_inn_base', imagePath:'/scene-layers/baishi/formal/building_hengyang_inn_base.png', worldX:8.5, worldY:20, renderWidth:320, renderHeight:384, originX:0, originY:0, depth:30, foreground:{assetKey:'building_hengyang_inn_fg',imagePath:'/scene-layers/baishi/formal/building_hengyang_inn_fg.png',offsetX:0,offsetY:0,depth:50} },
+  shopkeeper: {...standardWalk('npc_chen_shopkeeper_walk','/scene-layers/baishi/formal/npc_chen_shopkeeper_walk.png')},
+  portrait: {assetKey:'portrait_chen_shopkeeper_normal',imagePath:'/scene-layers/baishi/formal/portrait_chen_shopkeeper_normal.png',preferredWidth:264,preferredHeight:264,slot:'right',originX:.5,originY:1}
+} as const;
+
+export interface FormalBuildingRegistration extends BuildingImageAsset { buildingId: string; }
+export interface FormalNpcRegistration extends SpriteSheetAsset { npcId: string; }
+export interface FormalPortraitRegistration extends PortraitAsset { speaker: string; }
+export const baishiFormalArtRegistry = {
+  buildings: [
+    { buildingId:'B_TRADE', ...baishiV2ArtAssets.building },
+    { buildingId:'B_INN', ...hengyangInnV1ArtAssets.building }
+  ] as FormalBuildingRegistration[],
+  npcs: [
+    { npcId:'NPC_TRADE_CLERK', ...baishiV2ArtAssets.npcClerk },
+    { npcId:'NPC_001', ...hengyangInnV1ArtAssets.shopkeeper }
+  ] as FormalNpcRegistration[],
+  portraits: [
+    { speaker:'白石商行伙计', ...baishiV2ArtAssets.clerkPortrait },
+    { speaker:'陈掌柜', ...hengyangInnV1ArtAssets.portrait }
+  ] as FormalPortraitRegistration[]
+};
