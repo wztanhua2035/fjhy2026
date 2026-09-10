@@ -83,3 +83,19 @@ export const baishiFormalArtRegistry = {
     { speaker:'陈掌柜', ...hengyangInnV1ArtAssets.portrait }
   ] as FormalPortraitRegistration[]
 };
+export const streetGroceryV1ArtAssets = {
+  building: { assetKey:'building_street_grocery_base', imagePath:'/scene-layers/baishi/formal/building_street_grocery_base.png', worldX:21, worldY:20, renderWidth:320, renderHeight:384, originX:0, originY:0, depth:30, foreground:{assetKey:'building_street_grocery_fg',imagePath:'/scene-layers/baishi/formal/building_street_grocery_fg.png',offsetX:0,offsetY:0,depth:50} },
+  assistant: {...standardWalk('npc_shop_assistant_walk','/scene-layers/baishi/formal/npc_shop_assistant_walk.png')},
+  portrait: {assetKey:'portrait_shop_assistant_normal',imagePath:'/scene-layers/baishi/formal/portrait_shop_assistant_normal.png',preferredWidth:264,preferredHeight:264,slot:'right',originX:.5,originY:1}
+} as const;
+baishiFormalArtRegistry.buildings.push({buildingId:'B_GROCERY',...streetGroceryV1ArtAssets.building});
+baishiFormalArtRegistry.npcs.push({npcId:'NPC_GROCERY_CLERK',...streetGroceryV1ArtAssets.assistant});
+baishiFormalArtRegistry.portraits.push({speaker:'街坊杂货铺店员',...streetGroceryV1ArtAssets.portrait});
+export const qingsiHairSalonV1ArtAssets = {
+  building: { assetKey:'building_hair_salon_base', imagePath:'/scene-layers/baishi/formal/building_hair_salon_base.png', worldX:39, worldY:7, renderWidth:320, renderHeight:384, originX:0, originY:0, depth:30, foreground:{assetKey:'building_hair_salon_fg',imagePath:'/scene-layers/baishi/formal/building_hair_salon_fg.png',offsetX:0,offsetY:0,depth:50} },
+  hairdresser: {...standardWalk('npc_hairdresser_walk','/scene-layers/baishi/formal/npc_hairdresser_walk.png')},
+  portrait: {assetKey:'portrait_hairdresser_normal',imagePath:'/scene-layers/baishi/formal/portrait_hairdresser_normal.png',preferredWidth:264,preferredHeight:264,slot:'right',originX:.5,originY:1}
+} as const;
+baishiFormalArtRegistry.buildings.push({buildingId:'B_SALON',...qingsiHairSalonV1ArtAssets.building});
+baishiFormalArtRegistry.npcs.push({npcId:'NPC_SALON_HAIRDRESSER',...qingsiHairSalonV1ArtAssets.hairdresser});
+baishiFormalArtRegistry.portraits.push({speaker:'青丝美发师',...qingsiHairSalonV1ArtAssets.portrait});

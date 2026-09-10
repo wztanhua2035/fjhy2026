@@ -262,3 +262,7 @@ pm.cmd run typecheck 通过；定向测试 31 项通过、1 项 PostgreSQL 集�
 
 - 2026-09-10：已固化白石街正式美术资源模板，包含建筑、spritesheet、portrait、跨端规则与“准备素材 → 元数据 → 场景挂载 → 校准 → Web/微信验证 → 提交”流程。详见 [白石街正式美术资源模板 V1](docs/BAISHI_FORMAL_ART_ASSET_TEMPLATE.md)。
 - 2026-09-10：横阳客栈当前正式建筑素材暂作为临时版保留；后续计划制作“横阳客栈 V2”，提高清晰度、优化轮廓融合，并减少重复字样（可取消侧边“客栈”竖牌或统一招牌信息）。
+- 2026-09-10：后续美术待办：主角 portrait 纵向比例略显拉长，需优先检查 male / female 原始素材比例，并通过重新裁切或重做素材解决，保持自然头身比例并统一规范；现有 portrait 槽位、显示逻辑与背景压暗层暂不修改。
+- 2026-09-10：已确定可进入店铺 NPC 规则：可进入并承担互动/经营/交易/任务/关系功能的店铺原则上配置独立店内核心 NPC，明确实体 ID、建筑、室内场景、位置、朝向、对话、交互、正式 spritesheet 与必要 portrait；青丝美发师 NPC_SALON_HAIRDRESSER 为首个执行案例。详见 [白石街正式美术资源模板 V1](docs/BAISHI_FORMAL_ART_ASSET_TEMPLATE.md)。
+- 2026-09-10：已确定店铺核心 NPC 动态活动规则：核心 NPC 区分职业身份与 working/offDuty/special/night 生活状态，店外保留唯一身份与关系但默认不开放完整店铺功能；第一阶段采用轻量地点配置，不实现复杂 AI 日程。NPC_SALON_HAIRDRESSER 为首个执行案例。
+- 2026-09-10：已确定 Portrait 正式素材规范：正式立绘必须为仅含人物本体的 512×512 透明 alpha PNG，禁止背景、文字、展示板等非人物元素；接入前完成尺寸、alpha、比例、无背景/无文字检查及 Web 验收。陈掌柜透明修复为正确示例；portrait_hairdresser_normal.png 当前标记为待替换不合格素材。

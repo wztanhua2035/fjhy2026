@@ -33,7 +33,7 @@ export function formatQuestTracker(task:QuestTrackerItem){return task.completed?
 export function browserTransport(base=''):Transport{return async(path,body,token)=>{const response=await fetch(`${base}${path}`,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(10000)});const data=await response.json();if(!response.ok)throw Object.assign(new Error(data.message??'网络请求失败'),{status:response.status});return data;};}
 export class GameController {
   token='';boot:Bootstrap|null=null;view:SceneView|null=null;ghosts:GhostProfile[]=[];quests:QuestRuntime[]=[];direction:Direction='down';walkTime=0;moving=false;private interactionCooldown=0;
-  x=12;y=15;busy=false;offline=false;message='欢迎来到横阳';dialogue:string|null=null;dialogueSpeaker:string|null=null;pending:{path:string;body:any}|null=null;private lastSync=0;private syncInFlight:Promise<unknown>|null=null;private correctionX=0;private correctionY=0;
+  x=12;y=15;busy=false;offline=false;message='欢迎来到横阳';dialogue:string|null=null;dialogueSpeaker:string|null=null;pending:{path:string;body:any}|null=null;private interactionLabel='';private lastSync=0;private syncInFlight:Promise<unknown>|null=null;private correctionX=0;private correctionY=0;
   onChange=()=>{};
   constructor(public transport:Transport){}
   get player(){return this.boot?.player??null;}
@@ -64,6 +64,7 @@ export class GameController {
       this.direction=Math.abs(dx)>Math.abs(dy)?dx>0?'right':'left':dy>0?'down':'up';
     }
     this.lastSync+=dt;if(this.lastSync>.4&&!this.busy&&!this.syncInFlight&&!this.offline&&Math.hypot(this.x-this.player.x,this.y-this.player.y)>.05){this.lastSync=0;void this.sync().catch(()=>{});}
+    const interactionLabel=this.nearby()?.label??'互动';if(interactionLabel!==this.interactionLabel){this.interactionLabel=interactionLabel;this.onChange();}
   }
   stand(x:number,y:number){const v=this.view!;const staticBlocks=[...v.scene.collision,...v.plots.filter(p=>p.buildingId)];const npcBlocks=v.npcs.filter(n=>n.enabled).map(npcCollisionRect);return x>=1&&y>=1&&x<=v.scene.width-1&&y<=v.scene.height-1&&!staticBlocks.some(r=>x>r.x-.18&&x<r.x+r.width+.18&&y>r.y-.18&&y<r.y+r.height+.18)&&!npcBlocks.some(r=>x>r.x&&x<r.x+r.width&&y>r.y&&y<r.y+r.height);}
   traversable(fromX:number,fromY:number,toX:number,toY:number){for(let i=1;i<=8;i++){const t=i/8;if(!this.stand(fromX+(toX-fromX)*t,fromY+(toY-fromY)*t))return false;}return true;}
