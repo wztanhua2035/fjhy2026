@@ -270,9 +270,11 @@ pm.cmd run typecheck 通过；定向测试 31 项通过、1 项 PostgreSQL 集�
 - 2026-09-10：已确定主角模块化外观系统设计预留：默认 spritesheet / portrait 作为 fallback，未来采用基础身体、发型、服装、饰品分层组合；客户端合成缓存，服务端仅保存当前穿戴与拥有/解锁外观。当前不实现换装、不重构主角或存档。详见 [白石街正式美术资源模板 V1](docs/BAISHI_FORMAL_ART_ASSET_TEMPLATE.md)。
 - 2026-09-10：已固化 [《富甲横阳》小镇整体风貌与人物服饰统一规则 V1](docs/WORLD_ART_STYLE_GUIDE.md)。这是《富甲横阳》建筑、场景、NPC 服饰、主角服装及未来新区域设计的上位规则；既有通过验收的素材无需返工，后续新增素材和自然迭代起执行。
 - 2026-09-10：春衫衣坊 V1 正式建筑保留为功能验证素材。现已改为南向入口：建筑与碰撞南边界北收 1 tile，`P_BAISHI_005` 调整为 12×10；入口 `ENT_BAISHI_CLOTH_S` 位于 `(34,37.6)`，trigger 为 2.5×1.6，室内出生点 `(12,15)`、出口 `(12,18)`、室外返回点 `(34,38.6)`。V2 美术需明确表现南门并自然衔接沿河步道。
-- 2026-09-11：春衫衣坊建筑标记为 V2.1 待替换：`building_cloth_shop_base.png` 门洞烙有固定 Q 版人物，正式替换图必须删除该人物，暂不使用代码遮盖。`portrait_cloth_shopkeeper_normal.png` 虽有透明四角，但人物周围仍含大块不透明白色矩形背景，不符合正式 portrait 规范，需替换透明人物版素材。
-- 2026-09-11：正式建筑注册增加可选 `foregroundOcclusionFrontY`，Web 可按建筑锚点加载透明 foreground 并以独立 world Y 前沿排序。现有 foreground 候选图包含整块背景、无关装饰或与 base 几何不一致，暂不启用；待提供仅含雨棚 / 阳台栏杆 / 屋檐 / 门帘局部像素的透明 PNG 后配置启用。
+- 2026-09-11：春衫衣坊 V2.1 最终美术已接入：`building_cloth_shop_base.png` 为 384×320 透明外围建筑主体，门洞固定人物已删除；春衫掌柜继续使用独立正式 spritesheet，`portrait_cloth_shopkeeper_normal.png` 已替换为 512×512 透明人物立绘，无白色矩形背景、文字或展示板。
+- 2026-09-11：春衫衣坊已通过正式建筑注册启用可选 `building_cloth_shop_fg.png`，与 base 同尺寸、同锚点、同 world position，`foregroundOcclusionFrontY=36.0`；前景只承载雨棚、屋檐和门前局部遮挡结构。其他四栋正式建筑未启用 foreground，仍保持现有 world Y-depth 与遮挡参数。
 - 2026-09-11：已固化 [《富甲横阳》建筑内部空间三级规则 V1](docs/BUILDING_INTERIOR_SPACE_TIER_RULE.md)。建筑按玩法密度、剧情重要度、NPC 数量、交互复杂度与探索价值分为 A 类完整室内、B 类紧凑室内、C 类街道对话／菜单；核心原则为“需要探索的地方做空间，需要办事的地方做界面”。规则与店铺核心 NPC、NPC 动态活动、世界风貌、美术资源模板及主角模块化外观共同适用；当前场景不要求返工，后续数据层可兼容预留 `interactionMode`。
 - 2026-09-11：春衫衣坊左侧雨棚、左上连接段和北侧阳台三块关键局部碰撞，已由用户在实际 Web 页面完成人工走位确认。周边偶发局部空气墙登记为“以后优化”，不阻塞当前开发，本阶段不再继续调整 collision。
 - 2026-09-11：碰撞排障必须核对同一份数据链：`game-config → scene API → controller.view → stand()/traversable 与 server move`。`debugCollision=1` 保留为仅 DEV 生效的坐标、命中与运行时数据诊断工具，正常页面默认隐藏。
 - 2026-09-11：Work 负责源码、配置、自动测试、坐标与运行时数据诊断；除非用户明确要求，真实 Web 页面走位、美术融合、遮挡观感与最终视觉验收由用户人工完成。Work 的内部验证或自动测试不得表述为人工视觉验收通过。
+- 2026-09-11：春衫衣坊阶段性状态为 V2.1 建筑主体、南向入口、12×10 Plot、沿河步道、独立核心 NPC 与 spritesheet、透明 portrait、optional foreground、world Y-depth 和局部 collision 均已落盘。暂缓项为“周边偶发局部空气墙（以后优化、不阻塞）”“微信端 foreground / world Y-depth 统一验收”“主角 portrait 比例统一优化”。
+- 2026-09-11：春衫衣坊当前因现实时间处于打烊状态，店内核心 NPC、对话与 portrait 已有配置和自动测试结果，本次未重复进入；登记为“待补充人工复核、不阻塞开发”，待营业时段再次进入确认。

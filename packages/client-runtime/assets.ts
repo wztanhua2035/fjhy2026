@@ -120,9 +120,9 @@ baishiFormalArtRegistry.buildings.push({buildingId:'B_SALON',...qingsiHairSalonV
 baishiFormalArtRegistry.npcs.push({npcId:'NPC_SALON_HAIRDRESSER',...qingsiHairSalonV1ArtAssets.hairdresser});
 baishiFormalArtRegistry.portraits.push({speaker:'青丝美发师',...qingsiHairSalonV1ArtAssets.portrait});
 export const chunshanClothShopV1ArtAssets = {
-  building: { assetKey:'building_cloth_shop_base', imagePath:'/scene-layers/baishi/formal/building_cloth_shop_base.png?v=cloth-v2', worldX:34, worldY:37, renderWidth:384, renderHeight:320, originX:.5, originY:1, depth:30, occlusionFrontY:37 },
+  building: { assetKey:'building_cloth_shop_base', imagePath:'/scene-layers/baishi/formal/building_cloth_shop_base.png?v=cloth-v2.1-final', worldX:34, worldY:37, renderWidth:384, renderHeight:320, originX:.5, originY:1, depth:30, occlusionFrontY:37, foreground:{assetKey:'building_cloth_shop_fg',imagePath:'/scene-layers/baishi/formal/building_cloth_shop_fg.png?v=cloth-v2.1-final',offsetX:0,offsetY:0,depth:50}, foregroundOcclusionFrontY:36 },
   shopkeeper: {...standardWalk('npc_cloth_shopkeeper_walk','/scene-layers/baishi/formal/npc_cloth_shopkeeper_walk.png')},
-  portrait: {assetKey:'portrait_cloth_shopkeeper_normal',imagePath:'/scene-layers/baishi/formal/portrait_cloth_shopkeeper_normal.png',preferredWidth:264,preferredHeight:264,slot:'right',originX:.5,originY:1}
+  portrait: {assetKey:'portrait_cloth_shopkeeper_normal',imagePath:'/scene-layers/baishi/formal/portrait_cloth_shopkeeper_normal.png?v=cloth-v2.1-final',preferredWidth:264,preferredHeight:264,slot:'right',originX:.5,originY:1}
 } as const;
 baishiFormalArtRegistry.buildings.push({buildingId:'B_CLOTH',...chunshanClothShopV1ArtAssets.building});
 baishiFormalArtRegistry.npcs.push({npcId:'NPC_CLOTH_SHOPKEEPER',...chunshanClothShopV1ArtAssets.shopkeeper});

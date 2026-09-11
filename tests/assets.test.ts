@@ -25,6 +25,15 @@ test('optional foreground uses the building anchor for placement and its own wor
   assert.ok(worldActorDepth(37)>worldBuildingDepth(asset.foregroundOcclusionFrontY));
 });
 
+test('春衫衣坊 V2.1 独立启用同锚点 foreground',()=>{
+  const cloth=baishiFormalArtRegistry.buildings.find(asset=>asset.buildingId==='B_CLOTH')!;
+  assert.equal(cloth.imagePath,'/scene-layers/baishi/formal/building_cloth_shop_base.png?v=cloth-v2.1-final');
+  assert.deepEqual(cloth.foreground,{assetKey:'building_cloth_shop_fg',imagePath:'/scene-layers/baishi/formal/building_cloth_shop_fg.png?v=cloth-v2.1-final',offsetX:0,offsetY:0,depth:50});
+  assert.equal(cloth.foregroundOcclusionFrontY,36);
+  assert.deepEqual(foregroundImagePosition(cloth),{x:-158,y:-283});
+  assert.deepEqual(baishiFormalArtRegistry.buildings.filter(asset=>asset.foregroundOcclusionFrontY!==undefined).map(asset=>asset.buildingId),['B_CLOTH']);
+});
+
 test('world objects remain above ground and below portrait UI',()=>{
   const maxWorld=worldActorDepth(80);
   assert.ok(GROUND_DEPTH<worldBuildingDepth(19));

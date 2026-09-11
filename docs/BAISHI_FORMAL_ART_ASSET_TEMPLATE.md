@@ -134,6 +134,8 @@
 第一版外观系统仅验证默认外观、2 种发型、3 套服装，以及街上行走与 portrait 同步、保存恢复、Web / 微信一致性。当前阶段只做设计预留，不重构主角，也不修改存档结构。
 ## 春衫衣坊 V2 美术重做要求
 
-当前 `building_cloth_shop_base.png`（V1）仅作为功能验证素材，不作为最终定版。接入位置已向北收进 1 tile，主体南边界为 `y=37`，在水岸碰撞 `y=39` 之前保留沿河步道。V2 主体应按调整后的 `P_BAISHI_005`（12×10）定制，尽量覆盖原建筑可见主体并使四周与街景自然衔接；南侧门洞须与 `ENT_BAISHI_CLOTH_S` `(34,37.6)` 对齐，并以门槛、门帘、招牌、灯笼或地面引导等元素明确可进入性。返回点 `(34,38.6)` 必须落在门外自然可站立区。
+春衫衣坊 V2.1 已作为正式样例接入：`building_cloth_shop_base.png` 为 384×320 透明外围主体，不含烙入 NPC；南侧门洞与 `ENT_BAISHI_CLOTH_S` `(34,37.6)` 对齐，使用 12×10 的 `P_BAISHI_005`，返回点 `(34,38.6)` 位于沿河步道。`portrait_cloth_shopkeeper_normal.png` 为 512×512 透明人物立绘；`building_cloth_shop_fg.png` 与 base 同尺寸、同锚点、同 world position，仅保留雨棚、屋檐和门前局部遮挡结构，初始 `foregroundOcclusionFrontY=36.0`。
+
+春衫衣坊当前局部 collision 与入口已经冻结。后续若排查碰撞，必须确认 `game-config → scene API → controller.view → stand()/server move` 四层使用同一份运行时数据。自动测试与坐标诊断不能替代用户对真实页面走位、遮挡和美术融合的最终视觉验收。
 
 临河下排建筑原则上优先采用南向主入口；必要时通过建筑后缩或压缩南向伸出量，保证沿河东西向步道留有较宽通行空间。
