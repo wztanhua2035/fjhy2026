@@ -35,6 +35,18 @@ test('任务追踪器从 Quest 配置生成步骤、目标、奖励和完成状�
   c.boot.player.ledger.push({id:'sell',type:'SHOP_SELL',amount:16,before:108,after:124,referenceId:'B_TRADE:RICE_01',requestId:'r2',createdAt:''},reward);task=c.questTracker()[0];assert.equal(task.completed,true);assert.equal(task.currentStep,'全部步骤已完成');
 });
 
+test('雨前送样 DELIVER 后追踪器进入 REPORT，REPORT 后才完成',()=>{
+  const quest=initialWorld.quests.find(item=>item.id==='Q_003')!;
+  const accepted={id:'a',type:'QUEST_ACCEPTED',amount:0,before:120,after:120,referenceId:quest.id,requestId:'r1',createdAt:''};
+  const acquired={id:'b',type:'QUEST_ITEM_ACQUIRED',amount:0,before:120,after:120,referenceId:'Q_003:CLOTH_SAMPLE_01',requestId:'r1',createdAt:''};
+  const delivered={id:'c',type:'QUEST_ITEM_DELIVERED',amount:0,before:120,after:120,referenceId:'Q_003:CLOTH_SAMPLE_01',requestId:'r2',createdAt:''};
+  const reported={id:'d',type:'QUEST_REPORTED',amount:0,before:120,after:120,referenceId:'Q_003:NPC_CLOTH_SHOPKEEPER',requestId:'r3',createdAt:''};
+  const reward={id:'e',type:'QUEST_REWARD',amount:15,before:120,after:135,referenceId:'Q_003',requestId:'r3',createdAt:''};
+  const c=new GameController(async()=>({}));c.boot={player:{id:'p',nickname:'旅人',cash:120,stamina:100,status:'ACTIVE',sceneId:'INTERIOR_B_SALON',x:8,y:9,appearance:{} as any,inventory:{},cosmetics:[],ledger:[accepted,acquired,delivered],tradeCounts:{},metNpcs:[]},serverTime:'',worldVersion:1,configVersion:1,assetVersion:1,assetManifest:'',colors:{},appearances:[],features:{}};c.quests=[{...quest,state:'in_progress',progress:{ACQUIRE:1,DELIVER:1,REPORT:0},stepProgress:[1,1,0],rewardClaimed:false}];
+  let tracker=c.questTracker()[0];assert.equal(tracker.currentStep,'步骤 3/3 · 回春衫衣坊向掌柜汇报');assert.match(tracker.currentObjective,/春衫衣坊/);assert.equal(tracker.completed,false);
+  c.boot.player.ledger.push(reported,reward);tracker=c.questTracker()[0];assert.equal(tracker.currentStep,'全部步骤已完成');assert.equal(tracker.completed,true);assert.equal(tracker.rewardSummary,'奖励：15 文');
+});
+
 test('通用商店视图从场景配置生成商品、余额、持有量和双向价格',()=>{
   const c=new GameController(async()=>({}));
   c.boot={player:{id:'p',nickname:'旅人',cash:108,stamina:100,status:'ACTIVE',sceneId:'INTERIOR_B_GROCERY',x:12,y:9,appearance:{} as any,inventory:{RICE_01:1},cosmetics:[],ledger:[],tradeCounts:{},metNpcs:[]},serverTime:'',worldVersion:1,configVersion:1,assetVersion:1,assetManifest:'',colors:{},appearances:[],features:{}};

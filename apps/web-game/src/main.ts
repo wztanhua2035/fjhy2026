@@ -8,7 +8,8 @@ import './quest.css';
 import './shop.css';
 
 const WIDTH=960,HEIGHT=540,TILE=32;
-const platform=createWebPlatform(import.meta.env.VITE_API_BASE_URL??'');
+const query=new URLSearchParams(location.search),debugOpenAll=import.meta.env.DEV&&query.get('debugOpenAll')==='1';
+const platform=createWebPlatform(import.meta.env.VITE_API_BASE_URL??'',debugOpenAll);
 const controller=new GameController(platform.transport);
 const imageAssets=new ImageAssetStore();
 const pressed=new Set<string>();
@@ -17,7 +18,7 @@ const draft:Draft={gender:'FEMALE',base:1,skin:'SKIN_LIGHT',hair:'INK',top:'SAGE
 const byId=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T;
 const auth=byId<HTMLElement>('auth'),create=byId<HTMLElement>('create'),hud=byId<HTMLElement>('hud'),status=byId<HTMLElement>('status'),message=byId<HTMLElement>('message'),createMessage=byId<HTMLElement>('create-message'),questPanel=byId<HTMLElement>('quest-panel'),quest=byId<HTMLElement>('quest'),questToggle=byId<HTMLButtonElement>('quest-toggle'),questToggleIcon=byId<HTMLElement>('quest-toggle-icon'),shopPanel=byId<HTMLElement>('shop-panel'),shopTitle=byId<HTMLElement>('shop-title'),shopBalance=byId<HTMLElement>('shop-balance'),shopItems=byId<HTMLElement>('shop-items'),shopFeedback=byId<HTMLElement>('shop-feedback'),inventory=byId<HTMLElement>('inventory');
 let questCollapsed=false;
-const query=new URLSearchParams(location.search),groundKey='baishi-ground',showSpriteDebug=query.has('debugSprites'),showClothDebug=query.has('debugCloth'),showCollisionDebug=import.meta.env.DEV&&query.has('debugCollision');
+const groundKey='baishi-ground',showSpriteDebug=query.has('debugSprites'),showClothDebug=query.has('debugCloth'),showCollisionDebug=import.meta.env.DEV&&query.has('debugCollision');
 const localCollisionEntries=Object.entries(baishiBuildingObjectCollision).flatMap(([buildingId,rects])=>rects.map((rect,index)=>({buildingId,index,rect})));
 const sameRect=(a:{x:number;y:number;width:number;height:number},b:{x:number;y:number;width:number;height:number})=>a.x===b.x&&a.y===b.y&&a.width===b.width&&a.height===b.height;
 if(import.meta.env.DEV)(globalThis as any).__fjhyController=controller;

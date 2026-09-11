@@ -1240,3 +1240,21 @@ AGENTS.md
 > 增加一段剧情，主要增加配置。
 
 而不是每增加一项内容，都必须修改核心程序。
+
+---
+
+# 46. Web 本地人工测试页面交付规范
+
+凡是启动 Web 本地测试页并需要用户进行人工测试，回复中默认同时提供以下入口：
+
+1. 普通测试页面：`http://localhost:5173/`
+2. 碰撞调试页面：`http://localhost:5173/?debugCollision=1`
+3. DEV 全部营业测试页面：`http://localhost:5173/?debugOpenAll=1`
+
+如同时需要碰撞调试和取消营业时间限制，额外提供：
+
+`http://localhost:5173/?debugCollision=1&debugOpenAll=1`
+
+若 Vite 实际端口不是 `5173`，以上链接必须改用本次启动时显示的实际端口。不要只提供普通页面链接。
+
+`debugCollision`、`debugOpenAll` 及其组合只允许在 development / DEV 环境生效，不得改变 production 行为。

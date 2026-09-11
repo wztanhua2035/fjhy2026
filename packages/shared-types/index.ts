@@ -29,7 +29,8 @@ export interface SceneConfig {
 }
 export interface ItemConfig { id: string; name: string; icon?: string; basePrice: number; giftable: boolean; stackMax: number; questOnly?: boolean }
 export interface AppearanceDefinition { id: string; partType: string; name: string; genderScope: Gender | 'ALL'; assetKey: string; price: number; colors: string[]; enabled: boolean; starter: boolean }
-export interface QuestStepConfig { type: string; target: string; count: number; title?: string; objective?: string; npcId?: string }
+export type QuestStepType = 'BUY'|'SELL'|'ACQUIRE'|'DELIVER'|'REPORT';
+export interface QuestStepConfig { type: QuestStepType; target: string; count: number; title?: string; objective?: string; npcId?: string; completionDialogue?: string }
 export interface QuestConfig { id: string; name: string; steps: QuestStepConfig[]; reward: number; enabled: boolean }
 export interface QuestRuntime extends QuestConfig { state: 'available'|'accepted'|'in_progress'|'completed'; progress: Record<string,number>; stepProgress: number[]; rewardClaimed: boolean }
 export interface QuestTrackerItem { id: string; name: string; state: QuestRuntime['state']; stepIndex: number; stepCount: number; currentStep: string; currentObjective: string; rewardSummary: string; completed: boolean }
