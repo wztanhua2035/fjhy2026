@@ -1,5 +1,39 @@
 import type { WorldConfig, SceneConfig, BuildingConfig, AppearanceDefinition, EntranceDirection, PlotConfig } from '../shared-types/index.js';
 const street = 'STREET_BAISHI_01';
+// Solid decorations reuse the shared static-collision path. Rectangles follow
+// only each object's footprint and leave every entrance corridor unobstructed.
+export const baishiBuildingObjectCollision = {
+  B_INN: [
+    {x:3.35,y:18.2,width:2.65,height:1.55}, // 左侧花盆与落地装饰
+    {x:10,y:18.55,width:.9,height:1.2}, // 门右侧花盆
+    {x:11.1,y:17.7,width:2.15,height:2.05} // 右侧黑板
+  ],
+  B_GROCERY: [
+    {x:16.05,y:18.15,width:1.9,height:1.6}, // 左侧花盆、货袋
+    {x:18.25,y:17.65,width:1.25,height:2.1}, // 左侧黑板
+    {x:22.5,y:18.45,width:1.15,height:1.3}, // 门右侧货物、花盆
+    {x:23.75,y:17.65,width:2.1,height:2.1} // 右侧黑板与货物
+  ],
+  B_TRADE: [
+    {x:27.35,y:18.1,width:2.55,height:1.65}, // 大门左侧货袋、花盆
+    {x:33.95,y:18.45,width:.7,height:1.3}, // 大门右侧小摆件
+    {x:34.65,y:18,width:2.25,height:1.75} // 右侧花盆与货物
+  ],
+  B_SALON: [
+    {x:39.05,y:17.8,width:2.2,height:1.95}, // 左侧理发灯与花盆
+    {x:46.4,y:17.65,width:1.45,height:2.1} // 右侧立牌与花盆
+  ],
+  B_CLOTH: [
+    {x:25.5,y:27.2,width:2.5,height:9.8}, // 左侧竖向雨棚
+    {x:26.4,y:25.75,width:1.6,height:1.45}, // 左上角雨棚与阳台连接段
+    {x:27.55,y:24.75,width:9.6,height:2.25}, // 北侧横向阳台、上层平台
+    {x:29.15,y:36.15,width:1.55,height:1.4}, // 门前黑板
+    {x:28.05,y:35.8,width:1.05,height:1.75}, // 左侧大型花盆
+    {x:36.85,y:35.55,width:1.7,height:1.85}, // 落地衣架
+    {x:38.7,y:35.7,width:1.15,height:1.85} // 右侧大型花盆
+  ]
+} as const;
+export const baishiStreetObjectCollision = Object.values(baishiBuildingObjectCollision).flat();
 const buildings: BuildingConfig[] = [
   ['B_INN', '横阳客栈', 'INN'], ['B_GROCERY', '街坊杂货铺', 'SHOP'], ['B_TRADE', '白石商行', 'SHOP'],
   ['B_SALON', '青丝美发室', 'SALON'], ['B_CLOTH', '春衫衣坊', 'CLOTH']
@@ -10,10 +44,10 @@ const buildings: BuildingConfig[] = [
 const scenes: SceneConfig[] = [{id:street,name:'白石街',townId:'TOWN_CENTER',width:48,height:48,tileSize:32,mapAsset:'maps/baishi.tmx',
   // Follows the approved composition: compact main street, centre lane, canal and bridge.
   roads:[{x:0,y:20,width:48,height:5},{x:21,y:20,width:5,height:19},{x:0,y:45,width:48,height:3}],
-  collision:[{x:0,y:39,width:22,height:6},{x:26,y:39,width:22,height:6},{x:0,y:0,width:15,height:4},{x:16,y:0,width:18,height:5},{x:35,y:0,width:13,height:4},{x:2,y:27,width:11,height:12},{x:14,y:29,width:6,height:9},{x:28,y:27,width:12,height:11},{x:41,y:27,width:7,height:12}],portals:[],spawnX:23,spawnY:23},
+  collision:[{x:0,y:39,width:22,height:6},{x:26,y:39,width:22,height:6},{x:0,y:0,width:15,height:4},{x:16,y:0,width:18,height:5},{x:35,y:0,width:13,height:4},{x:2,y:27,width:11,height:12},{x:14,y:29,width:6,height:9},{x:28,y:27,width:12,height:10},{x:41,y:27,width:7,height:12},...baishiStreetObjectCollision],portals:[],spawnX:23,spawnY:23},
  ...buildings.map((b,i)=>({id:b.interiorSceneId,name:b.name,townId:'TOWN_CENTER',width:24,height:20,tileSize:32,mapAsset:'maps/interior.tmx',roads:[],
   collision:[{x:2,y:3,width:20,height:2}],buildingId:b.id,spawnX:12,spawnY:15,
-  portals:[{id:`EXIT_${b.id}`,x:12,y:18,toSceneId:street,spawnX:8.5+i*6,spawnY:21,returnEntranceId:['ENT_BAISHI_INN_S','ENT_BAISHI_GROCERY_S','ENT_BAISHI_TRADE_S','ENT_BAISHI_SALON_W','ENT_BAISHI_CLOTH_W'][i]}]}))];
+  portals:[{id:`EXIT_${b.id}`,x:12,y:18,toSceneId:street,spawnX:8.5+i*6,spawnY:21,returnEntranceId:['ENT_BAISHI_INN_S','ENT_BAISHI_GROCERY_S','ENT_BAISHI_TRADE_S','ENT_BAISHI_SALON_W','ENT_BAISHI_CLOTH_S'][i]}]}))];
 const appearances: AppearanceDefinition[] = [];
 for(const gender of ['MALE','FEMALE'] as const){
   for(let i=1;i<=6;i++) appearances.push({id:`${gender}_${String(i).padStart(2,'0')}`,partType:'BASE',name:`${gender==='MALE'?'少年':'少女'} ${i}`,genderScope:gender,assetKey:`avatars/${gender}_${i}`,price:0,colors:[],enabled:true,starter:true});
@@ -28,7 +62,7 @@ const baishiPlots: PlotConfig[] = [
   {id:'P_BAISHI_002',x:16,y:9,width:10,height:10,entranceX:21,entranceY:20,entrances:[entrance('ENT_BAISHI_GROCERY_S',21,20,'south','INTERIOR_B_GROCERY')],buildingId:'B_GROCERY'},
   {id:'P_BAISHI_003',x:27,y:7,width:10,height:12,entranceX:32.5,entranceY:20,entrances:[entrance('ENT_BAISHI_TRADE_S',32.5,20,'south','INTERIOR_B_TRADE')],buildingId:'B_TRADE'},
   {id:'P_BAISHI_004',x:39,y:5,width:9,height:14,entranceX:44,entranceY:20,entrances:[entrance('ENT_BAISHI_SALON_W',44,20,'south','INTERIOR_B_SALON')],buildingId:'B_SALON'},
-  {id:'P_BAISHI_005',x:28,y:27,width:12,height:11,entranceX:26.5,entranceY:33,entrances:[entrance('ENT_BAISHI_CLOTH_W',26.5,33,'west','INTERIOR_B_CLOTH')],buildingId:'B_CLOTH'},
+  {id:'P_BAISHI_005',x:28,y:27,width:12,height:10,entranceX:34,entranceY:37.6,entrances:[{...entrance('ENT_BAISHI_CLOTH_S',34,37.6,'south','INTERIOR_B_CLOTH'),interactionArea:{x:32.75,y:37.15,width:2.5,height:1.6}}],buildingId:'B_CLOTH'},
   ...[{id:'P_BAISHI_006',x:2,y:27,width:11,height:12},{id:'P_BAISHI_007',x:14,y:29,width:6,height:9},{id:'P_BAISHI_008',x:28,y:27,width:12,height:11},{id:'P_BAISHI_009',x:41,y:27,width:7,height:12},{id:'P_BAISHI_010',x:41,y:5,width:7,height:14}].map(p=>({...p,entranceX:p.x+1,entranceY:p.y+p.height+1,buildingId:null}))
 ].map(p=>({townId:'TOWN_CENTER',districtId:'DIST_BAISHI',sceneId:street,plotType:'M',facing:'SOUTH',status:p.buildingId?'NPC_OCCUPIED':'RESERVED',allowedBuildingTypes:['SHOP','INN','SALON','CLOTH'],version:1,...p}));
 export const initialWorld: WorldConfig = {

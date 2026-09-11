@@ -104,14 +104,14 @@ export class GameController {
     this.dialogue=null;this.dialogueSpeaker=null;this.onChange();
   }
   shopPanel():ShopPanelView|null{const view=this.view,player=this.player,building=view?.buildings.find(candidate=>candidate.id===view.scene.buildingId);if(!view||!player||!building||!Object.keys(building.stock).length)return null;return {buildingId:building.id,title:building.name,balance:player.cash,items:Object.entries(building.stock).flatMap(([id,stock])=>{const item=view.items.find(candidate=>candidate.id===id);return item?[{id,name:item.name,icon:item.icon??'品',owned:player.inventory[id]??0,buyPrice:stock.buy,sellPrice:stock.sell,dailyLimit:stock.dailyLimit}]:[];})};}
-  render(p:Painter,width:number,height:number,drawTerrain=true,drawStructures=true,drawNpcs=true,skipNpcIds:string[]=[],skipPlayer=false){
+  render(p:Painter,width:number,height:number,drawTerrain=true,drawStructures=true,drawNpcs=true,skipNpcIds:string[]=[],skipPlayer=false,drawCollision=true){
     const v=this.view;if(!v)return;if(drawTerrain)p.rect(0,0,width,height,'#b7cba5');
     const tile=32,ox=width/2-this.x*tile,oy=height/2-this.y*tile;
     const rect=(x:number,y:number,w:number,h:number,c:string)=>p.rect(ox+x*tile,oy+y*tile,w*tile,h*tile,c);
     if(drawTerrain){if(v.scene.buildingId){rect(0,0,v.scene.width,v.scene.height,'#e8d9bc');for(let y=0;y<v.scene.height;y+=2)rect(0,y,v.scene.width,.025,'#d5c4a6');}
     else{for(let y=0;y<v.scene.height;y+=3)for(let x=0;x<v.scene.width;x+=3)if((x+y)%9===0)rect(x,y,.15,.12,'#91b28c');}
     for(const r of v.scene.roads){rect(r.x,r.y,r.width,r.height,'#e9dfc9');rect(r.x,r.y,r.width,.06,'#c1b99f');}}
-    for(const r of v.scene.collision){rect(r.x,r.y,r.width,r.height,'#977b61');}
+    if(drawCollision)for(const r of v.scene.collision){rect(r.x,r.y,r.width,r.height,'#977b61');}
     if(drawStructures)for(const plot of v.plots){const b=v.buildings.find(b=>b.id===plot.buildingId);
       if(b){rect(plot.x+.18,plot.y+.2,plot.width,plot.height,'#00000020');rect(plot.x,plot.y,plot.width,plot.height,'#f4e4cb');rect(plot.x-.25,plot.y-.2,plot.width+.5,1.6,['#688f83','#879bb3','#b4826a','#a7879c','#7b9a76'][v.buildings.indexOf(b)%5]);rect(plot.x+.6,plot.y+2,1,1.2,'#8aa8ad');rect(plot.x+plot.width-1.6,plot.y+2,1,1.2,'#8aa8ad');rect(plot.entranceX-.5,plot.y+3.4,1,1.6,'#876957');p.text(b.name,ox+(plot.x+plot.width/2)*tile,oy+(plot.y+2.5)*tile,15,'#4e4a43');}
       else{rect(plot.x,plot.y,plot.width,plot.height,'#bed0ac');p.text('空置地块 · 待开发',ox+(plot.x+plot.width/2)*tile,oy+(plot.y+2.5)*tile,13,'#62765a');}

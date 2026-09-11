@@ -5,7 +5,7 @@ import {MemoryRepository} from '../apps/server/src/repository.js';
 import {buildApp} from '../apps/server/src/app.js';
 import {GameService} from '../apps/server/src/service.js';
 import {validateWorld} from '../apps/server/src/config.js';
-import {initialWorld} from '../packages/game-config/index.js';
+import {initialWorld,baishiBuildingObjectCollision,baishiStreetObjectCollision} from '../packages/game-config/index.js';
 import {canStand,inEntranceArea,plotEntrances} from '../packages/game-rules/index.js';
 import {isOpen,phaseAt,sceneView} from '../packages/game-rules/index.js';
 import {baishiLayerPlacements,baishiBuildingLayerBindings} from '../packages/game-config/baishi-layers.js';
@@ -78,7 +78,43 @@ test('白石街重新登录后恢复当前场景和位置',async()=>{const repo=
 test('白石街西侧入口完成进入、室内出生和原入口返回闭环',async()=>{const {repo,p,service:s}=await fixture();repo.players.get(p.id)!.sceneId='STREET_BAISHI_01';repo.players.get(p.id)!.x=44;repo.players.get(p.id)!.y=20;await s.action(p.id,'enter',{requestId:randomUUID(),plotId:'P_BAISHI_004',entranceId:'ENT_BAISHI_SALON_W'});let saved=await repo.player(p.id);assert.equal(saved.sceneId,'INTERIOR_B_SALON');assert.equal(saved.x,12);assert.equal(saved.y,15);await s.action(p.id,'portal',{requestId:randomUUID(),portalId:'EXIT_B_SALON'});saved=await repo.player(p.id);assert.equal(saved.sceneId,'STREET_BAISHI_01');assert.equal(saved.x,44);assert.equal(saved.y,21);});
 
 test('室内出口可按 returnEntranceId 选择对应外部入口',()=>{const world=structuredClone(initialWorld);const interior=world.scenes.find(scene=>scene.id==='INTERIOR_B_INN')!;interior.portals[0].returnEntranceId='ENT_BAISHI_INN_S';const view=sceneView(world,'INTERIOR_B_INN',new Date('2026-09-05T02:00:00Z'));assert.equal(view.scene.portals[0].spawnX,8.5);assert.equal(view.scene.portals[0].spawnY,21);});
-test('白石街主街没有静态碰撞空气墙，开放建筑均有候选素材绑定',()=>{const scene=initialWorld.scenes.find(s=>s.id==='STREET_BAISHI_01')!;for(const road of scene.roads.slice(0,1)){for(const collision of scene.collision)assert.equal(collision.x>=road.x+road.width||collision.x+collision.width<=road.x||collision.y>=road.y+road.height||collision.y+collision.height<=road.y,true,`静态碰撞与主街重叠：${JSON.stringify(collision)}`);}for(const plot of initialWorld.plots.filter(p=>p.buildingId))assert.ok(baishiBuildingLayerBindings[plot.buildingId as keyof typeof baishiBuildingLayerBindings],plot.buildingId!);});
+test('春衫衣坊南向入口保留沿河步道并形成稳定返回闭环',async()=>{const plot=initialWorld.plots.find(p=>p.id==='P_BAISHI_005')!;const entrance=plot.entrances![0];assert.equal(entrance.id,'ENT_BAISHI_CLOTH_S');assert.equal(entrance.direction,'south');assert.deepEqual(entrance.position,{x:34,y:37.6});assert.deepEqual(entrance.interactionArea,{x:32.75,y:37.15,width:2.5,height:1.6});assert.equal(canStand(initialWorld,'STREET_BAISHI_01',34,38.6),true);const {repo,p,service:s}=await fixture();repo.players.get(p.id)!.sceneId='STREET_BAISHI_01';repo.players.get(p.id)!.x=34;repo.players.get(p.id)!.y=38.5;await s.action(p.id,'enter',{requestId:randomUUID(),plotId:plot.id,entranceId:entrance.id});let saved=await repo.player(p.id);assert.equal(saved.sceneId,'INTERIOR_B_CLOTH');assert.deepEqual([saved.x,saved.y],[12,15]);await s.action(p.id,'portal',{requestId:randomUUID(),portalId:'EXIT_B_CLOTH'});saved=await repo.player(p.id);assert.equal(saved.sceneId,'STREET_BAISHI_01');assert.deepEqual([saved.x,saved.y],[34,38.6]);});
+test('白石街公共主街带没有静态碰撞空气墙，开放建筑均有候选素材绑定',()=>{const scene=initialWorld.scenes.find(s=>s.id==='STREET_BAISHI_01')!,publicLane={x:0,y:20,width:48,height:4.5};for(const collision of scene.collision)assert.equal(collision.x-.18>=publicLane.x+publicLane.width||collision.x+collision.width+.18<=publicLane.x||collision.y-.18>=publicLane.y+publicLane.height||collision.y+collision.height+.18<=publicLane.y,true,`静态碰撞实际余量与公共主街带重叠：${JSON.stringify(collision)}`);for(const plot of initialWorld.plots.filter(p=>p.buildingId))assert.ok(baishiBuildingLayerBindings[plot.buildingId as keyof typeof baishiBuildingLayerBindings],plot.buildingId!);});
+
+test('白石街正式建筑门前实体装饰物均使用局部碰撞',()=>{
+  const scene=initialWorld.scenes.find(s=>s.id==='STREET_BAISHI_01')!;
+  assert.deepEqual(Object.keys(baishiBuildingObjectCollision),['B_INN','B_GROCERY','B_TRADE','B_SALON','B_CLOTH']);
+  for(const obstacle of baishiStreetObjectCollision)assert.ok(scene.collision.includes(obstacle));
+  for(const [x,y] of [[4.5,19.5],[12,19.5],[19,19.5],[22.8,19.5],[28.5,19.5],[35.5,19.5],[40,19.5],[47,19.5]])assert.equal(canStand(initialWorld,scene.id,x,y),false,`门前实体应阻挡：${x},${y}`);
+});
+
+test('春衫衣坊突出遮棚与上层区域不可站立且南门、步道保持畅通',()=>{
+  const scene=initialWorld.scenes.find(s=>s.id==='STREET_BAISHI_01')!;
+  assert.equal(canStand(initialWorld,scene.id,25,31.68),true,'雨棚西侧南北道路应保持通行');
+  assert.equal(canStand(initialWorld,scene.id,25.6,32),false,'左侧竖向雨棚应阻挡');
+  assert.equal(canStand(initialWorld,scene.id,26.8,26.5),false,'左上角连接段应阻挡');
+  assert.equal(canStand(initialWorld,scene.id,34.25,26.75),false,'北侧阳台视觉重叠位置应阻挡');
+  assert.equal(canStand(initialWorld,scene.id,34.25,24.4),true,'北侧平台以外的公共区域应保持通行');
+  assert.equal(canStand(initialWorld,scene.id,30,29),false,'后方阳台区域应由建筑 Plot 阻挡');
+  assert.equal(canStand(initialWorld,scene.id,37,30),false,'上层平台应由建筑 Plot 阻挡');
+  for(const [x,y] of [[34,37.6],[34,38.2],[32.9,38.2],[35.1,38.2]])assert.equal(canStand(initialWorld,scene.id,x,y),true,`应可通行：${x},${y}`);
+  for(const [x,y] of [[29.8,37.4],[28.6,37.3],[37.6,37.2],[39.2,37.3]])assert.equal(canStand(initialWorld,scene.id,x,y),false,`实体应阻挡：${x},${y}`);
+});
+
+test('杂货铺入口与局部碰撞的实际余量之间保留安全间隔',()=>{
+  const entrance=initialWorld.plots.find(plot=>plot.id==='P_BAISHI_002')!.entrances![0];
+  const area=entrance.interactionArea!;
+  const blocks=baishiBuildingObjectCollision.B_GROCERY;
+  const blockedByLocal=(x:number,y:number)=>blocks.some(rect=>x>rect.x-.18&&x<rect.x+rect.width+.18&&y>rect.y-.18&&y<rect.y+rect.height+.18);
+  for(const x of [area.x+.05,entrance.position.x,area.x+area.width-.05])assert.equal(blockedByLocal(x,19.5),false,`入口横向测试点不应被局部碰撞阻挡：${x}`);
+});
+
+test('服务端 move 使用同一场景碰撞并拒绝春衫三块红框中心点',async()=>{const {repo,p,service}=await fixture();const rects=baishiBuildingObjectCollision.B_CLOTH.slice(0,3);for(const rect of rects){const x=rect.x+rect.width/2,y=rect.y+rect.height/2,saved=repo.players.get(p.id)!;saved.sceneId='STREET_BAISHI_01';saved.x=x;saved.y=y;await assert.rejects(()=>service.action(p.id,'move',{requestId:randomUUID(),x,y}),/前方无法通行/);}});
+
+test('五栋正式建筑入口中心与门前主街仍可站立',()=>{
+  const sceneId='STREET_BAISHI_01';
+  for(const [x,y] of [[8.5,20],[21,20],[32.5,20],[44,20],[34,37.6],[8.5,21],[21,21],[32.5,21],[44,21],[34,38.2]])assert.equal(canStand(initialWorld,sceneId,x,y),true,`入口或步道应可站立：${x},${y}`);
+});
 
 test('白石街五个开放入口均可从公共道路步行到达',()=>{
  const scene=initialWorld.scenes.find(s=>s.id==='STREET_BAISHI_01')!;const step=0.5;const key=(x:number,y:number)=>`${Math.round(x/step)},${Math.round(y/step)}`;
