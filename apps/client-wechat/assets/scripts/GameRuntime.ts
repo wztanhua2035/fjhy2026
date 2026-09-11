@@ -48,7 +48,7 @@ export class GameRuntime extends Component {
       this.button('确认形象，入住客栈',480,525,300,()=>void this.run(()=>c.create(this.gender,`${this.gender}_${String(this.selected).padStart(2,'0')}`,this.skinColor,this.colors[0],this.colors[1],this.colors[2])));
     }else{
       this.label(`${c.view?.scene.name??'横阳'} · ${c.view?.phase??''}　|　铜钱 ${c.player.cash} 文　|　大米 ${c.player.inventory.RICE_01??0}`,430,28,20);
-if(c.dialogue)this.label(`${c.dialogueSpeaker??'白石街'}：${c.dialogue}`,480,430,20);
+if(c.dialogue)this.label(`${c.dialogueSpeaker??'白石街'}：${c.message}`,480,430,20);
       this.button('重登验存档',850,28,120,()=>void this.relogin());
       const dirs=[['↑',0,-1,95,500],['←',-1,0,45,550],['↓',0,1,95,600],['→',1,0,145,550]] as const;
       for(const [text,dx,dy,x,y] of dirs){const n=this.button(text,x,y,44,()=>{});n.on(Node.EventType.TOUCH_START,()=>{this.touchX=dx;this.touchY=dy;});for(const type of [Node.EventType.TOUCH_END,Node.EventType.TOUCH_CANCEL])n.on(type,()=>{this.touchX=0;this.touchY=0;this.buildHUD();});}
