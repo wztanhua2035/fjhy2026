@@ -93,6 +93,7 @@ class BaishiWechatScene extends Phaser.Scene {
   private fps = 0;
   private fpsElapsed = 0;
   private fpsFrames = 0;
+  private debugInteractionKey = '';
   constructor() { super('baishi-wechat'); }
   private ready = false;
   private contentError = '';
@@ -425,6 +426,11 @@ class BaishiWechatScene extends Phaser.Scene {
         for (const plot of view.plots.filter(plot => plot.buildingId)) { this.debugGraphics.fillRect(ox + plot.x * TILE, oy + plot.y * TILE, plot.width * TILE, plot.height * TILE); this.debugGraphics.strokeRect(ox + plot.x * TILE, oy + plot.y * TILE, plot.width * TILE, plot.height * TILE); }
         this.debugGraphics.lineStyle(2, 0x38d9ff, .95);
         for (const plot of view.plots) for (const entrance of plot.entrances ?? []) { const area = entrance.interactionArea; this.debugGraphics.strokeRect(ox + area.x * TILE, oy + area.y * TILE, area.width * TILE, area.height * TILE); }
+        const targeting = controller.interactionDebug(), colors: Record<string, number> = { portal: 0x38d9ff, entrance: 0x38d9ff, npc: 0x8cdb75, service: 0xffd54f, furniture: 0xff9f43, scripted: 0xff5b8a };
+        for (const zone of targeting.zones) { const color = colors[zone.type] ?? 0xffffff, active = zone.id === targeting.active?.id; this.debugGraphics.lineStyle(active ? 3 : 1, color, active ? 1 : .72); if (zone.zone) this.debugGraphics.strokeRect(ox + zone.zone.x * TILE, oy + zone.zone.y * TILE, zone.zone.width * TILE, zone.zone.height * TILE); else this.debugGraphics.strokeCircle(ox + zone.anchor.x * TILE, oy + zone.anchor.y * TILE, (zone.radius ?? .25) * TILE); }
+        const detail = targeting.active ? `${targeting.active.id} ${targeting.active.type} d=${targeting.active.distance.toFixed(2)} s=${targeting.active.score.toFixed(0)}` : 'interaction none';
+        this.frame.setText(`${this.fps} FPS\n${detail}`);
+        if (detail !== this.debugInteractionKey) { this.debugInteractionKey = detail; console.info('[FJHY interaction debug]', { targetId: targeting.active?.id, type: targeting.active?.type, distance: targeting.active?.distance, score: targeting.active?.score, foot: targeting.foot }); }
         this.debugGraphics.fillStyle(0xffffff, 1); this.debugGraphics.fillCircle(ox + controller.x * TILE, oy + controller.y * TILE, 7);
       }
       const night = view.phase === '深夜' || view.phase === '夜晚'; this.nightOverlay.setVisible(night).setFillStyle(0x233052, view.phase === '深夜' ? .32 : .2);

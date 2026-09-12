@@ -1,11 +1,14 @@
 import type { Appearance, FormalNpcAppearance, Bootstrap, GhostProfile, PlayerState, QuestRuntime, QuestTrackerItem, SceneView, ShopPanelView } from '../shared-types/index.js';
 import {inEntranceArea,npcCollisionRect,questStepProgress} from '../game-rules/index.js';
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, innOpeningDialogue } from '../game-config/inn-opening.js';
+import { furnitureInteractionLabels, interactionZoneOverrides, serviceInteractionLabels, serviceInteractionNpcs } from '../game-config/interactions.js';
+import { facesInteraction, interactionDefaults, interactionDistance, interactionLabel, scoredInteraction, selectInteraction, type InteractionCandidate, type InteractionRect } from './interaction-targeting.js';
 export * from './assets.js';
 export * from './remote-assets.js';
 export * from './shop-signs.js';
 export * from './display-scale.js';
 export * from './dialogue-layout.js';
+export * from './interaction-targeting.js';
 export type Direction='up'|'down'|'left'|'right';
 export interface Painter {rect(x:number,y:number,w:number,h:number,color:string):void;circle(x:number,y:number,r:number,color:string):void;text(text:string,x:number,y:number,size:number,color:string):void}
 export function drawAppearance(p:Painter,input:Appearance|FormalNpcAppearance,colors:Record<string,string>,x:number,y:number,scale=1,direction:Direction='down',frame=0){
@@ -42,7 +45,7 @@ export function formatQuestTracker(task:QuestTrackerItem){return task.completed?
 export function browserTransport(base=''):Transport{return async(path,body,token)=>{const response=await fetch(`${base}${path}`,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(10000)});const data=await response.json();if(!response.ok)throw Object.assign(new Error(data.message??'网络请求失败'),{status:response.status});return data;};}
 export class GameController {
   token='';boot:Bootstrap|null=null;view:SceneView|null=null;ghosts:GhostProfile[]=[];quests:QuestRuntime[]=[];direction:Direction='down';walkTime=0;moving=false;private interactionCooldown=0;private introIndex=-1;
-  x=12;y=15;busy=false;offline=false;message='欢迎来到横阳';dialogue:string|null=null;dialogueSpeaker:string|null=null;pending:{path:string;body:any}|null=null;private interactionLabel='';private lastSync=0;private syncInFlight:Promise<unknown>|null=null;private correctionX=0;private correctionY=0;
+  x=12;y=15;busy=false;offline=false;message='欢迎来到横阳';dialogue:string|null=null;dialogueSpeaker:string|null=null;pending:{path:string;body:any}|null=null;private interactionLabel='';private activeInteraction:InteractionCandidate|null=null;private lastSync=0;private syncInFlight:Promise<unknown>|null=null;private correctionX=0;private correctionY=0;
   onChange=()=>{};
   constructor(public transport:Transport){}
   get player(){return this.boot?.player??null;}
@@ -99,13 +102,63 @@ export class GameController {
   questProgress(){const ledger=this.player?.ledger??[];const bought=ledger.some(l=>l.type==='SHOP_BUY'&&l.referenceId.includes('RICE_01'));const sold=ledger.some(l=>l.type==='SHOP_SELL'&&l.referenceId.includes('RICE_01'));const accepted=ledger.some(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_001');const completed=ledger.some(l=>l.type==='QUEST_REWARD'&&l.referenceId==='Q_001');return {bought,sold,accepted,completed};}
   questTracker():QuestTrackerItem[]{const ledger=this.player?.ledger??[];return this.quests.flatMap(quest=>{const accepted=ledger.some(entry=>entry.type==='QUEST_ACCEPTED'&&entry.referenceId===quest.id),completed=ledger.some(entry=>entry.type==='QUEST_REWARD'&&entry.referenceId===quest.id);if(!accepted&&!completed)return [];const progress=questStepProgress(quest,ledger),pendingIndex=progress.findIndex((value,index)=>value<quest.steps[index].count),stepIndex=completed?quest.steps.length:pendingIndex<0?quest.steps.length-1:pendingIndex,step=quest.steps[Math.min(stepIndex,quest.steps.length-1)],awaitingReward=!completed&&pendingIndex<0;const fallbackTitle=`${step?.type??'任务'} ${step?.target??''}`.trim(),fallbackObjective=step?`${fallbackTitle} ×${step.count}`:'任务已完成';return [{id:quest.id,name:quest.name,state:completed?'completed':progress.some(Boolean)?'in_progress':'accepted',stepIndex,stepCount:quest.steps.length,currentStep:completed?'全部步骤已完成':awaitingReward?'全部步骤已完成 · 等待结算':`步骤 ${stepIndex+1}/${quest.steps.length} · ${step?.title??fallbackTitle}`,currentObjective:completed?'任务已完成':awaitingReward?'等待任务奖励结算':step?.objective??fallbackObjective,rewardSummary:`奖励：${quest.reward} 文`,completed}];});}
   async acceptQuest(){await this.write('/v1/quest/accept',{questId:'Q_001'});}
-  nearby(){const v=this.view;if(!v||this.dialogue||this.introPending)return null;
-    if(v.scene.id===GUEST_ROOM_SCENE_ID)for(const zone of v.scene.interior?.zones??[])if(zone.interactionPoint&&Math.hypot(zone.interactionPoint.x-this.x,zone.interactionPoint.y-this.y)<1.1)return {label:`查看${zone.label??'物件'}`,path:'/v1/world/inspect',body:{zoneId:zone.id}};
-    for(const p of v.scene.portals)if(Math.hypot(p.x-this.x,p.y-this.y)<(p.id==='EXIT_INN_GUEST_ROOM'||p.id==='ENTER_INN_GUEST_ROOM'?1.1:4))return {label:p.id==='ENTER_INN_GUEST_ROOM'?'进入临时房':p.id==='EXIT_INN_GUEST_ROOM'?'前往客栈大厅':'走出房间',path:'/v1/world/portal',body:{portalId:p.id}};
-    for(const p of v.plots)for(const entrance of p.entrances??[{id:`${p.id}_PRIMARY`,position:{x:p.entranceX,y:p.entranceY},interactionArea:{x:p.entranceX-.9,y:p.entranceY-.9,width:1.8,height:1.8}} as any])if(p.buildingId&&inEntranceArea(entrance,this.x,this.y))return {label:`进入${v.buildings.find(b=>b.id===p.buildingId)?.name??'建筑'}`,path:'/v1/world/enter',body:{plotId:p.id,entranceId:entrance.id}};
-    for(const n of v.npcs)if(Math.hypot(n.x-this.x,n.y-this.y)<6)return {label:`与${n.name}交谈`,path:'/v1/npc/talk',body:{npcId:n.id}};
-    return null;
+  /** Player x/y are the foot world position; rendering scale never participates in targeting. */
+  get footWorldPosition(){return {x:this.x,y:this.y};}
+  private portalZone(portal:{id:string;x:number;y:number},scene=this.view?.scene):InteractionRect{
+    const override=interactionZoneOverrides[portal.id];if(override)return override;
+    const exit=scene?.interior?.zones.find(zone=>zone.kind==='exit');
+    return exit?{x:exit.x,y:exit.y,width:exit.width,height:exit.height}:{x:portal.x-.7,y:portal.y-interactionDefaults.doorZoneDepth,width:1.4,height:interactionDefaults.doorZoneDepth+.25};
   }
+  private portalLabel(portalId:string,sceneName:string){
+    if(portalId==='ENTER_INN_GUEST_ROOM')return '进入临时房';
+    if(portalId==='EXIT_INN_GUEST_ROOM')return '前往客栈大厅';
+    return `离开${sceneName}`;
+  }
+  private interactionCandidates(){
+    const view=this.view,point=this.footWorldPosition;if(!view||this.dialogue||this.introPending)return [] as InteractionCandidate[];
+    const candidates:InteractionCandidate[]=[];
+    for(const portal of view.scene.portals){
+      const zone=this.portalZone(portal);const candidate=scoredInteraction({id:`portal:${portal.id}`,type:'portal',label:this.portalLabel(portal.id,view.scene.name),path:'/v1/world/portal',body:{portalId:portal.id},anchor:{x:portal.x,y:portal.y},zone,point});
+      if(candidate)candidates.push(candidate);
+    }
+    for(const plot of view.plots)for(const entrance of plot.entrances??[{id:`${plot.id}_PRIMARY`,position:{x:plot.entranceX,y:plot.entranceY},interactionArea:{x:plot.entranceX-.9,y:plot.entranceY-.9,width:1.8,height:1.8}} as any]){
+      if(!plot.buildingId||!inEntranceArea(entrance,point.x,point.y))continue;
+      const name=view.buildings.find(building=>building.id===plot.buildingId)?.name;
+      const candidate=scoredInteraction({id:`entrance:${entrance.id}`,type:'entrance',label:interactionLabel('entrance',name),path:'/v1/world/enter',body:{plotId:plot.id,entranceId:entrance.id},anchor:entrance.position,zone:entrance.interactionArea,point});
+      if(candidate)candidates.push(candidate);
+    }
+    for(const zone of view.scene.interior?.zones??[]){
+      if(!zone.interactionPoint)continue;
+      const candidate=scoredInteraction({id:`furniture:${zone.id}`,type:'furniture',label:furnitureInteractionLabels[zone.id]??interactionLabel('furniture',zone.label),path:'/v1/world/inspect',body:{zoneId:zone.id},anchor:zone.interactionPoint,radius:interactionDefaults.furnitureRadius,point});
+      if(candidate)candidates.push(candidate);
+    }
+    for(const zone of view.scene.interior?.zones??[]){
+      if(zone.kind!=='servicePoint')continue;
+      const npcId=serviceInteractionNpcs[zone.id];if(!npcId)continue;
+      const anchor={x:zone.x+zone.width/2,y:zone.y+zone.height/2};
+      const candidate=scoredInteraction({id:`service:${zone.id}`,type:'service',label:interactionLabel('service',serviceInteractionLabels[zone.id]),path:'/v1/npc/talk',body:{npcId},anchor,radius:interactionDefaults.serviceRadius,point});
+      if(candidate)candidates.push(candidate);
+    }
+    for(const npc of view.npcs){
+      const anchor={x:npc.x,y:npc.y},distance=interactionDistance(point,anchor);
+      if(distance>interactionDefaults.npcRadius||!facesInteraction(this.direction,point,anchor))continue;
+      const candidate=scoredInteraction({id:`npc:${npc.id}`,type:'npc',label:interactionLabel('npc',npc.name),path:'/v1/npc/talk',body:{npcId:npc.id},anchor,radius:interactionDefaults.npcRadius,facingRequired:true,point,questBonus:npc.questId&&this.quests.some(quest=>quest.id===npc.questId&&quest.state!=='completed')?20:0});
+      if(candidate)candidates.push(candidate);
+    }
+    return candidates;
+  }
+  interactionDebug(){
+    const view=this.view,candidates=this.interactionCandidates(),active=selectInteraction(candidates,this.activeInteraction?.id);
+    const zones:{id:string;type:InteractionCandidate['type'];anchor:{x:number;y:number};radius?:number;zone?:InteractionRect}[]=[];
+    if(view){
+      for(const portal of view.scene.portals)zones.push({id:`portal:${portal.id}`,type:'portal',anchor:{x:portal.x,y:portal.y},zone:this.portalZone(portal)});
+      for(const plot of view.plots)for(const entrance of plot.entrances??[])if(plot.buildingId)zones.push({id:`entrance:${entrance.id}`,type:'entrance',anchor:entrance.position,zone:entrance.interactionArea});
+      for(const zone of view.scene.interior?.zones??[]){if(zone.interactionPoint)zones.push({id:`furniture:${zone.id}`,type:'furniture',anchor:zone.interactionPoint,radius:interactionDefaults.furnitureRadius});if(zone.kind==='servicePoint'&&serviceInteractionNpcs[zone.id])zones.push({id:`service:${zone.id}`,type:'service',anchor:{x:zone.x+zone.width/2,y:zone.y+zone.height/2},radius:interactionDefaults.serviceRadius});}
+      for(const npc of view.npcs)zones.push({id:`npc:${npc.id}`,type:'npc',anchor:{x:npc.x,y:npc.y},radius:interactionDefaults.npcRadius});
+    }
+    return {foot:this.footWorldPosition,candidates,active,zones};
+  }
+  nearby(){const candidates=this.interactionCandidates();const next=selectInteraction(candidates,this.activeInteraction?.id);this.activeInteraction=next;return next;}
   async interact(){const target=this.nearby();if(!target)return;const entrance=target.path==='/v1/world/enter'?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===target.body.entranceId):undefined;const portal=target.path==='/v1/world/portal'?this.view?.scene.portals.find(p=>p.id===target.body.portalId):undefined;const returned=portal?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===portal.returnEntranceId):undefined;await this.sync();await this.write(target.path,target.body);if(entrance){this.direction=entrance.direction==='south'?'up':entrance.direction==='west'?'right':entrance.direction==='east'?'left':'down';this.message='进入建筑…';}else if(portal){if(returned)this.direction=returned.direction==='south'?'down':returned.direction==='west'?'left':returned.direction==='east'?'right':'up';this.interactionCooldown=.8;if(!this.dialogue)this.message='已到达'+(this.view?.scene.name??'场景');}this.onChange();}
   async trade(action:'buy'|'sell',itemId:string,quantity=1){
     await this.sync();
@@ -122,7 +175,7 @@ export class GameController {
     this.dialogue=null;this.dialogueSpeaker=null;this.onChange();
   }
   shopPanel():ShopPanelView|null{const view=this.view,player=this.player,building=view?.buildings.find(candidate=>candidate.id===view.scene.buildingId);if(!view||!player||!building||!Object.keys(building.stock).length)return null;return {buildingId:building.id,title:building.name,balance:player.cash,items:Object.entries(building.stock).flatMap(([id,stock])=>{const item=view.items.find(candidate=>candidate.id===id);return item?[{id,name:item.name,icon:item.icon??'品',owned:player.inventory[id]??0,buyPrice:stock.buy,sellPrice:stock.sell,dailyLimit:stock.dailyLimit}]:[];})};}
-  render(p:Painter,width:number,height:number,drawTerrain=true,drawStructures=true,drawNpcs=true,skipNpcIds:string[]=[],skipPlayer=false,drawCollision=true){
+  render(p:Painter,width:number,height:number,drawTerrain=true,drawStructures=true,drawNpcs=true,skipNpcIds:string[]=[],skipPlayer=false,drawCollision=true,drawInteractionDebug=false){
     const v=this.view;if(!v)return;if(drawTerrain)p.rect(0,0,width,height,'#b7cba5');
     const tile=32,ox=width/2-this.x*tile,oy=height/2-this.y*tile;
     const rect=(x:number,y:number,w:number,h:number,c:string)=>p.rect(ox+x*tile,oy+y*tile,w*tile,h*tile,c);
@@ -142,6 +195,16 @@ const people=[...(drawNpcs?v.npcs.filter(n=>!skipNpcIds.includes(n.id)).map(n=>(
       const isPlayer=person.name==='你', scale=isPlayer?1.45:person.ghost?1.05:1.25;
       drawAppearance(p,person.appearance,this.boot!.colors,ox+person.x*tile,oy+person.y*tile,scale,isPlayer?this.direction:'down',isPlayer?this.walkTime:0);
       p.text(person.name,ox+person.x*tile,oy+person.y*tile-(isPlayer?52:46),isPlayer?17:16,person.ghost?'#6c648d':'#445749');
+    }
+    if(drawInteractionDebug){
+      const debug=this.interactionDebug(),colors:Record<string,string>={portal:'#38d9ff44',entrance:'#38d9ff44',npc:'#8cdb7544',service:'#ffd54f44',furniture:'#ff9f4344',scripted:'#ff5b8a44'};
+      for(const candidate of debug.zones){
+        const color=colors[candidate.type]??'#ffffff44';
+        if(candidate.zone)rect(candidate.zone.x,candidate.zone.y,candidate.zone.width,candidate.zone.height,color);
+        else p.circle(ox+candidate.anchor.x*tile,oy+candidate.anchor.y*tile,(candidate.radius??.25)*tile,color);
+      }
+      p.circle(ox+debug.foot.x*tile,oy+debug.foot.y*tile,5,'#ffffffff');
+      if(debug.active)p.text(`${debug.active.id} · ${debug.active.type} · d=${debug.active.distance.toFixed(2)} · s=${debug.active.score.toFixed(0)}`,width/2,20,12,'#fff6b3');
     }
     if(v.phase==='夜晚'||v.phase==='深夜')p.rect(0,0,width,height,v.phase==='深夜'?'#23305266':'#34416b44');
   }
