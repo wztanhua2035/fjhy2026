@@ -1,4 +1,4 @@
-import type { WorldConfig, SceneConfig, BuildingConfig, AppearanceDefinition, EntranceDirection, PlotConfig } from '../shared-types/index.js';
+import type { WorldConfig, SceneConfig, BuildingConfig, AppearanceDefinition, EntranceDirection, PlotConfig, InteriorZone } from '../shared-types/index.js';
 import { starterLooks } from './appearance-v1.js';
 export { starterLookOptions, starterSkinTones, starterLooks, availableStarterLookOptions } from './appearance-v1.js';
 const street = 'STREET_BAISHI_01';
@@ -43,12 +43,72 @@ const buildings: BuildingConfig[] = [
   openingHours: i<3 ? ['00:00','00:00'] : ['08:00','20:30'], enabled:true,buyable:false,baseValue:0,
   stock: i===1 ? {RICE_01:{buy:12,sell:8,dailyLimit:30},SNACK_01:{buy:8,sell:5,dailyLimit:20}} : i===2 ? {RICE_01:{buy:18,sell:16,dailyLimit:30},SNACK_01:{buy:10,sell:7,dailyLimit:20}} : {}
 }));
+const zone=(id:string,kind:InteriorZone['kind'],x:number,y:number,width:number,height:number,solid=false,label?:string):InteriorZone=>({id,kind,x,y,width,height,solid,...(label?{label}:{})});
+const interiorZones: Record<string,InteriorZone[]> = {
+  B_INN: [
+    zone('INN_NORTH_WALL','wall',2,3,20,2,true),
+    zone('INN_COUNTER','counter',6,10.3,5,.8,true),
+    zone('INN_GUEST_ROOM','room',2.5,11.5,5,4),
+    zone('INN_ROOM_PARTITION','wall',2.5,11.4,5,.45,true),
+    zone('INN_ROOM_SIDE','wall',7.05,11.4,.45,2,true),
+    zone('INN_WAITING','waitingArea',15,12,6,3),
+    zone('INN_TABLE_A','chair',15.3,12.7,1.8,.9,true),
+    zone('INN_TABLE_B','chair',19.1,12.7,1.8,.9,true),
+    zone('INN_STAIRS','stairs',17.5,5.4,3.5,3.2,true,'二楼装修中'),
+    zone('INN_SERVICE','servicePoint',8,12,1.5,1),
+    zone('INN_ENTRY','entry',11.5,14.4,1,1),
+    zone('INN_EXIT','exit',11.3,17.3,1.4,1.4)
+  ],
+  B_GROCERY: [
+    zone('GROCERY_NORTH_WALL','wall',2,3,20,2,true),
+    zone('GROCERY_COUNTER','counter',9.5,10.3,5,.8,true),
+    zone('GROCERY_SHELF_A','shelf',4.2,8,2.1,4,true),
+    zone('GROCERY_SHELF_B','shelf',17.7,8,2.1,4,true),
+    zone('GROCERY_SHELF_C','shelf',18,13,2,1.2,true),
+    zone('GROCERY_DISPLAY','displayArea',4,13,3,2),
+    zone('GROCERY_SERVICE','servicePoint',11,12,2,1),
+    zone('GROCERY_ENTRY','entry',11.5,14.4,1,1),
+    zone('GROCERY_EXIT','exit',11.3,17.3,1.4,1.4)
+  ],
+  B_TRADE: [
+    zone('TRADE_NORTH_WALL','wall',2,3,20,2,true),
+    zone('TRADE_COUNTER','counter',9.5,10.3,5,.8,true),
+    zone('TRADE_STORAGE_LEFT','storage',4,7.5,2.4,3,true),
+    zone('TRADE_STORAGE_RIGHT','storage',18,7.5,2.4,3,true),
+    zone('TRADE_DISPLAY','displayArea',18,12,3,2),
+    zone('TRADE_SERVICE','servicePoint',11,12,2,1),
+    zone('TRADE_FUTURE_COMMISSION','future',4,13,3,2),
+    zone('TRADE_ENTRY','entry',11.5,14.4,1,1),
+    zone('TRADE_EXIT','exit',11.3,17.3,1.4,1.4)
+  ],
+  B_SALON: [
+    zone('SALON_NORTH_WALL','wall',2,3,20,2,true),
+    zone('SALON_MIRROR','mirror',4.5,5.2,5,1,true),
+    zone('SALON_CHAIR','chair',8.8,11.2,1.4,1.5,true),
+    zone('SALON_COUNTER','counter',15.5,9.5,3,.8,true),
+    zone('SALON_WAITING','waitingArea',17,12,4,3),
+    zone('SALON_SERVICE','servicePoint',10.5,10,2,1),
+    zone('SALON_ENTRY','entry',11.5,14.4,1,1),
+    zone('SALON_EXIT','exit',11.3,17.3,1.4,1.4)
+  ],
+  B_CLOTH: [
+    zone('CLOTH_NORTH_WALL','wall',2,3,20,2,true),
+    zone('CLOTH_COUNTER','counter',13.5,10.3,5,.8,true),
+    zone('CLOTH_RACK_LEFT','shelf',4.3,7.2,2,4,true),
+    zone('CLOTH_RACK_RIGHT','shelf',20,7.2,2,4,true),
+    zone('CLOTH_DISPLAY','displayArea',5,12,3,2),
+    zone('CLOTH_COUNTER_SERVICE','servicePoint',15,12,2,1),
+    zone('CLOTH_FITTING','servicePoint',18,12,3,2),
+    zone('CLOTH_ENTRY','entry',11.5,14.4,1,1),
+    zone('CLOTH_EXIT','exit',11.3,17.3,1.4,1.4)
+  ]
+};
 const scenes: SceneConfig[] = [{id:street,name:'白石街',townId:'TOWN_CENTER',width:48,height:48,tileSize:32,mapAsset:'maps/baishi.tmx',
   // Follows the approved composition: compact main street, centre lane, canal and bridge.
   roads:[{x:0,y:20,width:48,height:5},{x:21,y:20,width:5,height:19},{x:0,y:45,width:48,height:3}],
   collision:[{x:0,y:39,width:22,height:6},{x:26,y:39,width:22,height:6},{x:0,y:0,width:15,height:4},{x:16,y:0,width:18,height:5},{x:35,y:0,width:13,height:4},{x:2,y:27,width:11,height:12},{x:14,y:29,width:6,height:9},{x:28,y:27,width:12,height:10},{x:41,y:27,width:7,height:12},...baishiStreetObjectCollision],portals:[],spawnX:23,spawnY:23},
  ...buildings.map((b,i)=>({id:b.interiorSceneId,name:b.name,townId:'TOWN_CENTER',width:24,height:20,tileSize:32,mapAsset:'maps/interior.tmx',roads:[],
-  collision:[{x:2,y:3,width:20,height:2}],buildingId:b.id,spawnX:12,spawnY:15,
+  collision:interiorZones[b.id].filter(z=>z.solid).map(({x,y,width,height})=>({x,y,width,height})),interior:{zones:interiorZones[b.id]},buildingId:b.id,spawnX:12,spawnY:15,
   portals:[{id:`EXIT_${b.id}`,x:12,y:18,toSceneId:street,spawnX:8.5+i*6,spawnY:21,returnEntranceId:['ENT_BAISHI_INN_S','ENT_BAISHI_GROCERY_S','ENT_BAISHI_TRADE_S','ENT_BAISHI_SALON_W','ENT_BAISHI_CLOTH_S'][i]}]}))];
 const appearances: AppearanceDefinition[] = [];
 for(const gender of ['MALE','FEMALE'] as const){

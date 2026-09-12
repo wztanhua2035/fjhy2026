@@ -367,7 +367,7 @@ class BaishiWechatScene extends Phaser.Scene {
       const groundReady = this.textures.exists(groundKey);
       this.ground?.setVisible(street && groundReady).setPosition(ox, oy);
       const formalNpcIds = baishiFormalArtRegistry.npcs.filter(asset => this.textures.exists(asset.assetKey)).map(asset => asset.npcId), playerKey = controller.player?.appearance?.gender === 'MALE' ? 'formal-player-male' : 'formal-player-female', playerReady = this.textures.exists(playerKey);
-      controller.render(painter, WIDTH, HEIGHT, !street || !groundReady, !street, true, formalNpcIds, playerReady, false);
+      controller.render(painter, WIDTH, HEIGHT, !street || !groundReady, !street, true, formalNpcIds, playerReady, !street);
       this.renderFormalWorld(ox, oy);
       if (debugCollision) {
         this.debugGraphics.fillStyle(0xff334f, .2); this.debugGraphics.lineStyle(2, 0xff5d73, .9);

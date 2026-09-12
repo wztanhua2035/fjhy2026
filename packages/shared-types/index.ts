@@ -27,10 +27,11 @@ export interface NPCConfig {
   appearance?: Appearance | FormalNpcAppearance; facing?: 'down'|'left'|'right'|'up'; formalArtKey?: string; portraitKey?: string;
 }
 export interface Portal { id: string; x: number; y: number; toSceneId: string; spawnX: number; spawnY: number; returnEntranceId?: string }
+export interface InteriorZone extends Rect { id: string; kind: 'wall'|'counter'|'shelf'|'storage'|'stairs'|'room'|'waitingArea'|'servicePoint'|'displayArea'|'chair'|'mirror'|'exit'|'entry'|'future'; solid: boolean; label?: string }
 export interface SceneConfig {
   id: string; name: string; townId: string; width: number; height: number; tileSize: number;
   mapAsset: string; roads: Rect[]; collision: Rect[]; portals: Portal[]; buildingId?: string;
-  spawnX: number; spawnY: number;
+  spawnX: number; spawnY: number; interior?: { zones: InteriorZone[] };
 }
 export interface ItemConfig { id: string; name: string; icon?: string; basePrice: number; giftable: boolean; stackMax: number; questOnly?: boolean }
 export interface AppearanceDefinition { id: string; partType: string; name: string; genderScope: Gender | 'ALL'; assetKey: string; price: number; colors: string[]; enabled: boolean; starter: boolean }
