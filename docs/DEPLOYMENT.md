@@ -37,14 +37,16 @@ Worker 设置 `DATABASE_URL`、`REDIS_URL`、`PORT=8081`、`NODE_ENV=production`
 
 ## 初始化数据库
 
-首次启动 API 的 `/readyz` 在数据库未迁移或未初始化时返回 503，符合预期。在一次性迁移任务或服务终端中运行：
+`game-api` 容器启动时会先执行 `prisma migrate deploy`，确认所有已提交迁移成功后才启动 HTTP 服务。当前 Zeabur STAGING 为单实例，这可以避免服务终端不可用时出现“容器存活但玩家查询因缺列而失败”。如以后扩展为多实例，应改为 Zeabur 独立 release/migration job，并让所有 API 实例依赖该任务完成。
+
+需要手动检查或补跑时，也可以在一次性迁移任务或服务终端中运行：
 
 ```sh
 npm run db:migrate
 node --import tsx database/seed.ts
 ```
 
-不要在每个副本启动命令中同时运行迁移，不使用 `prisma db push` 替代正式迁移。Seed 只创建版本 1，重复运行不覆盖后台已经发布的世界配置。
+不要使用 `prisma db push` 替代正式迁移。Seed 只创建版本 1，重复运行不覆盖后台已经发布的世界配置。
 
 ## 资源发布
 
