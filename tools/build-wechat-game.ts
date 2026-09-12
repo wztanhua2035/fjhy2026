@@ -1,11 +1,18 @@
-import { cp, mkdir, readdir, stat, writeFile, readFile } from 'node:fs/promises';
+import { cp, mkdir, readdir, rm, stat, writeFile, readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { wechatAssets, WECHAT_STARTUP_PACKAGE_ROOTS } from '../apps/wechat-game/src/assets.js';
+import { baishiInteriorArtRegistry, remoteAsset } from '../packages/client-runtime/index.js';
 
-const outputRoot = path.resolve('dist/wechat-game');
+const outputRoot = path.resolve(process.env.WECHAT_GAME_OUTPUT_DIR ?? 'dist/wechat-game');
+const retiredInteriorPackages = ['baishi-interior-salon', 'baishi-interior-grocery', 'baishi-interior-trade', 'baishi-interior-cloth', 'baishi-interior-inn', 'baishi-interior-guest'];
 const vite = path.resolve('node_modules/vite/bin/vite.js');
+try {
+  await rm(outputRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 300 });
+} catch (error: any) {
+  throw new Error(`Cannot clean ${outputRoot}. Close the WeChat Developer Tools project before rebuilding. (${error?.code ?? 'unknown'})`);
+}
 const exitCode = await new Promise<number>((resolve, reject) => {
   const child = spawn(process.execPath, [vite, 'build', '--config', 'apps/wechat-game/vite.config.ts'], { stdio: 'inherit', shell: false });
   child.on('error', reject); child.on('exit', code => resolve(code ?? 1));
@@ -26,6 +33,9 @@ if (new Set(startupPackages).size !== startupPackages.length || startupPackages.
 }
 if (gameConfig.subpackages.length !== packageRoots.length || packageRoots.some(root => !gameConfig.subpackages.some(item => item.name === root && item.root === root))) {
   throw new Error('WeChat game.json subpackage names/roots do not match packaged asset roots');
+}
+if (gameConfig.subpackages.some(item => retiredInteriorPackages.includes(item.name) || retiredInteriorPackages.includes(item.root))) {
+  throw new Error('WeChat game.json still contains retired interior subpackages');
 }
 for (const root of packageRoots) {
   await mkdir(path.join(outputRoot, root), { recursive: true });
@@ -53,6 +63,20 @@ for (const asset of wechatAssets) {
 }
 await writeFile(path.join(outputRoot, 'asset-manifest.json'), JSON.stringify(wechatAssets, null, 2));
 await writeFile(path.join(outputRoot, 'asset-check-report.json'), JSON.stringify(resourceReport, null, 2));
+for (const scene of baishiInteriorArtRegistry) {
+  remoteAsset(scene.resourceId);
+  remoteAsset(scene.foreground.resourceId);
+}
+for (const root of retiredInteriorPackages) {
+  if (await stat(path.join(outputRoot, root)).then(() => true).catch(() => false)) throw new Error(`Retired interior subpackage remains in build output: ${root}`);
+}
+const finalConfigFiles = ['game.json', 'project.config.json', 'asset-manifest.json'];
+for (const file of finalConfigFiles) {
+  const content = await readFile(path.join(outputRoot, file), 'utf8');
+  if (retiredInteriorPackages.some(root => content.includes(root))) throw new Error(`Retired interior subpackage reference remains in ${file}`);
+}
+const bundle = await readFile(path.join(outputRoot, 'game.bundle.js'), 'utf8');
+if (retiredInteriorPackages.some(root => bundle.includes(root))) throw new Error('WeChat runtime still references a retired interior subpackage');
 console.log(`正式 PNG ${resourceReport.length} 张，内容与 Web 源文件逐字节一致；解码像素约 ${(resourceReport.reduce((sum, item) => sum + item.decodedBytes, 0) / 1024 / 1024).toFixed(2)} MiB（不含引擎/Canvas）。`);
 
 async function directoryBytes(root: string, ignoredTopLevel = new Set<string>()): Promise<number> {

@@ -84,6 +84,16 @@ test('启动时只预加载核心分包，室内高分资源不再保留在微�
   assert.match(startup, /\.then\(\(\) => require\('\.\/game\.bundle\.js'\)\)/);
 });
 
+test('微信构建先清空输出，并拒绝任何已退役室内分包残留', async () => {
+  const build = await readFile('tools/build-wechat-game.ts', 'utf8');
+  assert.match(build, /await rm\(outputRoot, \{ recursive: true, force: true, maxRetries: 3, retryDelay: 300 \}\)/);
+  assert.match(build, /retiredInteriorPackages/);
+  assert.match(build, /WeChat game\.json still contains retired interior subpackages/);
+  assert.match(build, /WeChat runtime still references a retired interior subpackage/);
+  const vite = await readFile('apps/wechat-game/vite.config.ts', 'utf8');
+  assert.match(vite, /WECHAT_GAME_OUTPUT_DIR/);
+});
+
 test('图片失败显示具体文件，允许仅重试缺失资源', async () => {
   const keys = new Set(wechatStartupAssets.slice(1).map(a => a.key));
   const textures = { exists: (key: string) => keys.has(key), addImage: () => {}, addSpriteSheet: () => {} };

@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite';
 import path from 'node:path';
 
+const outputDir = process.env.WECHAT_GAME_OUTPUT_DIR ?? 'dist/wechat-game';
+
 export default defineConfig({
   root: path.resolve('apps/wechat-game'),
   publicDir: false,
@@ -13,7 +15,7 @@ export default defineConfig({
     __WECHAT_ASSET_BASE_URL__: JSON.stringify(process.env.ASSET_BASE_URL ?? process.env.WECHAT_ASSET_BASE_URL ?? 'https://res-fjhy.wzpy.net'),
   },
   build: {
-    outDir: path.resolve('dist/wechat-game'),
+    outDir: path.resolve(outputDir),
     emptyOutDir: true,
     lib: { entry: path.resolve('apps/wechat-game/src/main.ts'), formats: ['iife'], name: 'FujiaHengyang', fileName: () => 'game.bundle.js' },
     rollupOptions: { output: { inlineDynamicImports: true } },
