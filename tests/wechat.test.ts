@@ -73,12 +73,13 @@ test('微信启动只注册核心资源，室内包不再阻塞启动', async ()
   assert.equal(paths.length, wechatStartupAssets.length, '切换场景不得再次加载');
 });
 
-test('启动时只预加载核心分包，保留室内分包给按需 fallback', async () => {
+test('启动时只预加载核心分包，室内高分资源不再保留在微信分包', async () => {
   const startup = await readFile('apps/wechat-game/game.js', 'utf8');
   const config = JSON.parse(await readFile('apps/wechat-game/game.json', 'utf8')) as { subpackages: { name: string; root: string }[] };
   const names = [...startup.matchAll(/'((?:baishi-ground|baishi-world|baishi-portraits|baishi-interior-[a-z]+))'/g)].map(match => match[1]);
   assert.deepEqual(new Set(names), new Set(WECHAT_STARTUP_PACKAGE_ROOTS));
   for (const asset of wechatAssets) assert.ok(config.subpackages.some(item => item.name === asset.path.split('/')[0] && item.root === item.name));
+  assert.equal(config.subpackages.some(item => item.name.startsWith('baishi-interior-')), false);
   assert.match(startup, /Promise\.all\(packageNames\.map/);
   assert.match(startup, /\.then\(\(\) => require\('\.\/game\.bundle\.js'\)\)/);
 });

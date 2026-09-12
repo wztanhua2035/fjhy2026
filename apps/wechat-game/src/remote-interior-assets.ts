@@ -1,5 +1,5 @@
 import { assetUrl, remoteAsset, type InteriorArtAsset } from '../../../packages/client-runtime/index.js';
-import { loadWechatImage, packagedAssetPath, type WechatAsset, type WechatTextures } from './assets';
+import { genericInteriorFallback, genericInteriorForeground, loadWechatImage, type WechatAsset, type WechatTextures } from './assets';
 
 type CacheEntry = { version: number; path: string; updatedAt: number };
 type CacheIndex = Record<string, CacheEntry>;
@@ -25,7 +25,10 @@ export class WechatRemoteAssetCache {
   private async writeIndex() { await invoke(this.fs.writeFile.bind(this.fs), { filePath: this.indexPath, data: JSON.stringify(this.index ?? {}), encoding: 'utf8' }); }
   async localPath(resourceId: string) {
     const resource = remoteAsset(resourceId), index = await this.readIndex() ?? {}, cached = index[resourceId];
-    if (cached?.version === resource.version && await this.exists(cached.path)) return cached.path;
+    if (cached?.version === resource.version && await this.exists(cached.path)) {
+      if (diagnosticEnabled(this.wxRuntime)) console.info('[FJHY remote asset] local-cache-hit', { resourceId, relativePath: resource.path, url: assetUrl(resource, this.assetBaseUrl), cachePath: cached.path });
+      return cached.path;
+    }
     const url = assetUrl(resource, this.assetBaseUrl);
     let lastError: unknown;
     for (let attempt = 1; attempt <= this.retries; attempt++) {
@@ -36,6 +39,7 @@ export class WechatRemoteAssetCache {
         await invoke(this.fs.saveFile.bind(this.fs), { tempFilePath: result.tempFilePath, filePath: destination });
         index[resourceId] = { version: resource.version, path: destination, updatedAt: Date.now() };
         await this.writeIndex();
+        if (diagnosticEnabled(this.wxRuntime)) console.info('[FJHY remote asset] remote-download', { resourceId, relativePath: resource.path, url, cachePath: destination });
         return destination;
       } catch (error: any) {
         lastError = error;
@@ -46,27 +50,23 @@ export class WechatRemoteAssetCache {
   }
 }
 
-const packageForFallback = (fallbackPath: string) => packagedAssetPath(fallbackPath).split('/')[0];
-async function loadSubpackage(wxRuntime: any, name: string) { await invoke(wxRuntime.loadSubpackage.bind(wxRuntime), { name }); }
-
 export class WechatInteriorAssetLoader {
   private cache: WechatRemoteAssetCache;
   constructor(private readonly wxRuntime: any, private readonly assetBaseUrl: string) { this.cache = new WechatRemoteAssetCache(wxRuntime, assetBaseUrl); }
   async load(scene: InteriorArtAsset, textures: WechatTextures, createImage: () => any) {
     const diagnostic = diagnosticEnabled(this.wxRuntime);
     const sides = [
-      { key: scene.assetKey, resourceId: scene.resourceId, fallbackPath: scene.fallbackPath },
-      { key: scene.foreground.assetKey, resourceId: scene.foreground.resourceId, fallbackPath: scene.foreground.fallbackPath }
+      { key: scene.assetKey, resourceId: scene.resourceId, fallback: genericInteriorFallback },
+      { key: scene.foreground.assetKey, resourceId: scene.foreground.resourceId, fallback: genericInteriorForeground }
     ];
     let remote = true;
     for (const side of sides) {
-      const fallback: WechatAsset = { key: side.key, source: side.fallbackPath, path: packagedAssetPath(side.fallbackPath) };
+      const fallback: WechatAsset = { ...side.fallback, key: side.key };
       try { await loadWechatImage(textures, fallback, createImage, await this.cache.localPath(side.resourceId), diagnostic); }
       catch (remoteError: any) {
         remote = false;
-        const packageName = packageForFallback(side.fallbackPath);
-        if (diagnostic) console.warn('[FJHY remote asset] using packaged fallback', { resourceId: side.resourceId, packageName, requestedPath: fallback.path, errMsg: remoteError?.message });
-        try { await loadSubpackage(this.wxRuntime, packageName); await loadWechatImage(textures, fallback, createImage, fallback.path, diagnostic); }
+        if (diagnostic) console.warn('[FJHY remote asset] local-fallback', { resourceId: side.resourceId, requestedPath: fallback.path, errMsg: remoteError?.message });
+        try { await loadWechatImage(textures, fallback, createImage, fallback.path, diagnostic); }
         catch (fallbackError: any) { throw new Error(`${side.resourceId}: remote and fallback failed (${fallbackError?.errMsg ?? fallbackError?.message ?? 'unknown'})`); }
       }
     }

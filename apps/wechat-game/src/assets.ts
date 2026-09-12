@@ -1,4 +1,4 @@
-import { baishiFormalArtRegistry, baishiInteriorArtRegistry, baishiV2ArtAssets } from '../../../packages/client-runtime/assets.js';
+import { baishiFormalArtRegistry, baishiV2ArtAssets } from '../../../packages/client-runtime/assets.js';
 
 export interface WechatAsset { key: string; source: string; path: string; frameWidth?: number; frameHeight?: number }
 export const WECHAT_STARTUP_PACKAGE_ROOTS = ['baishi-ground', 'baishi-world', 'baishi-portraits'] as const;
@@ -17,17 +17,16 @@ export const wechatStartupAssets: WechatAsset[] = [
   ...baishiFormalArtRegistry.npcs.map(a => ({ key: a.assetKey, source: a.imagePath, frameWidth: a.frameWidth, frameHeight: a.frameHeight })),
   ...[baishiV2ArtAssets.playerMale, baishiV2ArtAssets.playerFemale].map(a => ({ key: a.assetKey, source: a.imagePath, frameWidth: a.frameWidth, frameHeight: a.frameHeight })),
   ...baishiFormalArtRegistry.portraits.map(a => ({ key: a.assetKey, source: a.imagePath })),
-  ...['male', 'female'].map(g => ({ key: `portrait-player-${g}`, source: `/scene-layers/baishi/formal/portrait_player_${g}_base.png` }))
+  ...['male', 'female'].map(g => ({ key: `portrait-player-${g}`, source: `/scene-layers/baishi/formal/portrait_player_${g}_base.png` })),
+  { key: 'generic-interior-fallback', source: '/scene-layers/baishi/interiors/generic_interior_fallback.png' },
+  { key: 'generic-interior-foreground', source: '/scene-layers/baishi/interiors/generic_interior_foreground.png' }
 ].map(packaged);
 
-/** Existing split-package files retained as transitional fallback only. */
-export const wechatInteriorFallbackAssets: WechatAsset[] = baishiInteriorArtRegistry.flatMap(asset => [
-  packaged({ key: asset.assetKey, source: asset.fallbackPath }),
-  packaged({ key: asset.foreground.assetKey, source: asset.foreground.fallbackPath })
-]);
+export const genericInteriorFallback = packaged({ key: 'generic-interior-fallback', source: '/scene-layers/baishi/interiors/generic_interior_fallback.png' });
+export const genericInteriorForeground = packaged({ key: 'generic-interior-foreground', source: '/scene-layers/baishi/interiors/generic_interior_foreground.png' });
 
-/** Full build inventory. `loadWechatAssets` intentionally loads only startup assets. */
-export const wechatAssets = [...wechatStartupAssets, ...wechatInteriorFallbackAssets];
+/** Full build inventory. Interiors use CDN/cache and share a low-cost local fallback. */
+export const wechatAssets = wechatStartupAssets;
 export type WechatTextures = { exists(key: string): boolean; addImage(key: string, image: any): unknown; addSpriteSheet(key: string, image: any, config: any): unknown };
 
 export async function loadWechatImage(textures: WechatTextures, asset: WechatAsset, createImage: () => any, source = asset.path, diagnostic = false) {

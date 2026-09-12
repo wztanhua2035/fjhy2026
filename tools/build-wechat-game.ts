@@ -17,7 +17,7 @@ await cp(path.resolve('apps/wechat-game/project.config.json'), path.join(outputR
 await mkdir(path.join(outputRoot, 'libs'), { recursive: true });
 await cp(path.resolve('apps/wechat-game/libs/weapp-adapter.js'), path.join(outputRoot, 'libs/weapp-adapter.js'));
 await cp(path.resolve('apps/wechat-game/libs/WEAPP_ADAPTER_LICENSE'), path.join(outputRoot, 'libs/WEAPP_ADAPTER_LICENSE'));
-const packageRoots = [...new Set(['baishi-ground', 'baishi-world', 'baishi-portraits', ...wechatAssets.map(asset => asset.path.split('/')[0]).filter(root => root.startsWith('baishi-interior-'))])];
+const packageRoots = [...WECHAT_STARTUP_PACKAGE_ROOTS];
 const gameConfig = JSON.parse(await readFile(path.join(outputRoot, 'game.json'), 'utf8')) as { subpackages: { name: string; root: string }[] };
 const startup = await readFile(path.join(outputRoot, 'game.js'), 'utf8');
 const startupPackages = [...startup.matchAll(/'((?:baishi-ground|baishi-world|baishi-portraits|baishi-interior-[a-z]+))'/g)].map(match => match[1]);

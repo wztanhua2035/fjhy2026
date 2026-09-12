@@ -52,10 +52,21 @@ test('wechat cache reuses a matching version and re-downloads a newer version', 
   try { await cache.localPath('BAISHI_INTERIOR_SALON_BG'); assert.equal(downloads, 2); } finally { entry.version = old; }
 });
 
-test('wechat interior failure loads only its packaged fallback and never affects startup assets', async () => {
+test('wechat interior failure uses the shared low-cost fallback and never affects startup assets', async () => {
   const wxRuntime = fakeWx((options: any) => options.fail(new Error('offline')));
   const loader = new WechatInteriorAssetLoader(wxRuntime, 'https://res-fjhy.wzpy.net');
   const keys = new Set<string>(); const textures = { exists: (key: string) => keys.has(key), addImage: (key: string) => keys.add(key), addSpriteSheet: () => {} };
   await loader.load(baishiInteriorArtRegistry[0]!, textures, () => ({ onload: () => {}, set src(_value: string) { queueMicrotask(() => this.onload()); } }));
   assert.deepEqual([...keys].sort(), ['interior-salon-bg-v1', 'interior-salon-fg-v1']);
+});
+
+test('all six interior resource pairs load from CDN and remain independently addressable', async () => {
+  const wxRuntime = fakeWx((options: any) => options.success({ statusCode: 200, tempFilePath: `tmp-${options.url.split('/').at(-1)}` }));
+  const loader = new WechatInteriorAssetLoader(wxRuntime, 'https://res-fjhy.wzpy.net');
+  const keys = new Set<string>();
+  const textures = { exists: (key: string) => keys.has(key), addImage: (key: string) => keys.add(key), addSpriteSheet: () => {} };
+  for (const interior of baishiInteriorArtRegistry) {
+    await loader.load(interior, textures, () => ({ onload: () => {}, set src(_value: string) { queueMicrotask(() => this.onload()); } }));
+  }
+  assert.equal(keys.size, 12);
 });
