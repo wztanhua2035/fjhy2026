@@ -2,6 +2,7 @@ import { initialWorld } from '../../../packages/game-config/index.js';
 import type { WorldConfig } from '../../../packages/shared-types/index.js';
 import type { Repository } from './repository.js';
 import { validateWorld } from './config.js';
+import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID } from '../../../packages/game-config/inn-opening.js';
 
 function merge<T extends { id: string }>(old: T[], current: T[]) {
   const updates = new Map(current.map(item => [item.id, item]));
@@ -29,4 +30,25 @@ export async function syncBaishiContent(repo: Repository, apply = false) {
   await repo.transition(draft.id, 'TEST');
   const published = await repo.transition(draft.id, 'PUBLISHED');
   return { changed: plan.changed, version: published.version, published: true };
+}
+
+// Staging needs the guest room before newly created players can request its scene.
+// Publish only the missing scene/door links; leave existing interiors and quests intact.
+export async function ensureGuestRoomScene(repo: Repository) {
+  const previous = await repo.world();
+  const guest = initialWorld.scenes.find(s => s.id === GUEST_ROOM_SCENE_ID)!;
+  const lobby = initialWorld.scenes.find(s => s.id === INN_LOBBY_SCENE_ID)!;
+  const existingLobby = previous.scenes.find(s => s.id === INN_LOBBY_SCENE_ID)!;
+  const door = lobby.portals.find(p => p.toSceneId === GUEST_ROOM_SCENE_ID)!;
+  const needsGuest = !previous.scenes.some(s => s.id === GUEST_ROOM_SCENE_ID);
+  const needsDoor = !existingLobby.portals.some(p => p.id === door.id && p.toSceneId === door.toSceneId);
+  if (!needsGuest && !needsDoor) return { published: false, version: previous.configVersion };
+  const scenes = previous.scenes.map(s => s.id === INN_LOBBY_SCENE_ID && needsDoor
+    ? { ...s, portals: [...s.portals.filter(p => p.id !== door.id), door] } : s);
+  if (needsGuest) scenes.push(guest);
+  const config = validateWorld({ ...previous, scenes }, previous);
+  const draft = await repo.draft(config, previous.configVersion);
+  await repo.transition(draft.id, 'TEST');
+  const release = await repo.transition(draft.id, 'PUBLISHED');
+  return { published: true, version: release.version, added: [needsGuest && guest.id, needsDoor && door.id].filter(Boolean) };
 }

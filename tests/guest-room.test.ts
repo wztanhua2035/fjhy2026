@@ -3,12 +3,15 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { initialWorld } from '../packages/game-config/index.js';
-import { GUEST_ROOM_SCENE_ID, INTRO_INN_KEEPER_DONE, innOpeningDialogue } from '../packages/game-config/inn-opening.js';
+import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, innOpeningDialogue } from '../packages/game-config/inn-opening.js';
 import { canStand, sceneView } from '../packages/game-rules/index.js';
 import { GameController } from '../packages/client-runtime/index.js';
 import { MemoryRepository } from '../apps/server/src/repository.js';
 import { GameService } from '../apps/server/src/service.js';
 import { baishiSyncPlan } from '../apps/server/src/sync-baishi.js';
+import { ensureGuestRoomScene } from '../apps/server/src/sync-baishi.js';
+import { buildApp } from '../apps/server/src/app.js';
+import { validateWorld } from '../apps/server/src/config.js';
 
 const scene=initialWorld.scenes.find(s=>s.id===GUEST_ROOM_SCENE_ID)!;
 function reachable(from:{x:number;y:number},to:{x:number;y:number}){
@@ -106,4 +109,48 @@ test('staging 内容同步会补入临时房及大厅侧房 portal',()=>{
   assert.ok(plan.changed.includes(`scenes:${GUEST_ROOM_SCENE_ID}`));
   assert.ok(plan.changed.includes('scenes:INTERIOR_B_INN'));
   assert.ok(plan.config.scenes.find(s=>s.id===GUEST_ROOM_SCENE_ID));
+});
+
+test('真实 game-api 对旧已发布配置返回 404，staging 定向发布后可查询临时房与双向 portal',async()=>{
+  const repo=new MemoryRepository(),old=structuredClone(initialWorld);
+  old.scenes=old.scenes.filter(s=>s.id!==GUEST_ROOM_SCENE_ID);
+  const inn=old.scenes.find(s=>s.id===INN_LOBBY_SCENE_ID)!;
+  inn.portals=inn.portals.filter(p=>p.toSceneId!==GUEST_ROOM_SCENE_ID);
+  repo.versions[0].config=old;
+  const env={mode:'production',appEnv:'STAGING',port:8080,jwtSecret:'test-jwt-secret-thirty-two-characters-long',subjectSecret:'test-subject-secret-thirty-two-characters',adminToken:'test-admin-token-thirty-two-characters-long',allowDevAuth:false,appId:'',appSecret:'',adminOrigin:'http://localhost:5173',assetBase:'http://localhost:8080/assets'};
+  const app=await buildApp(repo,env,{exchangeCode:async()=> 'new-wechat-guest'});
+  try{
+    const auth=(await app.inject({method:'POST',url:'/v1/auth/wechat',payload:{code:'test'}})).json();
+    const headers={authorization:`Bearer ${auth.token}`};
+    assert.deepEqual([auth.player.sceneId,auth.player.x,auth.player.y],[GUEST_ROOM_SCENE_ID,6,7]);
+    const created=await app.inject({method:'POST',url:'/v1/player/appearance/create',headers,payload:{requestId:randomUUID(),...create}});
+    assert.equal(created.statusCode,200);
+    const endpoint=`/v1/world/scenes/${GUEST_ROOM_SCENE_ID}`;
+    const missing=await app.inject({method:'GET',url:endpoint,headers});
+    assert.equal(missing.statusCode,404);assert.deepEqual(missing.json(),{code:'SCENE_NOT_FOUND',message:'场景不存在'});
+    const result=await ensureGuestRoomScene(repo);
+    assert.equal(result.published,true);assert.deepEqual(result.added,[GUEST_ROOM_SCENE_ID,'ENTER_INN_GUEST_ROOM']);
+    assert.equal((await ensureGuestRoomScene(repo)).published,false);
+    const response=await app.inject({method:'GET',url:endpoint,headers});
+    assert.equal(response.statusCode,200);
+    assert.deepEqual([response.json().scene.id,response.json().scene.width,response.json().scene.height],[GUEST_ROOM_SCENE_ID,12,10]);
+    assert.deepEqual(response.json().playerPosition,{sceneId:GUEST_ROOM_SCENE_ID,x:6,y:7});
+    const diagnostic=await app.inject({method:'GET',url:`/diagnostics/scenes/${GUEST_ROOM_SCENE_ID}`});
+    assert.equal(diagnostic.statusCode,200);
+    assert.equal(diagnostic.json().scene.portals[0].toSceneId,INN_LOBBY_SCENE_ID);
+    assert.ok(diagnostic.json().scene.collision.length>0);
+    const lobby=await app.inject({method:'GET',url:`/diagnostics/scenes/${INN_LOBBY_SCENE_ID}`});
+    assert.equal(lobby.statusCode,200);
+    assert.ok(lobby.json().scene.portals.some((p:any)=>p.toSceneId===GUEST_ROOM_SCENE_ID));
+    const reset=await app.inject({method:'POST',url:'/v1/player/restart',headers,payload:{requestId:randomUUID(),confirm:true}});
+    assert.equal(reset.statusCode,200);assert.deepEqual([reset.json().player.sceneId,reset.json().player.x,reset.json().player.y],[GUEST_ROOM_SCENE_ID,6,7]);
+    const production=await buildApp(repo,{...env,appEnv:'PROD'});
+    try{assert.equal((await production.inject({method:'GET',url:`/diagnostics/scenes/${GUEST_ROOM_SCENE_ID}`})).statusCode,404);}finally{await production.close();}
+  }finally{await app.close();}
+});
+
+test('所有场景 portal 目标都在已发布 registry 中',()=>{
+  const config=validateWorld(initialWorld);
+  const ids=new Set(config.scenes.map(s=>s.id));
+  for(const scene of config.scenes)for(const portal of scene.portals)assert.ok(ids.has(portal.toSceneId),`${scene.id}:${portal.id} -> ${portal.toSceneId}`);
 });

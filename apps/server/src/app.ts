@@ -12,6 +12,8 @@ import { validateWorld } from './config.js';
 import { GameService } from './service.js';
 import { ensure, GameError, sceneView, publicPlayer, questStepProgress } from '../../../packages/game-rules/index.js';
 import { starterLooks, starterSkinTones } from '../../../packages/game-config/appearance-v1.js';
+import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID } from '../../../packages/game-config/inn-opening.js';
+import { initialWorld } from '../../../packages/game-config/index.js';
 declare module '@fastify/jwt' {interface FastifyJWT {payload:{sub:string};user:{sub:string}}}
 const requestId=z.string().uuid(),id=z.string().min(1).max(80);
 const schemas={
@@ -64,6 +66,16 @@ if(status>=500){
   });
   app.get('/healthz',async()=>({status:'ok',environment:env.appEnv}));
   app.get('/readyz',async(_req,reply)=>{try{await repo.health();await repo.world();return {status:'ready'};}catch{return reply.code(503).send({status:'not-ready'});}});
+  app.get('/diagnostics/scenes/:id',async req=>{
+    ensure(['DEV','STAGING'].includes(env.appEnv),'NOT_FOUND','接口不存在',404);
+    const requestedId=(req.params as {id:string}).id;
+    ensure([GUEST_ROOM_SCENE_ID,INN_LOBBY_SCENE_ID].includes(requestedId),'NOT_FOUND','接口不存在',404);
+    const world=await repo.world();
+    const scene=sceneView(world,requestedId,game.now()).scene;
+    return {requestedId,sourcePresent:initialWorld.scenes.some(s=>s.id===requestedId),configVersion:world.configVersion,
+      scene:{id:scene.id,width:scene.width,height:scene.height,spawnX:scene.spawnX,spawnY:scene.spawnY,collision:scene.collision,portals:scene.portals,interior:scene.interior},
+      npcs:world.npcs.filter(n=>n.sceneId===requestedId).map(n=>({id:n.id,x:n.x,y:n.y}))};
+  });
   const login=async(subject:string)=>{const hash=createHmac('sha256',env.subjectSecret).update(subject).digest('hex');const p=await repo.login(hash);ensure(p.status==='ACTIVE','BANNED','账号不可用',403);return {token:app.jwt.sign({sub:p.id}),player:publicPlayer(p)};};
   app.post('/v1/auth/wechat',{config:{rateLimit:{max:20,timeWindow:'1 minute'}}},async req=>{
     const {code}=z.object({code:z.string().min(1).max(256)}).strict().parse(req.body);
