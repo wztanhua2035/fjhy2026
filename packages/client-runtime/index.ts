@@ -2,6 +2,7 @@ import type { Appearance, FormalNpcAppearance, Bootstrap, GhostProfile, PlayerSt
 import {inEntranceArea,npcCollisionRect,questStepProgress} from '../game-rules/index.js';
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, innOpeningDialogue } from '../game-config/inn-opening.js';
 export * from './assets.js';
+export * from './remote-assets.js';
 export * from './display-scale.js';
 export * from './dialogue-layout.js';
 export type Direction='up'|'down'|'left'|'right';

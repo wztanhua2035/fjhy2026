@@ -2,7 +2,7 @@ import { cp, mkdir, readdir, stat, writeFile, readFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
-import { wechatAssets } from '../apps/wechat-game/src/assets.js';
+import { wechatAssets, WECHAT_STARTUP_PACKAGE_ROOTS } from '../apps/wechat-game/src/assets.js';
 
 const outputRoot = path.resolve('dist/wechat-game');
 const vite = path.resolve('node_modules/vite/bin/vite.js');
@@ -21,8 +21,8 @@ const packageRoots = [...new Set(['baishi-ground', 'baishi-world', 'baishi-portr
 const gameConfig = JSON.parse(await readFile(path.join(outputRoot, 'game.json'), 'utf8')) as { subpackages: { name: string; root: string }[] };
 const startup = await readFile(path.join(outputRoot, 'game.js'), 'utf8');
 const startupPackages = [...startup.matchAll(/'((?:baishi-ground|baishi-world|baishi-portraits|baishi-interior-[a-z]+))'/g)].map(match => match[1]);
-if (new Set(startupPackages).size !== startupPackages.length || startupPackages.length !== packageRoots.length || packageRoots.some(root => !startupPackages.includes(root))) {
-  throw new Error('WeChat startup subpackage list does not match packaged asset roots');
+if (new Set(startupPackages).size !== startupPackages.length || startupPackages.length !== WECHAT_STARTUP_PACKAGE_ROOTS.length || WECHAT_STARTUP_PACKAGE_ROOTS.some(root => !startupPackages.includes(root))) {
+  throw new Error('WeChat startup subpackage list must include only core startup packages');
 }
 if (gameConfig.subpackages.length !== packageRoots.length || packageRoots.some(root => !gameConfig.subpackages.some(item => item.name === root && item.root === root))) {
   throw new Error('WeChat game.json subpackage names/roots do not match packaged asset roots');

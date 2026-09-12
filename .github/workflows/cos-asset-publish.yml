@@ -1,0 +1,66 @@
+name: COS Asset Publish V1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'assets/remote/**'
+      - 'packages/client-runtime/remote-assets.ts'
+      - 'tools/verify-remote-assets.ts'
+      - 'tools/cos_publish_assets.py'
+      - '.github/workflows/cos-asset-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      ASSET_ROOT: assets/remote
+      CDN_BASE_URL: https://res-fjhy.wzpy.net
+      TENCENT_CLOUD_SECRET_ID: ${{ secrets.TENCENT_CLOUD_SECRET_ID }}
+      TENCENT_CLOUD_SECRET_KEY: ${{ secrets.TENCENT_CLOUD_SECRET_KEY }}
+      TENCENT_COS_BUCKET: ${{ secrets.TENCENT_COS_BUCKET }}
+      TENCENT_COS_REGION: ${{ secrets.TENCENT_COS_REGION }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: npm ci
+      - name: Validate remote asset manifest and source directory
+        run: node --import tsx tools/verify-remote-assets.ts "$ASSET_ROOT"
+      - name: Discover changed remote resources
+        id: changed
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            git ls-files "$ASSET_ROOT" > changed-assets.txt
+          else
+            git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" -- "$ASSET_ROOT" > changed-assets.txt
+          fi
+          : > changed-assets-filtered.txt
+          while IFS= read -r file; do
+            [ -f "$file" ] && printf '%s\n' "$file" >> changed-assets-filtered.txt
+          done < changed-assets.txt
+          mv changed-assets-filtered.txt changed-assets.txt
+          if [ -s changed-assets.txt ]; then echo "has_changes=true" >> "$GITHUB_OUTPUT"; else echo "has_changes=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Skip when COS secrets are not configured
+        if: steps.changed.outputs.has_changes == 'true' && (env.TENCENT_CLOUD_SECRET_ID == '' || env.TENCENT_CLOUD_SECRET_KEY == '' || env.TENCENT_COS_BUCKET == '' || env.TENCENT_COS_REGION == '')
+        run: echo 'COS publish skipped: secrets not configured'
+      - name: Publish changed resources, verify COS/CDN, then publish manifest
+        if: steps.changed.outputs.has_changes == 'true' && env.TENCENT_CLOUD_SECRET_ID != '' && env.TENCENT_CLOUD_SECRET_KEY != '' && env.TENCENT_COS_BUCKET != '' && env.TENCENT_COS_REGION != ''
+        run: |
+          python -m pip install --disable-pip-version-check cos-python-sdk-v5
+          python tools/cos_publish_assets.py --root "$ASSET_ROOT" --changed-file-list changed-assets.txt --publish-manifest --cdn-base-url "$CDN_BASE_URL"
+      - name: No remote asset changes
+        if: steps.changed.outputs.has_changes != 'true'
+        run: echo 'COS publish skipped: no assets/remote changes'

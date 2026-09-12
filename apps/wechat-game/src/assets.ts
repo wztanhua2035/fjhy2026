@@ -1,46 +1,64 @@
 import { baishiFormalArtRegistry, baishiInteriorArtRegistry, baishiV2ArtAssets } from '../../../packages/client-runtime/assets.js';
 
 export interface WechatAsset { key: string; source: string; path: string; frameWidth?: number; frameHeight?: number }
+export const WECHAT_STARTUP_PACKAGE_ROOTS = ['baishi-ground', 'baishi-world', 'baishi-portraits'] as const;
 export function packagedAssetPath(source: string) {
   const file = source.split('?')[0].split('/').pop()!;
   const interior = source.includes('/interiors/') ? file.match(/^interior_([a-z]+)_/)?.[1] : undefined;
   const root = source.includes('/ground/') ? 'baishi-ground' : interior ? `baishi-interior-${interior}` : file.startsWith('portrait_') ? 'baishi-portraits' : 'baishi-world';
   return `${root}/${file}`;
 }
-export const wechatAssets: WechatAsset[] = [
+const packaged = (asset: Omit<WechatAsset, 'path'>): WechatAsset => ({ ...asset, path: packagedAssetPath(asset.source) });
+
+/** Resources needed to render startup and Baishi street. Interiors load on demand. */
+export const wechatStartupAssets: WechatAsset[] = [
   { key: 'baishi-ground-image', source: '/scene-layers/baishi/ground/baishi_composition_approved_v01.png' },
-  ...baishiInteriorArtRegistry.flatMap(asset => [{ key: asset.assetKey, source: asset.imagePath }, { key: asset.foreground.assetKey, source: asset.foreground.imagePath }]),
   ...baishiFormalArtRegistry.buildings.flatMap(a => [{ key: a.assetKey, source: a.imagePath }, ...(a.foreground && a.foregroundOcclusionFrontY !== undefined ? [{ key: a.foreground.assetKey, source: a.foreground.imagePath }] : [])]),
   ...baishiFormalArtRegistry.npcs.map(a => ({ key: a.assetKey, source: a.imagePath, frameWidth: a.frameWidth, frameHeight: a.frameHeight })),
   ...[baishiV2ArtAssets.playerMale, baishiV2ArtAssets.playerFemale].map(a => ({ key: a.assetKey, source: a.imagePath, frameWidth: a.frameWidth, frameHeight: a.frameHeight })),
   ...baishiFormalArtRegistry.portraits.map(a => ({ key: a.assetKey, source: a.imagePath })),
   ...['male', 'female'].map(g => ({ key: `portrait-player-${g}`, source: `/scene-layers/baishi/formal/portrait_player_${g}_base.png` }))
-].map(a => ({ ...a, path: packagedAssetPath(a.source) }));
+].map(packaged);
+
+/** Existing split-package files retained as transitional fallback only. */
+export const wechatInteriorFallbackAssets: WechatAsset[] = baishiInteriorArtRegistry.flatMap(asset => [
+  packaged({ key: asset.assetKey, source: asset.fallbackPath }),
+  packaged({ key: asset.foreground.assetKey, source: asset.foreground.fallbackPath })
+]);
+
+/** Full build inventory. `loadWechatAssets` intentionally loads only startup assets. */
+export const wechatAssets = [...wechatStartupAssets, ...wechatInteriorFallbackAssets];
+export type WechatTextures = { exists(key: string): boolean; addImage(key: string, image: any): unknown; addSpriteSheet(key: string, image: any, config: any): unknown };
+
+export async function loadWechatImage(textures: WechatTextures, asset: WechatAsset, createImage: () => any, source = asset.path, diagnostic = false) {
+  if (textures.exists(asset.key)) return;
+  const image = await new Promise<any>((resolve, reject) => {
+    const image = createImage();
+    const timer = setTimeout(() => reject(new Error('image timeout')), 15000);
+    image.onload = () => { clearTimeout(timer); resolve(image); };
+    image.onerror = (error: any) => { clearTimeout(timer); if (diagnostic) console.error('[FJHY asset] image failure', { requestedPath: asset.path, imageSrc: source, errMsg: error?.errMsg }); reject(new Error(source)); };
+    if (diagnostic) console.info('[FJHY asset] image request', { requestedPath: asset.path, imageSrc: source });
+    image.src = source;
+  });
+  if (asset.frameWidth) textures.addSpriteSheet(asset.key, image, { frameWidth: asset.frameWidth, frameHeight: asset.frameHeight });
+  else textures.addImage(asset.key, image);
+  if (!textures.exists(asset.key)) throw new Error('Texture registration failed');
+}
 
 // Package images must use wx.createImage, never wx.request / Blob URLs.
-export async function loadWechatAssets(textures: { exists(key: string): boolean; addImage(key: string, image: any): unknown; addSpriteSheet(key: string, image: any, config: any): unknown }, createImage: () => any, progress: (done: number, total: number) => void = () => {}) {
+export async function loadWechatAssets(textures: WechatTextures, createImage: () => any, progress: (done: number, total: number) => void = () => {}) {
   let done = 0;
   const failures: string[] = [];
   const wxRuntime = (globalThis as any).wx;
   const envVersion = wxRuntime?.getAccountInfoSync?.()?.miniProgram?.envVersion;
   const diagnostic = envVersion === 'develop' || envVersion === 'trial';
-  for (const asset of wechatAssets) {
+  for (const asset of wechatStartupAssets) {
     if (!textures.exists(asset.key)) {
       try {
-        const image = await new Promise<any>((resolve, reject) => {
-          const image = createImage();
-          const timer = setTimeout(() => reject(new Error('image timeout')), 15000);
-          image.onload = () => { clearTimeout(timer); resolve(image); };
-          image.onerror = (error: any) => { clearTimeout(timer); if (diagnostic) console.error('[FJHY asset] image failure', { packageName: asset.path.split('/')[0], packageRoot: asset.path.split('/')[0], requestedPath: asset.path, imageSrc: image.src, errMsg: error?.errMsg }); reject(new Error(asset.path)); };
-          if (diagnostic) console.info('[FJHY asset] image request', { packageName: asset.path.split('/')[0], packageRoot: asset.path.split('/')[0], requestedPath: asset.path, imageSrc: asset.path });
-          image.src = asset.path;
-        });
-        if (asset.frameWidth) textures.addSpriteSheet(asset.key, image, { frameWidth: asset.frameWidth, frameHeight: asset.frameHeight });
-        else textures.addImage(asset.key, image);
-        if (!textures.exists(asset.key)) throw new Error('Texture registration failed');
+        await loadWechatImage(textures, asset, createImage, asset.path, diagnostic);
       } catch { failures.push(asset.path); }
     }
-    progress(++done, wechatAssets.length);
+    progress(++done, wechatStartupAssets.length);
   }
   return failures;
 }

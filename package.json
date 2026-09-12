@@ -21,6 +21,8 @@
     "db:seed": "node --env-file=.env --import tsx database/seed.ts",
     "worker": "node --env-file=.env --import tsx apps/worker/src/main.ts",
     "assets:build": "node --import tsx tools/build-assets.ts",
+    "assets:remote:sync": "node --import tsx tools/sync-remote-assets.ts",
+    "assets:remote:validate": "node --import tsx tools/verify-remote-assets.ts assets/remote",
     "client:configure": "node --import tsx tools/configure-client.ts",
     "release:check": "node --import tsx tools/preflight.ts"
   },

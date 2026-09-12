@@ -9,9 +9,8 @@ if (!root.__fjhyWechatCanvas || !root.__fjhyWechatCanvas.getContext('2d')) {
 if (!runtimeWindow.CanvasRenderingContext2D) {
   runtimeWindow.CanvasRenderingContext2D = function CanvasRenderingContext2D() {};
 }
-const packageNames = ['baishi-ground', 'baishi-world', 'baishi-portraits',
-  'baishi-interior-salon', 'baishi-interior-grocery', 'baishi-interior-trade',
-  'baishi-interior-cloth', 'baishi-interior-inn', 'baishi-interior-guest'];
+// Interior packages are loaded only if CDN delivery fails for that scene.
+const packageNames = ['baishi-ground', 'baishi-world', 'baishi-portraits'];
 const envVersion = wx.getAccountInfoSync?.()?.miniProgram?.envVersion;
 const diagnostic = envVersion === 'develop' || envVersion === 'trial';
 Promise.all(packageNames.map((name) => new Promise((resolve, reject) => {

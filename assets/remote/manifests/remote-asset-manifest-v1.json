@@ -1,0 +1,65 @@
+{
+  "manifestVersion": 1,
+  "resources": {
+    "BAISHI_INTERIOR_SALON_BG": {
+      "path": "world/baishi/interiors/salon/background_v1.png",
+      "version": 1,
+      "type": "scene-background"
+    },
+    "BAISHI_INTERIOR_SALON_FG": {
+      "path": "world/baishi/interiors/salon/foreground_v1.png",
+      "version": 1,
+      "type": "scene-foreground"
+    },
+    "BAISHI_INTERIOR_GROCERY_BG": {
+      "path": "world/baishi/interiors/grocery/background_v1.png",
+      "version": 1,
+      "type": "scene-background"
+    },
+    "BAISHI_INTERIOR_GROCERY_FG": {
+      "path": "world/baishi/interiors/grocery/foreground_v1.png",
+      "version": 1,
+      "type": "scene-foreground"
+    },
+    "BAISHI_INTERIOR_TRADE_BG": {
+      "path": "world/baishi/interiors/trade/background_v1.png",
+      "version": 1,
+      "type": "scene-background"
+    },
+    "BAISHI_INTERIOR_TRADE_FG": {
+      "path": "world/baishi/interiors/trade/foreground_v1.png",
+      "version": 1,
+      "type": "scene-foreground"
+    },
+    "BAISHI_INTERIOR_CLOTH_BG": {
+      "path": "world/baishi/interiors/cloth/background_v1.png",
+      "version": 1,
+      "type": "scene-background"
+    },
+    "BAISHI_INTERIOR_CLOTH_FG": {
+      "path": "world/baishi/interiors/cloth/foreground_v1.png",
+      "version": 1,
+      "type": "scene-foreground"
+    },
+    "BAISHI_INTERIOR_INN_BG": {
+      "path": "world/baishi/interiors/inn/background_v1.png",
+      "version": 1,
+      "type": "scene-background"
+    },
+    "BAISHI_INTERIOR_INN_FG": {
+      "path": "world/baishi/interiors/inn/foreground_v1.png",
+      "version": 1,
+      "type": "scene-foreground"
+    },
+    "BAISHI_INTERIOR_GUEST_ROOM_BG": {
+      "path": "world/baishi/interiors/guest-room/background_v2.png",
+      "version": 2,
+      "type": "scene-background"
+    },
+    "BAISHI_INTERIOR_GUEST_ROOM_FG": {
+      "path": "world/baishi/interiors/guest-room/foreground_v2.png",
+      "version": 2,
+      "type": "scene-foreground"
+    }
+  }
+}

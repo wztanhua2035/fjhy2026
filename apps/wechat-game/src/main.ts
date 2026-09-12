@@ -3,6 +3,7 @@ import { GameController, formatQuestTracker, formatCyclingQuestTracker, baishiFo
 import { availableStarterLookOptions } from '../../../packages/game-config/appearance-v1.js';
 import { createWeChatPlatform, safeInsets, allowWechatDebug } from './wechat-platform';
 import { loadWechatAssets } from './assets';
+import { WechatInteriorAssetLoader } from './remote-interior-assets';
 import { mobileLayout } from './layout';
 import { baishiCompatibility } from './compatibility';
 import { mobileTypography } from './typography';
@@ -14,6 +15,7 @@ declare const __WECHAT_DEV_OPEN_ALL__: boolean;
 declare const __WECHAT_DEV_COLLISION__: boolean;
 declare const __WECHAT_DEV_SAFE_RESET__: boolean;
 declare const __WECHAT_DEV_LOGIN__: boolean;
+declare const __WECHAT_ASSET_BASE_URL__: string;
 const windowInfo = wx.getWindowInfo?.() ?? wx.getSystemInfoSync();
 const layout = mobileLayout(windowInfo, wx.getMenuButtonBoundingClientRect?.());
 const WIDTH = layout.width, HEIGHT = layout.height, TILE = 32, groundKey = 'baishi-ground-image';
@@ -54,6 +56,8 @@ class BaishiWechatScene extends Phaser.Scene {
   private foregrounds = new Map<string, Phaser.GameObjects.Image>();
   private interiorBackgrounds = new Map<string, Phaser.GameObjects.Image>();
   private interiorForegrounds = new Map<string, Phaser.GameObjects.Image>();
+  private pendingInteriorArt = new Set<string>();
+  private readonly interiorAssetLoader = new WechatInteriorAssetLoader(wx, __WECHAT_ASSET_BASE_URL__);
   private actors = new Map<string, Phaser.GameObjects.Sprite>();
   private actorNames = new Map<string, Phaser.GameObjects.Text>();
   private playerSprite!: Phaser.GameObjects.Sprite;
@@ -128,10 +132,6 @@ class BaishiWechatScene extends Phaser.Scene {
     this.debugGraphics = this.add.graphics().setDepth(DEBUG_DEPTH).setVisible(debugCollision);
     const insets = safeInsets(WIDTH, HEIGHT);
     this.ground = this.add.image(0, 0, groundKey).setOrigin(0).setDisplaySize(48 * TILE, 48 * TILE).setDepth(GROUND_DEPTH).setVisible(false);
-    for (const asset of baishiInteriorArtRegistry) {
-      this.interiorBackgrounds.set(asset.sceneId, this.add.image(0, 0, asset.assetKey).setOrigin(0).setDisplaySize(asset.width, asset.height).setDepth(GROUND_DEPTH).setVisible(false));
-      this.interiorForegrounds.set(asset.sceneId, this.add.image(0, 0, asset.foreground.assetKey).setOrigin(0).setDisplaySize(asset.width, asset.height).setDepth(WORLD_BASE).setVisible(false));
-    }
     for (const asset of baishiFormalArtRegistry.buildings) {
       this.buildings.set(asset.buildingId, this.add.image(0, 0, asset.assetKey).setOrigin(0).setDisplaySize(asset.renderWidth, asset.renderHeight).setDepth(WORLD_BASE).setVisible(false));
       if (asset.foreground && asset.foregroundOcclusionFrontY !== undefined) this.foregrounds.set(asset.buildingId, this.add.image(0, 0, asset.foreground.assetKey).setOrigin(0).setDisplaySize(asset.renderWidth, asset.renderHeight).setDepth(WORLD_BASE).setVisible(false));
@@ -359,6 +359,19 @@ class BaishiWechatScene extends Phaser.Scene {
     this.playerSprite.setTexture(playerKey).setOrigin(playerAsset.footAnchorX / playerAsset.frameWidth, playerAsset.footAnchorY / playerAsset.frameHeight).setDisplaySize(playerAsset.frameWidth * playerAsset.renderScale * actorScale, playerAsset.frameHeight * playerAsset.renderScale * actorScale).setFrame(row * playerAsset.columns + frame).setPosition(ox + controller.x * TILE + offset.x, oy + controller.y * TILE + offset.y).setDepth(playerDepth).setVisible(!!appearance && playerReady);
     this.playerName.setPosition(ox + controller.x * TILE, oy + controller.y * TILE - playerAsset.frameHeight * playerAsset.renderScale * actorScale + 8).setDepth(playerDepth + 2).setVisible(!!appearance && playerReady);
   }
+  private async ensureInteriorArt(sceneId: string) {
+    const art = baishiInteriorArtRegistry.find(asset => asset.sceneId === sceneId);
+    if (!art || this.pendingInteriorArt.has(sceneId) || this.textures.exists(art.assetKey) && this.textures.exists(art.foreground.assetKey)) return;
+    this.pendingInteriorArt.add(sceneId);
+    try {
+      await this.interiorAssetLoader.load(art, this.textures, () => wx.createImage());
+      this.interiorBackgrounds.set(sceneId, this.add.image(0, 0, art.assetKey).setOrigin(0).setDisplaySize(art.width, art.height).setDepth(GROUND_DEPTH).setVisible(false));
+      this.interiorForegrounds.set(sceneId, this.add.image(0, 0, art.foreground.assetKey).setOrigin(0).setDisplaySize(art.width, art.height).setDepth(WORLD_BASE).setVisible(false));
+      this.worldOverlayCamera.ignore([this.interiorBackgrounds.get(sceneId)!, this.interiorForegrounds.get(sceneId)!]);
+    } catch (error: any) {
+      console.warn('[FJHY remote asset] interior unavailable; scene fallback remains active', { sceneId, errMsg: error?.message });
+    } finally { this.pendingInteriorArt.delete(sceneId); }
+  }
   private render() {
     const view = controller.view; this.cameras.main.setZoom(view?.scene.id === 'STREET_BAISHI_01' ? OUTDOOR_CAMERA_ZOOM : 1); this.graphics.clear(); this.debugGraphics.clear(); this.labelIndex = 0;
     const painter: Painter = {
@@ -372,6 +385,7 @@ class BaishiWechatScene extends Phaser.Scene {
       const groundReady = this.textures.exists(groundKey);
       this.ground?.setVisible(street && groundReady).setPosition(ox, oy);
       const interiorArt = baishiInteriorArtRegistry.find(asset => asset.sceneId === view.scene.id);
+      if (interiorArt && !this.textures.exists(interiorArt.assetKey)) void this.ensureInteriorArt(interiorArt.sceneId);
       const interiorReady = !!interiorArt && this.textures.exists(interiorArt.assetKey) && this.textures.exists(interiorArt.foreground.assetKey);
       for (const asset of baishiInteriorArtRegistry) {
         this.interiorBackgrounds.get(asset.sceneId)?.setVisible(!street && interiorReady && asset.sceneId === view.scene.id).setPosition(ox, oy);

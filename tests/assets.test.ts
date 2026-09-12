@@ -58,5 +58,5 @@ test('白石街建筑遮挡前沿以南立面与门前步道分界校准',()=>{c
 
 test('五座室内正式美术均复用锁定的 24×20 尺寸并拥有独立前景',()=>{
   assert.deepEqual(baishiInteriorArtRegistry.filter(asset=>asset.width===768).map(asset=>asset.sceneId),['INTERIOR_B_SALON','INTERIOR_B_GROCERY','INTERIOR_B_TRADE','INTERIOR_B_CLOTH','INTERIOR_B_INN']);
-  for(const asset of baishiInteriorArtRegistry){assert.equal(asset.width,asset.sceneId==='INTERIOR_B_INN_GUEST_ROOM'?448:768);assert.equal(asset.height,asset.sceneId==='INTERIOR_B_INN_GUEST_ROOM'?384:640);assert.match(asset.imagePath,/\/interiors\//);assert.match(asset.foreground.imagePath,/\/interiors\//);assert.ok(worldActorDepth(asset.foreground.occlusionFrontY-.1)<worldBuildingDepth(asset.foreground.occlusionFrontY));}
+  for(const asset of baishiInteriorArtRegistry){assert.equal(asset.width,asset.sceneId==='INTERIOR_B_INN_GUEST_ROOM'?448:768);assert.equal(asset.height,asset.sceneId==='INTERIOR_B_INN_GUEST_ROOM'?384:640);assert.match(asset.fallbackPath,/\/interiors\//);assert.match(asset.foreground.fallbackPath,/\/interiors\//);assert.ok(worldActorDepth(asset.foreground.occlusionFrontY-.1)<worldBuildingDepth(asset.foreground.occlusionFrontY));}
 });

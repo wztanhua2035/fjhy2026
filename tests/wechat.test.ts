@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { loadWechatAssets, wechatAssets } from '../apps/wechat-game/src/assets.js';
+import { loadWechatAssets, wechatAssets, wechatStartupAssets, WECHAT_STARTUP_PACKAGE_ROOTS } from '../apps/wechat-game/src/assets.js';
 import { mobileLayout } from '../apps/wechat-game/src/layout.js';
 import { MemoryRepository } from '../apps/server/src/repository.js';
 import { baishiSyncPlan, syncBaishiContent } from '../apps/server/src/sync-baishi.js';
@@ -58,36 +58,36 @@ test('wx.request → HTTP → 共享控制器：送样、关系、断线重登�
   } finally { (globalThis as any).wx = previousWx; await app.close(); }
 });
 
-test('微信原生图片完整注册正式资源、spritesheet，并缓存跨场景资源', async () => {
+test('微信启动只注册核心资源，室内包不再阻塞启动', async () => {
   const keys = new Set<string>(), paths: string[] = [], sheets: string[] = [];
   const textures = { exists: (key: string) => keys.has(key), addImage: (key: string) => keys.add(key), addSpriteSheet: (key: string, _image: any, config: any) => { assert.equal(config.frameWidth, 64); sheets.push(key); keys.add(key); } };
   const createImage = () => ({ onload: () => {}, set src(path: string) { paths.push(path); queueMicrotask(() => this.onload()); } });
   assert.deepEqual(await loadWechatAssets(textures, createImage), []);
-  assert.equal(keys.size, wechatAssets.length);
+  assert.equal(keys.size, wechatStartupAssets.length);
   assert.equal(sheets.length, 7);
   assert.equal(new Set(paths).size, paths.length);
-  assert.ok(paths.every(path => /^baishi-(ground|world|portraits|interior-[a-z]+)\//.test(path)));
+  assert.ok(paths.every(path => /^baishi-(ground|world|portraits)\//.test(path)));
   assert.ok(paths.includes('baishi-world/building_cloth_shop_fg.png'));
-  assert.equal(paths.filter(path => path.startsWith('baishi-interior-')).length, 12);
+  assert.equal(paths.filter(path => path.startsWith('baishi-interior-')).length, 0);
   await loadWechatAssets(textures, createImage);
-  assert.equal(paths.length, wechatAssets.length, '切换场景不得再次加载');
+  assert.equal(paths.length, wechatStartupAssets.length, '切换场景不得再次加载');
 });
 
-test('启动时预加载所有声明的室内分包，再启动图片加载器', async () => {
+test('启动时只预加载核心分包，保留室内分包给按需 fallback', async () => {
   const startup = await readFile('apps/wechat-game/game.js', 'utf8');
   const config = JSON.parse(await readFile('apps/wechat-game/game.json', 'utf8')) as { subpackages: { name: string; root: string }[] };
   const names = [...startup.matchAll(/'((?:baishi-ground|baishi-world|baishi-portraits|baishi-interior-[a-z]+))'/g)].map(match => match[1]);
-  assert.deepEqual(new Set(names), new Set(config.subpackages.map(item => item.name)));
+  assert.deepEqual(new Set(names), new Set(WECHAT_STARTUP_PACKAGE_ROOTS));
   for (const asset of wechatAssets) assert.ok(config.subpackages.some(item => item.name === asset.path.split('/')[0] && item.root === item.name));
   assert.match(startup, /Promise\.all\(packageNames\.map/);
   assert.match(startup, /\.then\(\(\) => require\('\.\/game\.bundle\.js'\)\)/);
 });
 
 test('图片失败显示具体文件，允许仅重试缺失资源', async () => {
-  const keys = new Set(wechatAssets.slice(1).map(a => a.key));
+  const keys = new Set(wechatStartupAssets.slice(1).map(a => a.key));
   const textures = { exists: (key: string) => keys.has(key), addImage: () => {}, addSpriteSheet: () => {} };
   const failures = await loadWechatAssets(textures, () => ({ onerror: () => {}, set src(_path: string) { queueMicrotask(() => this.onerror()); } }));
-  assert.deepEqual(failures, [wechatAssets[0].path]);
+  assert.deepEqual(failures, [wechatStartupAssets[0].path]);
 });
 
 test('白石街旧发布配置升级包含五栋建筑、三段任务，保留其他内容和历史发布', async () => {

@@ -41,8 +41,10 @@ export interface PortraitAsset {
 export interface InteriorArtAsset {
   sceneId: string;
   assetKey: string;
-  imagePath: string;
-  foreground: { assetKey: string; imagePath: string; occlusionFrontY: number };
+  resourceId: string;
+  /** Packaged only as a verified transitional fallback; runtime primary is resourceId. */
+  fallbackPath: string;
+  foreground: { assetKey: string; resourceId: string; fallbackPath: string; occlusionFrontY: number };
   width: number;
   height: number;
 }
@@ -114,12 +116,12 @@ export const baishiFormalArtRegistry = {
 
 // Interior layouts remain in game-config. These assets only render those locked layouts.
 export const baishiInteriorArtRegistry: InteriorArtAsset[] = [
-  { sceneId: 'INTERIOR_B_SALON', assetKey: 'interior-salon-bg-v1', imagePath: '/scene-layers/baishi/interiors/interior_salon_v1.png', foreground: { assetKey: 'interior-salon-fg-v1', imagePath: '/scene-layers/baishi/interiors/interior_salon_fg_v1.png', occlusionFrontY: 10.0 }, width: 768, height: 640 },
-  { sceneId: 'INTERIOR_B_GROCERY', assetKey: 'interior-grocery-bg-v1', imagePath: '/scene-layers/baishi/interiors/interior_grocery_v1.png', foreground: { assetKey: 'interior-grocery-fg-v1', imagePath: '/scene-layers/baishi/interiors/interior_grocery_fg_v1.png', occlusionFrontY: 10.0 }, width: 768, height: 640 },
-  { sceneId: 'INTERIOR_B_TRADE', assetKey: 'interior-trade-bg-v1', imagePath: '/scene-layers/baishi/interiors/interior_trade_v1.png', foreground: { assetKey: 'interior-trade-fg-v1', imagePath: '/scene-layers/baishi/interiors/interior_trade_fg_v1.png', occlusionFrontY: 10.0 }, width: 768, height: 640 },
-  { sceneId: 'INTERIOR_B_CLOTH', assetKey: 'interior-cloth-bg-v1', imagePath: '/scene-layers/baishi/interiors/interior_cloth_v1.png', foreground: { assetKey: 'interior-cloth-fg-v1', imagePath: '/scene-layers/baishi/interiors/interior_cloth_fg_v1.png', occlusionFrontY: 12.0 }, width: 768, height: 640 },
-  { sceneId: 'INTERIOR_B_INN', assetKey: 'interior-inn-bg-v1', imagePath: '/scene-layers/baishi/interiors/interior_inn_v1.png', foreground: { assetKey: 'interior-inn-fg-v1', imagePath: '/scene-layers/baishi/interiors/interior_inn_fg_v1.png', occlusionFrontY: 10.0 }, width: 768, height: 640 },
-  { sceneId: 'INTERIOR_B_INN_GUEST_ROOM', assetKey: 'interior-guest-room-bg-v2', imagePath: '/scene-layers/baishi/interiors/interior_guest_room_v2.png', foreground: { assetKey: 'interior-guest-room-fg-v2', imagePath: '/scene-layers/baishi/interiors/interior_guest_room_fg_v2.png', occlusionFrontY: 7.5 }, width: 448, height: 384 },
+  { sceneId: 'INTERIOR_B_SALON', assetKey: 'interior-salon-bg-v1', resourceId: 'BAISHI_INTERIOR_SALON_BG', fallbackPath: '/scene-layers/baishi/interiors/interior_salon_v1.png', foreground: { assetKey: 'interior-salon-fg-v1', resourceId: 'BAISHI_INTERIOR_SALON_FG', fallbackPath: '/scene-layers/baishi/interiors/interior_salon_fg_v1.png', occlusionFrontY: 10.0 }, width: 768, height: 640 },
+  { sceneId: 'INTERIOR_B_GROCERY', assetKey: 'interior-grocery-bg-v1', resourceId: 'BAISHI_INTERIOR_GROCERY_BG', fallbackPath: '/scene-layers/baishi/interiors/interior_grocery_v1.png', foreground: { assetKey: 'interior-grocery-fg-v1', resourceId: 'BAISHI_INTERIOR_GROCERY_FG', fallbackPath: '/scene-layers/baishi/interiors/interior_grocery_fg_v1.png', occlusionFrontY: 10.0 }, width: 768, height: 640 },
+  { sceneId: 'INTERIOR_B_TRADE', assetKey: 'interior-trade-bg-v1', resourceId: 'BAISHI_INTERIOR_TRADE_BG', fallbackPath: '/scene-layers/baishi/interiors/interior_trade_v1.png', foreground: { assetKey: 'interior-trade-fg-v1', resourceId: 'BAISHI_INTERIOR_TRADE_FG', fallbackPath: '/scene-layers/baishi/interiors/interior_trade_fg_v1.png', occlusionFrontY: 10.0 }, width: 768, height: 640 },
+  { sceneId: 'INTERIOR_B_CLOTH', assetKey: 'interior-cloth-bg-v1', resourceId: 'BAISHI_INTERIOR_CLOTH_BG', fallbackPath: '/scene-layers/baishi/interiors/interior_cloth_v1.png', foreground: { assetKey: 'interior-cloth-fg-v1', resourceId: 'BAISHI_INTERIOR_CLOTH_FG', fallbackPath: '/scene-layers/baishi/interiors/interior_cloth_fg_v1.png', occlusionFrontY: 12.0 }, width: 768, height: 640 },
+  { sceneId: 'INTERIOR_B_INN', assetKey: 'interior-inn-bg-v1', resourceId: 'BAISHI_INTERIOR_INN_BG', fallbackPath: '/scene-layers/baishi/interiors/interior_inn_v1.png', foreground: { assetKey: 'interior-inn-fg-v1', resourceId: 'BAISHI_INTERIOR_INN_FG', fallbackPath: '/scene-layers/baishi/interiors/interior_inn_fg_v1.png', occlusionFrontY: 10.0 }, width: 768, height: 640 },
+  { sceneId: 'INTERIOR_B_INN_GUEST_ROOM', assetKey: 'interior-guest-room-bg-v2', resourceId: 'BAISHI_INTERIOR_GUEST_ROOM_BG', fallbackPath: '/scene-layers/baishi/interiors/interior_guest_room_v2.png', foreground: { assetKey: 'interior-guest-room-fg-v2', resourceId: 'BAISHI_INTERIOR_GUEST_ROOM_FG', fallbackPath: '/scene-layers/baishi/interiors/interior_guest_room_fg_v2.png', occlusionFrontY: 7.5 }, width: 448, height: 384 },
 ];
 export const streetGroceryV1ArtAssets = {
   building: { assetKey:'building_street_grocery_base', imagePath:'/scene-layers/baishi/formal/building_street_grocery_base.png', worldX:21, worldY:20, renderWidth:320, renderHeight:384, originX:.5, originY:1, depth:30, occlusionFrontY:19, foreground:{assetKey:'building_street_grocery_fg',imagePath:'/scene-layers/baishi/formal/building_street_grocery_fg.png',offsetX:0,offsetY:0,depth:50} },

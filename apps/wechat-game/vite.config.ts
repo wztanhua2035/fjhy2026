@@ -10,6 +10,7 @@ export default defineConfig({
     __WECHAT_DEV_COLLISION__: JSON.stringify(process.env.WECHAT_GAME_DEBUG_COLLISION === 'true'),
     __WECHAT_DEV_SAFE_RESET__: JSON.stringify(process.env.WECHAT_GAME_DEBUG_SAFE_RESET === 'true'),
     __WECHAT_DEV_LOGIN__: JSON.stringify(process.env.WECHAT_GAME_DEV_LOGIN === 'true'),
+    __WECHAT_ASSET_BASE_URL__: JSON.stringify(process.env.ASSET_BASE_URL ?? process.env.WECHAT_ASSET_BASE_URL ?? 'https://res-fjhy.wzpy.net'),
   },
   build: {
     outDir: path.resolve('dist/wechat-game'),
