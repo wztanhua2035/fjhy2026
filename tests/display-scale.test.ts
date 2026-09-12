@@ -5,8 +5,8 @@ import { actorVisualScale, OUTDOOR_CAMERA_ZOOM, OUTDOOR_ACTOR_SCALE, INDOOR_ACTO
 test('室外镜头和室内外人物比例集中配置，脚底锚点及世界深度不变', () => {
   assert.equal(OUTDOOR_CAMERA_ZOOM, 1.08);
   assert.equal(OUTDOOR_ACTOR_SCALE, 1.09);
-  assert.equal(INDOOR_ACTOR_SCALE_MULTIPLIER, 1.30);
-  assert.equal(actorVisualScale('INTERIOR_B_CLOTH') / actorVisualScale('STREET_BAISHI_01'), 1.30);
+  assert.equal(INDOOR_ACTOR_SCALE_MULTIPLIER, 1.43);
+  assert.equal(actorVisualScale('INTERIOR_B_CLOTH') / actorVisualScale('STREET_BAISHI_01'), 1.43);
   assert.equal(baishiV2ArtAssets.playerMale.footAnchorX, 32);
   assert.equal(baishiV2ArtAssets.playerMale.footAnchorY, 59);
   assert.equal(baishiV2ArtAssets.playerFemale.footAnchorY, 59);

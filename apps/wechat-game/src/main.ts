@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
-import { GameController, formatQuestTracker, formatCyclingQuestTracker, baishiFormalArtRegistry, baishiV2ArtAssets, GROUND_DEPTH, WORLD_BASE, PORTRAIT_DIM_DEPTH, PORTRAIT_DEPTH, UI_DEPTH_BASE, DEBUG_DEPTH, worldActorDepth, worldBuildingDepth, buildingImagePosition, foregroundImagePosition, OUTDOOR_CAMERA_ZOOM, actorVisualScale, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
+import { GameController, formatQuestTracker, formatCyclingQuestTracker, baishiFormalArtRegistry, baishiV2ArtAssets, GROUND_DEPTH, WORLD_BASE, PORTRAIT_DIM_DEPTH, PORTRAIT_DEPTH, UI_DEPTH_BASE, DEBUG_DEPTH, worldActorDepth, worldBuildingDepth, buildingImagePosition, foregroundImagePosition, OUTDOOR_CAMERA_ZOOM, actorVisualScale, DIALOGUE_PORTRAIT_SCALE, DIALOGUE_ACTIVE_PORTRAIT_SCALE, DIALOGUE_INACTIVE_ALPHA, JOYSTICK_VISUAL_SCALE, JOYSTICK_HIT_SCALE, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
 import { availableStarterLookOptions } from '../../../packages/game-config/appearance-v1.js';
 import { createWeChatPlatform, safeInsets, allowWechatDebug } from './wechat-platform';
 import { loadWechatAssets } from './assets';
 import { mobileLayout } from './layout';
 import { baishiCompatibility } from './compatibility';
 import { mobileTypography } from './typography';
+import { MobileDialogueUi } from './dialogue-ui';
 declare const wx: any;
 
 declare const __WECHAT_API_BASE_URL__: string;
@@ -56,7 +57,7 @@ class BaishiWechatScene extends Phaser.Scene {
   private playerSprite!: Phaser.GameObjects.Sprite;
   private playerName!: Phaser.GameObjects.Text;
   private nightOverlay!: Phaser.GameObjects.Rectangle;
-  private dialogueName!: Phaser.GameObjects.Text;
+  private dialogueUi!: MobileDialogueUi;
   private portraitDim!: Phaser.GameObjects.Rectangle;
   private portraits = new Map<string, Phaser.GameObjects.Image>();
   private playerPortraits = new Map<'MALE'|'FEMALE', Phaser.GameObjects.Image>();
@@ -78,6 +79,7 @@ class BaishiWechatScene extends Phaser.Scene {
   private loginFailed = false;
   private move = { x: 0, y: 0 };
   private stickBase!: Phaser.GameObjects.Arc;
+  private stickHit!: Phaser.GameObjects.Arc;
   private stick!: Phaser.GameObjects.Arc;
   private fps = 0;
   private fpsElapsed = 0;
@@ -136,13 +138,13 @@ class BaishiWechatScene extends Phaser.Scene {
     this.playerName = this.add.text(0, 0, '你', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '17px', color: '#445749', stroke: '#f8f3df', strokeThickness: 3 }).setOrigin(.5, 1).setVisible(false);
     this.nightOverlay = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x233052, 0).setDepth(UI_DEPTH_BASE - 10).setVisible(false);
     this.portraitDim = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x18251c, .38).setDepth(PORTRAIT_DIM_DEPTH).setVisible(false);
-    this.portraitDim.setInteractive().on('pointerdown', () => { controller.dialogue = null; controller.dialogueSpeaker = null; controller.message = ''; this.syncUi(); });
-    for (const asset of baishiFormalArtRegistry.portraits) this.portraits.set(asset.speaker, this.add.image(WIDTH - insets.right - 180, HEIGHT - insets.bottom - 24, asset.assetKey).setOrigin(asset.originX, asset.originY).setDisplaySize(asset.preferredWidth, asset.preferredHeight).setDepth(PORTRAIT_DEPTH).setVisible(false));
-    this.playerPortraits.set('MALE', this.add.image(insets.left + 180, HEIGHT - insets.bottom - 24, 'portrait-player-male').setOrigin(.5, 1).setDisplaySize(264, 264).setDepth(PORTRAIT_DEPTH).setVisible(false));
-    this.playerPortraits.set('FEMALE', this.add.image(insets.left + 180, HEIGHT - insets.bottom - 24, 'portrait-player-female').setOrigin(.5, 1).setDisplaySize(264, 264).setDepth(PORTRAIT_DEPTH).setVisible(false));
-    this.dialogueName = this.add.text(WIDTH / 2, HEIGHT - insets.bottom - 226, '', {fontFamily:'Microsoft YaHei, Arial', fontSize:`${mobileTypography.speaker}px`, color:'#ffffff', backgroundColor:'#26352d', padding:{left:14,right:14,top:8,bottom:8}}).setOrigin(.5).setDepth(PORTRAIT_DEPTH + 11).setVisible(false);
+    this.portraitDim.setInteractive().on('pointerdown', () => this.advanceDialogue());
+    for (const asset of baishiFormalArtRegistry.portraits) this.portraits.set(asset.speaker, this.add.image(WIDTH - insets.right - 145, HEIGHT - insets.bottom - 12, asset.assetKey).setOrigin(asset.originX, asset.originY).setDisplaySize(asset.preferredWidth * DIALOGUE_PORTRAIT_SCALE * DIALOGUE_ACTIVE_PORTRAIT_SCALE, asset.preferredHeight * DIALOGUE_PORTRAIT_SCALE * DIALOGUE_ACTIVE_PORTRAIT_SCALE).setDepth(PORTRAIT_DEPTH).setVisible(false));
+    this.playerPortraits.set('MALE', this.add.image(insets.left + 145, HEIGHT - insets.bottom - 12, 'portrait-player-male').setOrigin(.5, 1).setDisplaySize(264 * DIALOGUE_PORTRAIT_SCALE, 264 * DIALOGUE_PORTRAIT_SCALE).setDepth(PORTRAIT_DEPTH).setVisible(false));
+    this.playerPortraits.set('FEMALE', this.add.image(insets.left + 145, HEIGHT - insets.bottom - 12, 'portrait-player-female').setOrigin(.5, 1).setDisplaySize(264 * DIALOGUE_PORTRAIT_SCALE, 264 * DIALOGUE_PORTRAIT_SCALE).setDepth(PORTRAIT_DEPTH).setVisible(false));
+    this.dialogueUi = new MobileDialogueUi(this, WIDTH, HEIGHT, insets, () => this.advanceDialogue());
     this.hud = this.add.text(insets.left + 18, insets.top + 14, '', { fontFamily: 'Arial', fontSize: '17px', color: '#ffffff', stroke: '#26352d', strokeThickness: 3, lineSpacing: 5 }).setDepth(UI_DEPTH_BASE + 20);
-    this.message = this.add.text(WIDTH / 2, HEIGHT - insets.bottom - 108, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: `${mobileTypography.dialogue}px`, color: '#ffffff', align: 'center', stroke: '#26352d', strokeThickness: 3, wordWrap: { width: Math.min(WIDTH - insets.left - insets.right - 60, 620) }, lineSpacing: 6 }).setOrigin(.5, 1).setDepth(UI_DEPTH_BASE + 30);
+    this.message = this.add.text(WIDTH / 2, HEIGHT - insets.bottom - 108, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: `${mobileTypography.notice}px`, color: '#ffffff', align: 'center', stroke: '#26352d', strokeThickness: 3, wordWrap: { width: Math.min(WIDTH - insets.left - insets.right - 60, 620) }, lineSpacing: 6 }).setOrigin(.5, 1).setDepth(UI_DEPTH_BASE + 30);
     this.frame = this.add.text(WIDTH - insets.right - 12, insets.top + 12, '', { fontFamily: 'Arial', fontSize: '14px', color: '#edf3d7', stroke: '#26352d', strokeThickness: 3 }).setOrigin(1, 0).setDepth(UI_DEPTH_BASE + 20);
     this.questToggle = this.button(WIDTH - insets.right - 62, insets.top + 54, 100, '任务 ▲', () => { this.questCollapsed = !this.questCollapsed; this.syncQuestPanel(); });
     this.questPanel = this.add.text(WIDTH - insets.right - 12, insets.top + 82, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: `${mobileTypography.quest}px`, color: '#385446', backgroundColor: '#fffef0', padding: { left: 14, right: 14, top: 12, bottom: 12 }, fixedWidth: 330, wordWrap: { width: 302 }, lineSpacing: 6 }).setOrigin(1, 0).setDepth(UI_DEPTH_BASE + 39);
@@ -153,10 +155,11 @@ class BaishiWechatScene extends Phaser.Scene {
     this.shopBalance = this.add.text(WIDTH - 105, 246, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '13px', color: '#fffdf3' }).setOrigin(1, 0).setDepth(UI_DEPTH_BASE + 39).setVisible(false);
     this.shopFeedback = this.add.text(WIDTH - 450, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '12px', color: '#7a6046', wordWrap: { width: 350 }, lineSpacing: 3 }).setDepth(UI_DEPTH_BASE + 39).setVisible(false);
     const baseX = insets.left + 86, baseY = HEIGHT - insets.bottom - 88;
-    this.stickBase = this.add.circle(baseX, baseY, 50, 0x24342d, .38).setDepth(UI_DEPTH_BASE + 35).setInteractive();
-    this.stick = this.add.circle(baseX, baseY, 21, 0xd7e7cf, .62).setDepth(UI_DEPTH_BASE + 36);
+    this.stickBase = this.add.circle(baseX, baseY, 50 * JOYSTICK_VISUAL_SCALE, 0x24342d, .38).setDepth(UI_DEPTH_BASE + 35);
+    this.stick = this.add.circle(baseX, baseY, 21 * JOYSTICK_VISUAL_SCALE, 0xd7e7cf, .62).setDepth(UI_DEPTH_BASE + 36);
+    this.stickHit = this.add.circle(baseX, baseY, 50 * JOYSTICK_HIT_SCALE, 0x24342d, .001).setDepth(UI_DEPTH_BASE + 37).setInteractive();
     this.input.addPointer(2);
-    this.stickBase.on('pointerdown', (p: Phaser.Input.Pointer) => { if (controller.dialogue || this.shopOpen) return; this.stickPointer = p.id; this.setStick(p); });
+    this.stickHit.on('pointerdown', (p: Phaser.Input.Pointer) => { if (controller.dialogue || this.shopOpen) return; this.stickPointer = p.id; this.setStick(p); });
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => { if (p.isDown && p.id === this.stickPointer) this.setStick(p); });
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => { if (p.id === this.stickPointer) this.clearStick(); });
     platform.onLifecycle(state => { if (state === 'hide') this.clearStick(); });
@@ -212,11 +215,16 @@ class BaishiWechatScene extends Phaser.Scene {
     button.on('pointerdown', action); return button;
   }
   private setStick(pointer: Phaser.Input.Pointer) {
-    const dx = pointer.x - this.stickBase.x, dy = pointer.y - this.stickBase.y, length = Math.hypot(dx, dy) || 1, scale = Math.min(32 / length, 1);
+    const dx = pointer.x - this.stickBase.x, dy = pointer.y - this.stickBase.y, length = Math.hypot(dx, dy) || 1, scale = Math.min(32 * JOYSTICK_VISUAL_SCALE / length, 1);
     this.stick.setPosition(this.stickBase.x + dx * scale, this.stickBase.y + dy * scale);
     this.move = { x: dx / length, y: dy / length };
   }
   private clearStick() { this.stickPointer = null; this.move = { x: 0, y: 0 }; if (this.stick) this.stick.setPosition(this.stickBase.x, this.stickBase.y); }
+  private advanceDialogue() {
+    if (!controller.dialogue || this.dialogueUi.advance()) return;
+    controller.dialogue = null; controller.dialogueSpeaker = null; controller.message = '';
+    this.syncUi();
+  }
   private async run(action: () => Promise<unknown>) { try { await action(); } catch (error: any) { controller.message = error.message ?? '操作失败'; } this.syncUi(); }
   private async createPreviewPlayer() {
     await controller.create(draft.gender, { skinToneId: draft.skinToneId, hairId: draft.hairId, outfitId: draft.outfitId });
@@ -266,14 +274,14 @@ class BaishiWechatScene extends Phaser.Scene {
     this.restartCancel.setVisible(home && this.confirmingRestart);
     this.restartAccept.setVisible(home && this.confirmingRestart);
     if (home) {
-      this.stickBase.setVisible(false); this.stick.setVisible(false); this.primary.setVisible(false); this.shopToggle.setVisible(false); this.safeResetButton.setVisible(false); this.genderToggle.setVisible(false);
+      this.stickBase.setVisible(false); this.stick.setVisible(false); this.stickHit.setVisible(false); this.primary.setVisible(false); this.shopToggle.setVisible(false); this.safeResetButton.setVisible(false); this.genderToggle.setVisible(false);
       for (const choice of this.creationChoices) choice.setVisible(false);
       this.questToggle.setVisible(false); this.questPanel.setVisible(false); this.shopBackdrop.setVisible(false); this.shopTitle.setVisible(false); this.shopBalance.setVisible(false); this.shopFeedback.setVisible(false);
       for (const row of this.shopRows) Object.values(row).forEach(node => node.setVisible(false));
-      this.portraitDim.setVisible(false); this.dialogueName.setVisible(false); this.message.setVisible(false); this.hud.setVisible(false); this.clearStick(); return;
+      this.portraitDim.setVisible(false); this.dialogueUi.sync('', '', false); this.message.setVisible(false); this.hud.setVisible(false); this.clearStick(); return;
     }
     this.message.setVisible(true); this.hud.setVisible(true);
-    this.stickBase.setVisible(hasPlayer); this.stick.setVisible(hasPlayer);
+    this.stickBase.setVisible(hasPlayer); this.stick.setVisible(hasPlayer); this.stickHit.setVisible(hasPlayer);
     const dialogue = !!controller.dialogue && !!controller.dialogueSpeaker;
     const canShop = !dialogue && !!controller.shopPanel() && !!controller.view?.npcs.some(n => Math.hypot(n.x - controller.x, n.y - controller.y) < 6);
     this.genderToggle.setVisible(false);
@@ -284,6 +292,7 @@ class BaishiWechatScene extends Phaser.Scene {
     this.safeResetButton.setVisible(hasPlayer && allowWechatDebug(__WECHAT_DEV_SAFE_RESET__, wx.getAccountInfoSync?.().miniProgram?.envVersion));
     if (this.shopOpen) this.shopToggle.setPosition(WIDTH - 530, 248); else this.shopToggle.setPosition(WIDTH - safeInsets(WIDTH, HEIGHT).right - 92, HEIGHT - safeInsets(WIDTH, HEIGHT).bottom - 150);
     if (dialogue || isShop) this.clearStick();
+    this.stickBase.setVisible(hasPlayer && !dialogue); this.stick.setVisible(hasPlayer && !dialogue); this.stickHit.setVisible(hasPlayer && !dialogue);
     if (controller.boot && !hasPlayer) this.syncCreationUi();
     else { this.primary.removeAllListeners('pointerdown').on('pointerdown', () => void this.run(() => controller.interact())); this.primary.setText(controller.nearby()?.label?.replace(/^进入/, '进 ') ?? '互动'); this.primary.setVisible(hasPlayer && !isShop && !dialogue); }
     this.hud.setText(hasPlayer ? `${controller.view?.scene.name ?? '横阳'} · ${player!.cash} 文` : '富甲横阳 · 白石街真机体验');
@@ -291,9 +300,10 @@ class BaishiWechatScene extends Phaser.Scene {
     if (controller.offline || controller.pending || this.loginFailed) this.primary.setVisible(true).setText('重新连接').removeAllListeners('pointerdown').on('pointerdown', () => void this.run(() => this.loginFailed ? this.loginPreview() : controller.retry()));
     if (this.contentError) this.primary.setVisible(false);
     this.portraitDim.setVisible(dialogue);
-    this.dialogueName.setText(`${controller.dialogueSpeaker ?? ''} · 已认识　（点击空白处结束）`).setVisible(dialogue);
-    for (const [speaker, portrait] of this.portraits) portrait.setVisible(dialogue && speaker === controller.dialogueSpeaker && this.textures.exists(portrait.texture.key));
-    for (const [gender, portrait] of this.playerPortraits) portrait.setVisible(dialogue && gender === player?.appearance?.gender && this.textures.exists(portrait.texture.key)).setAlpha(.72);
+    this.dialogueUi.sync(controller.dialogueSpeaker ?? '', controller.message, dialogue);
+    this.message.setVisible(!dialogue);
+    for (const [speaker, portrait] of this.portraits) portrait.setVisible(dialogue && speaker === controller.dialogueSpeaker && this.textures.exists(portrait.texture.key)).setAlpha(1);
+    for (const [gender, portrait] of this.playerPortraits) portrait.setVisible(dialogue && gender === player?.appearance?.gender && this.textures.exists(portrait.texture.key)).setAlpha(DIALOGUE_INACTIVE_ALPHA);
     this.questToggle.setVisible(hasPlayer);
     this.syncQuestPanel();
     this.syncShopPanel();

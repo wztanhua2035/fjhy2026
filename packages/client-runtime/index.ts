@@ -2,6 +2,7 @@ import type { Appearance, FormalNpcAppearance, Bootstrap, GhostProfile, PlayerSt
 import {inEntranceArea,npcCollisionRect,questStepProgress} from '../game-rules/index.js';
 export * from './assets.js';
 export * from './display-scale.js';
+export * from './dialogue-layout.js';
 export type Direction='up'|'down'|'left'|'right';
 export interface Painter {rect(x:number,y:number,w:number,h:number,color:string):void;circle(x:number,y:number,r:number,color:string):void;text(text:string,x:number,y:number,size:number,color:string):void}
 export function drawAppearance(p:Painter,input:Appearance|FormalNpcAppearance,colors:Record<string,string>,x:number,y:number,scale=1,direction:Direction='down',frame=0){

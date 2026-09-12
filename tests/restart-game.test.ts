@@ -90,7 +90,7 @@ test('Postgres 重开在同一事务备份角色进度，保留玩家主键及�
 });
 
 test('微信正文、说话人、按钮和任务字级增大，安全区仍有换行宽度',()=>{
-  assert.deepEqual(mobileTypography,{dialogue:21,speaker:23,option:23,quest:17});
+  assert.deepEqual(mobileTypography,{dialogue:29,speaker:25,dialogueOption:26,option:23,notice:21,quest:17});
   const insets=safeInsets(960,540);
   assert.ok(Math.min(960-insets.left-insets.right-60,620)>400);
   assert.ok(330-28>=280);
