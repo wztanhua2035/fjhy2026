@@ -13,9 +13,10 @@ const env={mode:'development',appEnv:'DEV',port:8080,jwtSecret:'test-jwt-secret-
 const appearance=(gender='FEMALE')=>({requestId:randomUUID(),gender,baseAvatarId:`${gender}_04`,hairColorId:'INK',topColorId:'SAGE',bottomColorId:'CREAM'});
 async function fixture(){const repo=new MemoryRepository(),p=await repo.login(randomUUID()),service=new GameService(repo,()=>new Date('2026-09-05T02:00:00Z'));await service.action(p.id,'create',appearance());return {repo,p,service};}
 async function completeOpening(post:(url:string,payload:object)=>Promise<any>){
- await post('/v1/player/move',{x:6,y:8});
+ await post('/v1/player/move',{x:7,y:10.2});
  await post('/v1/world/portal',{portalId:'EXIT_INN_GUEST_ROOM'});
  await post('/v1/intro/complete',{});
+ for(const [x,y] of [[3,6],[7,6],[12,6],[12,12]])await post('/v1/player/move',{x,y});
  await post('/v1/player/move',{x:12,y:16});
  await post('/v1/world/portal',{portalId:'EXIT_B_INN'});
 }

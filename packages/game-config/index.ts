@@ -49,7 +49,7 @@ const interiorZones: Record<string,InteriorZone[]> = {
   B_INN: [
     zone('INN_NORTH_WALL','wall',2,3,20,2,true),
     zone('INN_COUNTER','counter',6,10.3,5,.8,true),
-    zone('INN_GUEST_ROOM','room',2.5,11.5,5,4),
+      zone('INN_GUEST_ROOM','room',1.8,5.1,2.6,3.2),
     zone('INN_ROOM_PARTITION','wall',2.5,11.4,5,.45,true),
     zone('INN_ROOM_SIDE','wall',7.05,11.4,.45,2,true),
     zone('INN_WAITING','waitingArea',15,12,6,3),
@@ -105,17 +105,17 @@ const interiorZones: Record<string,InteriorZone[]> = {
   ]
 };
 const guestRoomZones: InteriorZone[] = [
-  zone('GUEST_NORTH_WALL','wall',1,1,10,1.2,true),
-  zone('GUEST_LEFT_WALL','wall',1,2.2,.5,6.4,true),
-  zone('GUEST_RIGHT_WALL','wall',10.5,2.2,.5,6.4,true),
-  zone('GUEST_SOUTH_WALL_LEFT','wall',1,8.6,4,1.4,true),
-  zone('GUEST_SOUTH_WALL_RIGHT','wall',7,8.6,4,1.4,true),
-  {...zone('GUEST_BED','bed',2.7,2.8,2.3,3.4,true,'床'),interactionPoint:{x:5.4,y:5.4}},
-  {...zone('GUEST_WARDROBE','wardrobe',5.9,2.8,1.3,1.6,true,'衣柜'),interactionPoint:{x:6.1,y:4.8}},
-  {...zone('GUEST_DESK','desk',7.3,3.2,2.1,1.9,true,'书桌'),interactionPoint:{x:7.0,y:5.5}},
-  {...zone('GUEST_CHEST','storage',7.8,5.7,2.1,1.5,true,'大箱子'),interactionPoint:{x:7.2,y:7.4}},
-  zone('GUEST_ENTRY','entry',5.3,7.8,1.4,1.1),
-  zone('GUEST_EXIT','exit',5.3,8.1,1.4,.8)
+  zone('GUEST_NORTH_WALL','wall',.7,.5,12.6,.7,true),
+  zone('GUEST_LEFT_WALL','wall',.7,1.2,.5,8.7,true),
+  zone('GUEST_RIGHT_WALL','wall',12.9,1.2,.5,8.7,true),
+  zone('GUEST_SOUTH_WALL_LEFT','wall',.7,9.9,5,1.1,true),
+  zone('GUEST_SOUTH_WALL_RIGHT','wall',8.5,9.9,4.9,1.1,true),
+  {...zone('GUEST_BED','bed',1.8,3.25,2.65,3.85,true,'床'),interactionPoint:{x:5.2,y:5.8}},
+  {...zone('GUEST_WARDROBE','wardrobe',6.25,2,2,2.45,true,'衣柜'),interactionPoint:{x:7.25,y:5.15}},
+  {...zone('GUEST_DESK','desk',9.4,3,2.6,2.4,true,'书桌'),interactionPoint:{x:8.9,y:5.9}},
+  {...zone('GUEST_CHEST','storage',10.15,6.7,2.55,2.05,true,'大箱子'),interactionPoint:{x:9.45,y:8.2}},
+  zone('GUEST_ENTRY','entry',6.2,8.2,1.6,1.1),
+  zone('GUEST_EXIT','exit',6.2,9.75,1.6,.9)
 ];
 const scenes: SceneConfig[] = [{id:street,name:'白石街',townId:'TOWN_CENTER',width:48,height:48,tileSize:32,mapAsset:'maps/baishi.tmx',
   // Follows the approved composition: compact main street, centre lane, canal and bridge.
@@ -123,8 +123,8 @@ const scenes: SceneConfig[] = [{id:street,name:'白石街',townId:'TOWN_CENTER',
   collision:[{x:0,y:39,width:22,height:6},{x:26,y:39,width:22,height:6},{x:0,y:0,width:15,height:4},{x:16,y:0,width:18,height:5},{x:35,y:0,width:13,height:4},{x:2,y:27,width:11,height:12},{x:14,y:29,width:6,height:9},{x:28,y:27,width:12,height:10},{x:41,y:27,width:7,height:12},...baishiStreetObjectCollision],portals:[],spawnX:23,spawnY:23},
  ...buildings.map((b,i)=>({id:b.interiorSceneId,name:b.name,townId:'TOWN_CENTER',width:24,height:20,tileSize:32,mapAsset:'maps/interior.tmx',roads:[],
   collision:interiorZones[b.id].filter(z=>z.solid).map(({x,y,width,height})=>({x,y,width,height})),interior:{zones:interiorZones[b.id]},buildingId:b.id,spawnX:12,spawnY:15,
-  portals:[{id:`EXIT_${b.id}`,x:12,y:18,toSceneId:street,spawnX:8.5+i*6,spawnY:21,returnEntranceId:['ENT_BAISHI_INN_S','ENT_BAISHI_GROCERY_S','ENT_BAISHI_TRADE_S','ENT_BAISHI_SALON_W','ENT_BAISHI_CLOTH_S'][i]},...(b.id==='B_INN'?[{id:'ENTER_INN_GUEST_ROOM',x:5,y:14.5,toSceneId:GUEST_ROOM_SCENE_ID,spawnX:6,spawnY:7}]:[])]}))];
-scenes.push({id:GUEST_ROOM_SCENE_ID,name:'客栈临时房',townId:'TOWN_CENTER',width:12,height:10,tileSize:32,mapAsset:'maps/interior.tmx',roads:[],collision:guestRoomZones.filter(z=>z.solid).map(({x,y,width,height})=>({x,y,width,height})),interior:{zones:guestRoomZones},buildingId:'B_INN',spawnX:6,spawnY:7,portals:[{id:'EXIT_INN_GUEST_ROOM',x:6,y:8.2,toSceneId:INN_LOBBY_SCENE_ID,spawnX:5,spawnY:14.5}]});
+    portals:[{id:`EXIT_${b.id}`,x:12,y:18,toSceneId:street,spawnX:8.5+i*6,spawnY:21,returnEntranceId:['ENT_BAISHI_INN_S','ENT_BAISHI_GROCERY_S','ENT_BAISHI_TRADE_S','ENT_BAISHI_SALON_W','ENT_BAISHI_CLOTH_S'][i]},...(b.id==='B_INN'?[{id:'ENTER_INN_GUEST_ROOM',x:3,y:7.2,toSceneId:GUEST_ROOM_SCENE_ID,spawnX:7,spawnY:8.4}]:[])]}))];
+scenes.push({id:GUEST_ROOM_SCENE_ID,name:'客栈临时房',townId:'TOWN_CENTER',width:14,height:12,tileSize:32,mapAsset:'maps/interior.tmx',roads:[],collision:guestRoomZones.filter(z=>z.solid).map(({x,y,width,height})=>({x,y,width,height})),interior:{zones:guestRoomZones},buildingId:'B_INN',spawnX:7,spawnY:8.4,portals:[{id:'EXIT_INN_GUEST_ROOM',x:7,y:10.2,toSceneId:INN_LOBBY_SCENE_ID,spawnX:3,spawnY:8.6}]});
 const appearances: AppearanceDefinition[] = [];
 for(const gender of ['MALE','FEMALE'] as const){
   for(let i=1;i<=6;i++) appearances.push({id:`${gender}_${String(i).padStart(2,'0')}`,partType:'BASE',name:`${gender==='MALE'?'少年':'少女'} ${i}`,genderScope:gender,assetKey:`avatars/${gender}_${i}`,price:0,colors:[],enabled:true,starter:true});

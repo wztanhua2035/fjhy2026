@@ -13,7 +13,7 @@ export interface Repository {
   draft(config:WorldConfig,basedOn:number):Promise<Release>; transition(id:string,status:string):Promise<Release>;
   ghosts(exclude:string):Promise<GhostProfile[]>; health():Promise<void>; close():Promise<void>;
 }
-const fresh=(id:string,nickname=`旅人${id.slice(0,4)}`):PlayerState=>({id,nickname,cash:0,stamina:100,status:'ACTIVE',sceneId:'INTERIOR_B_INN_GUEST_ROOM',x:6,y:7,appearance:null,inventory:{},cosmetics:[],ledger:[],tradeCounts:{},metNpcs:[],storyFlags:{}});
+const fresh=(id:string,nickname=`旅人${id.slice(0,4)}`):PlayerState=>({id,nickname,cash:0,stamina:100,status:'ACTIVE',sceneId:'INTERIOR_B_INN_GUEST_ROOM',x:7,y:8.4,appearance:null,inventory:{},cosmetics:[],ledger:[],tradeCounts:{},metNpcs:[],storyFlags:{}});
 export class MemoryRepository implements Repository {
   players=new Map<string,PlayerState>(); subjects=new Map<string,string>(); requests=new Map<string,{hash:string;result:any}>();
   versions:Release[]=[{id:'initial',version:1,status:'PUBLISHED',config:structuredClone(initialWorld),basedOn:0}];

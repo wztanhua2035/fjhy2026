@@ -26,7 +26,7 @@ export class GameService {
             ?formalizeAppearance(starterAppearance(world,body.gender,body.baseAvatarId,{skinColorId:body.skinColorId,hairColorId:body.hairColorId,topColorId:body.topColorId,bottomColorId:body.bottomColorId}))
             :createStarterAppearance(body.gender,{skinToneId:body.skinToneId,hairId:body.hairId,outfitId:body.outfitId});
           p.cosmetics=[p.appearance.hairId!,p.appearance.outfitId!];
-          p.sceneId=GUEST_ROOM_SCENE_ID;p.x=6;p.y=7;p.metNpcs=[...new Set([...p.metNpcs,'NPC_001'])];p.storyFlags={};
+          p.sceneId=GUEST_ROOM_SCENE_ID;p.x=7;p.y=8.4;p.metNpcs=[...new Set([...p.metNpcs,'NPC_001'])];p.storyFlags={};
           money(p,120,'SYSTEM_GRANT','NEW_PLAYER',body.requestId);
           questDialogue='临时借住的房间不大，却总算有个落脚的地方。出门就是客栈大厅。';break;
         }

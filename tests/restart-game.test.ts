@@ -41,7 +41,7 @@ test('新老玩家首页选项、确认重开、进度归零与稳定微信身�
     const duplicate=(await app.inject({method:'POST',url:'/v1/player/restart',headers,payload:{requestId,confirm:true}})).json();
     assert.deepEqual(duplicate,reset);
     assert.equal(reset.player.id,id);assert.equal(reset.player.appearance,null);
-    assert.deepEqual({cash:reset.player.cash,stamina:reset.player.stamina,sceneId:reset.player.sceneId,x:reset.player.x,y:reset.player.y,inventory:reset.player.inventory,cosmetics:reset.player.cosmetics,ledger:reset.player.ledger,tradeCounts:reset.player.tradeCounts,metNpcs:reset.player.metNpcs,storyFlags:reset.player.storyFlags},{cash:0,stamina:100,sceneId:'INTERIOR_B_INN_GUEST_ROOM',x:6,y:7,inventory:{},cosmetics:[],ledger:[],tradeCounts:{},metNpcs:[],storyFlags:{}});
+    assert.deepEqual({cash:reset.player.cash,stamina:reset.player.stamina,sceneId:reset.player.sceneId,x:reset.player.x,y:reset.player.y,inventory:reset.player.inventory,cosmetics:reset.player.cosmetics,ledger:reset.player.ledger,tradeCounts:reset.player.tradeCounts,metNpcs:reset.player.metNpcs,storyFlags:reset.player.storyFlags},{cash:0,stamina:100,sceneId:'INTERIOR_B_INN_GUEST_ROOM',x:7,y:8.4,inventory:{},cosmetics:[],ledger:[],tradeCounts:{},metNpcs:[],storyFlags:{}});
     const sameAccount=(await app.inject({method:'POST',url:'/v1/auth/wechat',payload:{code:'after-reset'}})).json();
     assert.equal(sameAccount.player.id,id);assert.equal(sameAccount.player.appearance,null);
     assert.deepEqual(repo.requests.get(`${id}:${requestId}`)?.result.backup.ledger.some((entry:any)=>entry.type==='QUEST_REWARD'),true);
