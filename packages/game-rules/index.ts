@@ -1,4 +1,5 @@
 import type { Appearance, PlayerState, WorldConfig, SceneView, PlotConfig, EntranceConfig, LedgerEntry, QuestConfig, QuestStepConfig } from '../shared-types/index.js';
+import { starterLookOptions } from '../game-config/appearance-v1.js';
 export class GameError extends Error { constructor(public code:string, message:string, public status=400){super(message)} }
 export function ensure(ok:unknown, code:string, message:string, status=400): asserts ok { if(!ok) throw new GameError(code,message,status); }
 export function minutesAt(now:Date){return (now.getUTCHours()*60+now.getUTCMinutes()+480)%1440;}
@@ -28,6 +29,27 @@ export function npcCollisionRect(n:{x:number;y:number}){return {x:n.x-.5,y:n.y-.
 export function canStand(world:WorldConfig,sceneId:string,x:number,y:number){
   const s=world.scenes.find(s=>s.id===sceneId);if(!s||x<1||y<1||x>s.width-1||y>s.height-1)return false;
   const staticBlocks=[...s.collision,...world.plots.filter(p=>p.sceneId===sceneId&&p.buildingId)];const npcBlocks=world.npcs.filter(n=>n.enabled&&n.sceneId===sceneId).map(npcCollisionRect);return !staticBlocks.some(r=>x>r.x-.18&&x<r.x+r.width+.18&&y>r.y-.18&&y<r.y+r.height+.18)&&!npcBlocks.some(r=>x>r.x&&x<r.x+r.width&&y>r.y&&y<r.y+r.height);
+}
+export interface StarterLookSelection { skinToneId?: string; hairId?: string; outfitId?: string }
+export function createStarterAppearance(gender:'MALE'|'FEMALE', selection:StarterLookSelection):Appearance {
+  const options=starterLookOptions(gender);
+  const skin=selection.skinToneId??options.skins[0].id;
+  const hair=selection.hairId??options.hairs[0]?.id;
+  const outfit=selection.outfitId??options.outfits[0]?.id;
+  ensure(options.skins.some(s=>s.id===skin),'BAD_SKIN','肤色不存在');
+  ensure(options.hairs.some(h=>h.id===hair),'BAD_HAIR','发型不存在');
+  ensure(options.outfits.some(o=>o.id===outfit),'BAD_OUTFIT','服装不存在');
+  // The database's existing non-null columns encode the complete IDs until a
+  // future additive schema migration. Deprecated colors are storage defaults.
+  return {gender,baseAvatarId:`${gender}_01`,skinToneId:skin,hairId:hair,outfitId:outfit,
+    skinColorId:skin,hairStyleId:hair,hairColorId:'INK',topStyleId:outfit,topColorId:'SAGE',
+    bottomStyleId:`BOTTOM_${gender}_01`,bottomColorId:'BLUE',shoesId:`SHOES_${gender}_01`,accessoryIds:[]};
+}
+export function formalizeAppearance(appearance:Appearance):Appearance {
+  const options=starterLookOptions(appearance.gender);
+  return {...appearance,skinToneId:options.skins.some(s=>s.id===(appearance.skinToneId??appearance.skinColorId))?(appearance.skinToneId??appearance.skinColorId):appearance.skinColorId==='SKIN_DEEP'?'SKIN_HONEY':options.skins[0].id,
+    hairId:options.hairs.some(h=>h.id===(appearance.hairId??appearance.hairStyleId))?(appearance.hairId??appearance.hairStyleId):options.hairs[0].id,
+    outfitId:options.outfits.some(o=>o.id===(appearance.outfitId??appearance.topStyleId))?(appearance.outfitId??appearance.topStyleId):options.outfits[0].id};
 }
 export function positionBlockers(world:WorldConfig,sceneId:string,x:number,y:number){
   const scene=world.scenes.find(s=>s.id===sceneId);
@@ -69,7 +91,7 @@ export function recoverSafePosition(world:WorldConfig,sceneId:string,x:number,y:
   ensure(fallback,'NO_SAFE_POSITION','场景没有可站立位置',503);
   return {x:fallback.x,y:fallback.y,source:'spawn' as const};
 }
-export function publicPlayer(p:PlayerState){return {...p,tradeCounts:{},ledger:p.ledger.slice(-20)};}
+export function publicPlayer(p:PlayerState){return {...p,appearance:p.appearance?formalizeAppearance(p.appearance):null,tradeCounts:{},ledger:p.ledger.slice(-20)};}
 export function questStepLedgerType(type:QuestStepConfig['type']){return type==='BUY'?'SHOP_BUY':type==='SELL'?'SHOP_SELL':type==='ACQUIRE'?'QUEST_ITEM_ACQUIRED':type==='DELIVER'?'QUEST_ITEM_DELIVERED':'QUEST_REPORTED';}
 export function questStepReference(questId:string,step:QuestStepConfig){return step.type==='BUY'||step.type==='SELL'?step.target:`${questId}:${step.target}`;}
 export function questStepProgress(quest:QuestConfig,ledger:LedgerEntry[]){return quest.steps.map(step=>{const type=questStepLedgerType(step.type),reference=questStepReference(quest.id,step);return Math.min(step.count,ledger.filter(entry=>entry.type===type&&(step.type==='BUY'||step.type==='SELL'?entry.referenceId.includes(reference):entry.referenceId===reference)).length);});}

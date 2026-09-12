@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { GameController, formatQuestTracker, baishiFormalArtRegistry, baishiV2ArtAssets, GROUND_DEPTH, WORLD_BASE, PORTRAIT_DIM_DEPTH, PORTRAIT_DEPTH, UI_DEPTH_BASE, DEBUG_DEPTH, worldActorDepth, worldBuildingDepth, buildingImagePosition, foregroundImagePosition, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
-import type { Appearance } from '../../../packages/shared-types/index.js';
+import { availableStarterLookOptions } from '../../../packages/game-config/appearance-v1.js';
 import { createWeChatPlatform, safeInsets, allowWechatDebug } from './wechat-platform';
 import { loadWechatAssets } from './assets';
 import { mobileLayout } from './layout';
@@ -18,8 +18,8 @@ const WIDTH = layout.width, HEIGHT = layout.height, TILE = 32, groundKey = 'bais
 const platform = createWeChatPlatform(__WECHAT_API_BASE_URL__, { debugOpenAll: __WECHAT_DEV_OPEN_ALL__ });
 const controller = new GameController(platform.transport);
 const debugCollision = allowWechatDebug(__WECHAT_DEV_COLLISION__, wx.getAccountInfoSync?.().miniProgram?.envVersion);
-type Draft = { gender: 'MALE' | 'FEMALE'; base: number; skin: string; hair: string; top: string; bottom: string; direction: Direction };
-const draft: Draft = { gender: 'FEMALE', base: 1, skin: 'SKIN_LIGHT', hair: 'INK', top: 'SAGE', bottom: 'CREAM', direction: 'down' };
+type Draft = { gender: 'MALE' | 'FEMALE'; skinToneId: string; hairId: string; outfitId: string; direction: Direction };
+const draft: Draft = { gender: 'FEMALE', skinToneId: 'SKIN_LIGHT', hairId: 'F_HAIR_01', outfitId: 'F_OUTFIT_01', direction: 'down' };
 // WeChat sends touch coordinates directly to the game canvas. Phaser's web-only
 // document.elementFromPoint check is not available in the Mini Game runtime.
 function installWeChatTouchMoveBridge() {
@@ -43,7 +43,6 @@ function installWeChatTouchMoveBridge() {
 }
 
 function color(value: string) { const hex = value.replace('#', ''); const rgb = hex.slice(0, 6).padEnd(6, '0'); return { value: parseInt(rgb, 16), alpha: hex.length === 8 ? parseInt(hex.slice(6), 16) / 255 : 1 }; }
-function appearance(): Appearance { return { gender: draft.gender, baseAvatarId: `${draft.gender}_${String(draft.base).padStart(2, '0')}`, skinColorId: draft.skin, hairStyleId: `HAIR_${draft.gender}_01`, topStyleId: `TOP_${draft.gender}_01`, bottomStyleId: `BOTTOM_${draft.gender}_01`, shoesId: `SHOES_${draft.gender}_01`, hairColorId: draft.hair, topColorId: draft.top, bottomColorId: draft.bottom, accessoryIds: [] }; }
 class BaishiWechatScene extends Phaser.Scene {
   private graphics!: Phaser.GameObjects.Graphics;
   private debugGraphics!: Phaser.GameObjects.Graphics;
@@ -88,6 +87,8 @@ class BaishiWechatScene extends Phaser.Scene {
   private shopToggle!: Phaser.GameObjects.Text;
   private safeResetButton!: Phaser.GameObjects.Text;
   private genderToggle!: Phaser.GameObjects.Text;
+  private creationChoices: Phaser.GameObjects.Text[] = [];
+  private creationStep = 0;
   private stickPointer: number | null = null;
   /* Native package images bypass the browser XHR/Blob loader. */
   async create() {
@@ -151,7 +152,8 @@ class BaishiWechatScene extends Phaser.Scene {
     this.shopToggle = this.button(WIDTH - insets.right - 92, HEIGHT - insets.bottom - 150, 112, '交易', () => { this.shopOpen = !this.shopOpen; this.clearStick(); this.syncUi(); });
     this.safeResetButton = this.button(insets.left + 100, insets.top + 108, 176, '恢复到安全点', () => void this.run(() => controller.write('/v1/player/debug-safe-reset', {})));
     this.safeResetButton.setVisible(false);
-    this.genderToggle = this.button(WIDTH / 2, HEIGHT / 2 + 100, 160, '切换男/女', () => { draft.gender = draft.gender === 'MALE' ? 'FEMALE' : 'MALE'; this.syncUi(); });
+    this.genderToggle = this.button(insets.left + 105, HEIGHT - insets.bottom - 75, 150, '上一步', () => { this.creationStep = Math.max(0, this.creationStep - 1); this.syncUi(); });
+    this.creationChoices = [0, 1, 2].map(index => this.button(WIDTH - insets.right - 175, HEIGHT / 2 - 70 + index * 68, 280, '', () => this.chooseCreation(index)));
     const capsule = wx.getMenuButtonBoundingClientRect?.();
     const rightTop = Math.max(insets.top + 12, (capsule?.bottom ?? 0) / windowInfo.windowHeight * HEIGHT + 12);
     this.frame.setY(rightTop);
@@ -192,24 +194,59 @@ class BaishiWechatScene extends Phaser.Scene {
   private clearStick() { this.stickPointer = null; this.move = { x: 0, y: 0 }; if (this.stick) this.stick.setPosition(this.stickBase.x, this.stickBase.y); }
   private async run(action: () => Promise<unknown>) { try { await action(); } catch (error: any) { controller.message = error.message ?? '操作失败'; } this.syncUi(); }
   private async createPreviewPlayer() {
-    await controller.create(draft.gender, appearance().baseAvatarId, draft.skin, draft.hair, draft.top, draft.bottom);
+    await controller.create(draft.gender, { skinToneId: draft.skinToneId, hairId: draft.hairId, outfitId: draft.outfitId });
     await this.checkContent();
+  }
+  private creationOptions() {
+    const boot = controller.boot;
+    if (!boot) return { skins: [], hairs: [], outfits: [] };
+    const { skins, hairs, outfits, selection } = availableStarterLookOptions(boot, draft.gender, draft);
+    Object.assign(draft, selection);
+    return { skins, hairs, outfits };
+  }
+  private chooseCreation(index: number) {
+    const options = this.creationOptions();
+    if (this.creationStep === 0) draft.gender = (['MALE', 'FEMALE'] as const)[index] ?? draft.gender;
+    if (this.creationStep === 1) draft.skinToneId = options.skins[index]?.id ?? draft.skinToneId;
+    if (this.creationStep === 2) draft.hairId = options.hairs[index]?.id ?? draft.hairId;
+    if (this.creationStep === 3) draft.outfitId = options.outfits[index]?.id ?? draft.outfitId;
+    controller.message = '欢迎来到横阳';
+    this.syncUi();
+  }
+  private syncCreationUi() {
+    const options = this.creationOptions();
+    const groups = [
+      [{ id: 'MALE', name: '男' }, { id: 'FEMALE', name: '女' }],
+      options.skins, options.hairs, options.outfits, []
+    ];
+    const selected = [draft.gender, draft.skinToneId, draft.hairId, draft.outfitId, ''][this.creationStep];
+    for (const [index, button] of this.creationChoices.entries()) {
+      const item = groups[this.creationStep]?.[index];
+      button.setVisible(!!item).setText(item ? `${item.id === selected ? '✓ ' : ''}${item.name}` : '');
+    }
+    this.genderToggle.setVisible(this.creationStep > 0);
+    const labels = ['选择性别', '选择肤色', '选择完整发型', '选择整套服装', '确认形象'];
+    this.message.setText(`${labels[this.creationStep]} · ${this.creationStep + 1}/5\n当前使用已穿衣的正式基础贴片预览`);
+    this.primary.setText(this.creationStep === 4 ? '确认创建' : '下一步').setVisible(!!draft.skinToneId && !!draft.hairId && !!draft.outfitId)
+      .removeAllListeners('pointerdown').on('pointerdown', () => this.creationStep === 4 ? void this.run(() => this.createPreviewPlayer()) : (this.creationStep++, this.syncUi()));
   }
   private syncUi() {
     const player = controller.player; const hasPlayer = !!player?.appearance;
+    this.stickBase.setVisible(hasPlayer); this.stick.setVisible(hasPlayer);
     const dialogue = !!controller.dialogue && !!controller.dialogueSpeaker;
     const canShop = !dialogue && !!controller.shopPanel() && !!controller.view?.npcs.some(n => Math.hypot(n.x - controller.x, n.y - controller.y) < 6);
-    this.genderToggle.setVisible(!!controller.boot && !hasPlayer);
+    this.genderToggle.setVisible(false);
+    for (const button of this.creationChoices) button.setVisible(false);
     if (!canShop || controller.offline || controller.pending) this.shopOpen = false;
     const isShop = canShop && this.shopOpen;
     this.shopToggle.setVisible(canShop).setText(this.shopOpen ? '收起交易' : '交易');
     this.safeResetButton.setVisible(hasPlayer && allowWechatDebug(__WECHAT_DEV_SAFE_RESET__, wx.getAccountInfoSync?.().miniProgram?.envVersion));
     if (this.shopOpen) this.shopToggle.setPosition(WIDTH - 530, 248); else this.shopToggle.setPosition(WIDTH - safeInsets(WIDTH, HEIGHT).right - 92, HEIGHT - safeInsets(WIDTH, HEIGHT).bottom - 150);
     if (dialogue || isShop) this.clearStick();
-    if (controller.boot && !hasPlayer) { this.message.setText('选择一个初始形象，然后开始白石街测试。'); this.primary.setText('开始'); this.primary.setVisible(true); this.primary.removeAllListeners('pointerdown').on('pointerdown', () => void this.run(() => this.createPreviewPlayer())); }
+    if (controller.boot && !hasPlayer) this.syncCreationUi();
     else { this.primary.removeAllListeners('pointerdown').on('pointerdown', () => void this.run(() => controller.interact())); this.primary.setText(controller.nearby()?.label?.replace(/^进入/, '进 ') ?? '互动'); this.primary.setVisible(hasPlayer && !isShop && !dialogue); }
     this.hud.setText(hasPlayer ? `${controller.view?.scene.name ?? '横阳'} · ${player!.cash} 文` : '富甲横阳 · 白石街真机体验');
-    this.message.setText(this.contentError || controller.message || '').setDepth(dialogue ? PORTRAIT_DEPTH + 10 : UI_DEPTH_BASE + 30);
+    if (hasPlayer || !controller.boot || this.contentError || (controller.message && controller.message !== '欢迎来到横阳')) this.message.setText(this.contentError || controller.message || '').setDepth(dialogue ? PORTRAIT_DEPTH + 10 : UI_DEPTH_BASE + 30);
     if (controller.offline || controller.pending || this.loginFailed) this.primary.setVisible(true).setText('重新连接').removeAllListeners('pointerdown').on('pointerdown', () => void this.run(() => this.loginFailed ? this.loginPreview() : controller.retry()));
     if (this.contentError) this.primary.setVisible(false);
     this.portraitDim.setVisible(dialogue);
@@ -273,7 +310,7 @@ class BaishiWechatScene extends Phaser.Scene {
       circle: (x, y, r, fill) => { const c = color(fill); this.graphics.fillStyle(c.value, c.alpha); this.graphics.fillCircle(x, y, r); },
       text: (value, x, y, size, fill) => { let label = this.labels[this.labelIndex++]; if (!label) { label = this.add.text(0, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: size, color: '#ffffff', stroke: '#23352b', strokeThickness: 1 }).setOrigin(.5).setDepth(WORLD_BASE - 1); this.labels.push(label); } label.setText(value).setPosition(x, y).setFontSize(size).setColor(fill).setVisible(true); },
     };
-    if (controller.boot && !controller.player?.appearance) { this.ground?.setVisible(false); this.nightOverlay.setVisible(false); for (const image of [...this.buildings.values(), ...this.foregrounds.values(), ...this.actors.values(), ...this.actorNames.values()]) image.setVisible(false); this.playerSprite.setVisible(false); this.playerName.setVisible(false); const asset = draft.gender === 'MALE' ? baishiV2ArtAssets.playerMale : baishiV2ArtAssets.playerFemale; this.playerSprite.setTexture(asset.assetKey, asset.directionRows.down * asset.columns).setPosition(WIDTH / 2, HEIGHT / 2 + 35).setDisplaySize(128, 128).setDepth(WORLD_BASE).setVisible(true); }
+    if (controller.boot && !controller.player?.appearance) { this.ground?.setVisible(false); this.nightOverlay.setVisible(false); for (const image of [...this.buildings.values(), ...this.foregrounds.values(), ...this.actors.values(), ...this.actorNames.values()]) image.setVisible(false); this.playerSprite.setVisible(false); this.playerName.setVisible(false); const asset = draft.gender === 'MALE' ? baishiV2ArtAssets.playerMale : baishiV2ArtAssets.playerFemale; this.playerSprite.setTexture(asset.assetKey, asset.directionRows.down * asset.columns).setPosition(WIDTH * .35, HEIGHT / 2 + 35).setDisplaySize(128, 128).setDepth(WORLD_BASE).setVisible(true); }
     else if (view) {
       const ox = WIDTH / 2 - controller.x * TILE, oy = HEIGHT / 2 - controller.y * TILE, street = view.scene.id === 'STREET_BAISHI_01';
       const groundReady = this.textures.exists(groundKey);

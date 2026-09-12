@@ -1,9 +1,10 @@
-import type { Appearance, Bootstrap, GhostProfile, PlayerState, QuestRuntime, QuestTrackerItem, SceneView, ShopPanelView } from '../shared-types/index.js';
+import type { Appearance, FormalNpcAppearance, Bootstrap, GhostProfile, PlayerState, QuestRuntime, QuestTrackerItem, SceneView, ShopPanelView } from '../shared-types/index.js';
 import {inEntranceArea,npcCollisionRect,questStepProgress} from '../game-rules/index.js';
 export * from './assets.js';
 export type Direction='up'|'down'|'left'|'right';
 export interface Painter {rect(x:number,y:number,w:number,h:number,color:string):void;circle(x:number,y:number,r:number,color:string):void;text(text:string,x:number,y:number,size:number,color:string):void}
-export function drawAppearance(p:Painter,a:Appearance,colors:Record<string,string>,x:number,y:number,scale=1,direction:Direction='down',frame=0){
+export function drawAppearance(p:Painter,input:Appearance|FormalNpcAppearance,colors:Record<string,string>,x:number,y:number,scale=1,direction:Direction='down',frame=0){
+  const a:Appearance='hairStyleId' in input?input:{...input,baseAvatarId:input.baseAvatarId??`${input.gender}_01`,skinColorId:input.skinToneId,hairStyleId:input.hairId,hairColorId:'INK',topStyleId:input.outfitId,topColorId:'SAGE',bottomStyleId:`BOTTOM_${input.gender}_01`,bottomColorId:'BLUE',shoesId:`SHOES_${input.gender}_01`};
   const rect=(dx:number,dy:number,w:number,h:number,c:string)=>p.rect(x+dx*scale,y+dy*scale,w*scale,h*scale,c),circle=(dx:number,dy:number,r:number,c:string)=>p.circle(x+dx*scale,y+dy*scale,r*scale,c);
   const variant=Math.max(0,Math.min(5,Number(a.baseAvatarId.slice(-2))-1));
   const shapes=[
@@ -15,7 +16,10 @@ export function drawAppearance(p:Painter,a:Appearance,colors:Record<string,strin
     {body:17,head:9.5,leg:7.5,height:-5}
   ][variant];
   const skin=colors[a.skinColorId??'']??['#f0c9a4','#e9b78e','#f5d8ba','#d6a180','#e6bb9f','#f8d7af'][variant];
-  const hair=colors[a.hairColorId]??'#343948',top=colors[a.topColorId]??'#86ac92',bottom=colors[a.bottomColorId]??'#789fc5';
+  const modern=!!a.outfitId&&a.topStyleId===a.outfitId;
+  const hair=modern&&a.gender==='MALE'?'#222b42':colors[a.hairColorId]??'#343948';
+  const top=modern?(a.gender==='MALE'?'#83878c':'#de8eaa'):colors[a.topColorId]??'#86ac92';
+  const bottom=modern?'#517fb8':colors[a.bottomColorId]??'#789fc5';
   const stride=Math.sin(frame*9)*2,variantHair=Number(a.hairStyleId.slice(-2));
   p.circle(x,y+(17+shapes.height)*scale,12*scale,'#00000018');
   const bodyX=shapes.body/2, legW=shapes.leg/2;
@@ -52,7 +56,9 @@ export class GameController {
     catch(e:any){this.dialogue=null;this.dialogueSpeaker=null;this.message=e.message;if(e.status){this.pending=null;this.x=this.player?.x??this.x;this.y=this.player?.y??this.y;}else{this.offline=true;this.message=this.pending?'网络中断，操作结果待确认。点击重试，使用同一请求编号。':'操作已确认，场景加载失败，请重新连接。';}throw e;}
     finally{this.busy=false;this.onChange();}
   }
-  async create(gender:'MALE'|'FEMALE',baseAvatarId:string,skinColorId:string,hairColorId:string,topColorId:string,bottomColorId:string){await this.write('/v1/player/appearance/create',{gender,baseAvatarId,skinColorId,hairColorId,topColorId,bottomColorId});}
+  async create(gender:'MALE'|'FEMALE',selection:{skinToneId?:string;hairId?:string;outfitId?:string}):Promise<void>;
+  async create(gender:'MALE'|'FEMALE',baseAvatarId:string,skinColorId:string,hairColorId:string,topColorId:string,bottomColorId:string):Promise<void>;
+  async create(gender:'MALE'|'FEMALE',selection:string|{skinToneId?:string;hairId?:string;outfitId?:string},skinColorId?:string,hairColorId?:string,topColorId?:string,bottomColorId?:string){await this.write('/v1/player/appearance/create',typeof selection==='string'?{gender,baseAvatarId:selection,skinColorId,hairColorId,topColorId,bottomColorId}:{gender,...selection});}
   tick(dt:number,dx:number,dy:number){if(!this.view||!this.player?.appearance)return;this.interactionCooldown=Math.max(0,this.interactionCooldown-dt);
     this.walkTime+=dt;this.moving=!!(dx||dy)&&(!this.busy||this.offline);
     const correctionFactor=1-Math.exp(-dt*10);

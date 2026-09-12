@@ -1,7 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { Repository } from './repository.js';
 import type { PlayerState, WorldConfig } from '../../../packages/shared-types/index.js';
-import { ensure, canStand, recoverSafePosition, positionBlockers, isOpen, starterAppearance, publicPlayer, sceneView, plotEntrances, inEntranceArea, questStepProgress, questStepLedgerType, questStepReference } from '../../../packages/game-rules/index.js';
+import { ensure, canStand, recoverSafePosition, positionBlockers, isOpen, starterAppearance, createStarterAppearance, formalizeAppearance, publicPlayer, sceneView, plotEntrances, inEntranceArea, questStepProgress, questStepLedgerType, questStepReference } from '../../../packages/game-rules/index.js';
+import { starterLooks } from '../../../packages/game-config/appearance-v1.js';
 export interface RequestGameContext { debugOpenAll?: boolean }
 function money(p:PlayerState,amount:number,type:string,referenceId:string,requestId:string){
   ensure(Number.isSafeInteger(p.cash+amount)&&p.cash+amount>=0&&p.cash+amount<=1e12,'INSUFFICIENT_CASH','铜钱不足或超出余额上限');
@@ -19,8 +20,10 @@ export class GameService {
       switch(action){
         case 'create':{
           ensure(!p.appearance,'ALREADY_CREATED','角色已创建',409);
-          p.appearance=starterAppearance(world,body.gender,body.baseAvatarId,{skinColorId:body.skinColorId,hairColorId:body.hairColorId,topColorId:body.topColorId,bottomColorId:body.bottomColorId});
-          p.cosmetics=[p.appearance.hairStyleId,p.appearance.topStyleId,p.appearance.bottomStyleId,p.appearance.shoesId];
+          p.appearance='baseAvatarId' in body
+            ?formalizeAppearance(starterAppearance(world,body.gender,body.baseAvatarId,{skinColorId:body.skinColorId,hairColorId:body.hairColorId,topColorId:body.topColorId,bottomColorId:body.bottomColorId}))
+            :createStarterAppearance(body.gender,{skinToneId:body.skinToneId,hairId:body.hairId,outfitId:body.outfitId});
+          p.cosmetics=[p.appearance.hairId!,p.appearance.outfitId!];
           money(p,120,'SYSTEM_GRANT','NEW_PLAYER',body.requestId);break;
         }
         case 'move':{
@@ -80,15 +83,15 @@ export class GameService {
           }
           if(taskMessages.length)dialogue=taskMessages.join('\n');return {player:publicPlayer(p),dialogue};
         }        case 'purchaseAppearance':{
-          const shop=this.shop(world,p,body.buildingId,context),a=world.appearances.find(a=>a.id===body.appearanceId&&a.enabled);
+          const shop=this.shop(world,p,body.buildingId,context),a=[...world.appearances,...starterLooks].find(a=>a.id===body.appearanceId&&a.enabled);
           ensure(a&&a.partType!=='BASE'&&a.partType!=='HAIR','BAD_APPEARANCE','请选择可购买的服饰');ensure(shop.buildingType==='CLOTH','WRONG_SHOP','请前往服装店');ensure(a.genderScope==='ALL'||a.genderScope===p.appearance!.gender,'INCOMPATIBLE','此部件不适配当前角色');ensure(!p.cosmetics.includes(a.id),'ALREADY_OWNED','已经拥有该服饰');money(p,-a.price,'COSMETIC_BUY',a.id,body.requestId);p.cosmetics.push(a.id);break;
         }
         case 'changeAppearance':{
-          const shop=this.shop(world,p,body.buildingId,context),a=world.appearances.find(a=>a.id===body.appearanceId);
-          ensure(a&&a.partType!=='BASE'&&a.partType!=='ACCESSORY','BAD_APPEARANCE','部件不可穿戴');ensure(a.genderScope==='ALL'||a.genderScope===p.appearance!.gender,'INCOMPATIBLE','此部件不适配当前角色');ensure(a.colors.includes(body.colorId),'BAD_COLOR','配色不适配');
+          const shop=this.shop(world,p,body.buildingId,context),a=[...world.appearances,...starterLooks].find(a=>a.id===body.appearanceId);
+          ensure(a&&a.partType!=='BASE'&&a.partType!=='ACCESSORY','BAD_APPEARANCE','部件不可穿戴');ensure(a.genderScope==='ALL'||a.genderScope===p.appearance!.gender,'INCOMPATIBLE','此部件不适配当前角色');if(a.partType!=='OUTFIT'&&a.colors.length)ensure(a.colors.includes(body.colorId),'BAD_COLOR','配色不适配');
           if(a.partType==='HAIR'){ensure(shop.buildingType==='SALON'&&a.enabled,'WRONG_SHOP','请前往美发室选择有效发型');money(p,-a.price,'HAIRCUT',a.id,body.requestId);if(!p.cosmetics.includes(a.id))p.cosmetics.push(a.id);}
           else{ensure(shop.buildingType==='CLOTH','WRONG_SHOP','请在服装店试衣');ensure(p.cosmetics.includes(a.id),'NOT_OWNED','尚未拥有该服饰',403);}
-          const ap=p.appearance!;if(a.partType==='HAIR'){ap.hairStyleId=a.id;ap.hairColorId=body.colorId;}if(a.partType==='TOP'){ap.topStyleId=a.id;ap.topColorId=body.colorId;}if(a.partType==='BOTTOM'){ap.bottomStyleId=a.id;ap.bottomColorId=body.colorId;}if(a.partType==='SHOES')ap.shoesId=a.id;break;
+          const ap=p.appearance!;if(a.partType==='HAIR'){ap.hairStyleId=a.id;ap.hairId=starterLooks.some(look=>look.id===a.id)?a.id:undefined;if(body.colorId)ap.hairColorId=body.colorId;}if(a.partType==='OUTFIT'){ap.outfitId=a.id;ap.topStyleId=a.id;}if(a.partType==='TOP'){ap.topStyleId=a.id;ap.topColorId=body.colorId;}if(a.partType==='BOTTOM'){ap.bottomStyleId=a.id;ap.bottomColorId=body.colorId;}if(a.partType==='SHOES')ap.shoesId=a.id;break;
         }
       }
       return {player:publicPlayer(p),dialogue:questDialogue};

@@ -39,7 +39,7 @@ test('wx.request → HTTP → 共享控制器：送样、关系、断线重登�
     const platform = createWeChatPlatform('http://localhost:8080', {debugOpenAll:true});
     let c = new GameController(platform.transport);
     await c.loginWechat('code');
-    await c.create('FEMALE','FEMALE_01','SKIN_LIGHT','INK','SAGE','CREAM');
+    await c.create('FEMALE',{skinToneId:'SKIN_LIGHT',hairId:'F_HAIR_01',outfitId:'F_OUTFIT_01'});
     const place = async (npcId: string) => { const npc = initialWorld.npcs.find(n => n.id === npcId)!; Object.assign(repo.players.get(c.player!.id)!,{sceneId:npc.sceneId,x:npc.x,y:npc.y+1}); await c.refresh(); };
     await place('NPC_CLOTH_SHOPKEEPER'); await c.interact();
     assert.equal(c.player!.inventory.CLOTH_SAMPLE_01, 1);

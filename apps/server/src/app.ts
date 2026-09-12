@@ -11,17 +11,21 @@ import type { Environment } from './config.js';
 import { validateWorld } from './config.js';
 import { GameService } from './service.js';
 import { ensure, GameError, sceneView, publicPlayer, questStepProgress } from '../../../packages/game-rules/index.js';
+import { starterLooks, starterSkinTones } from '../../../packages/game-config/appearance-v1.js';
 declare module '@fastify/jwt' {interface FastifyJWT {payload:{sub:string};user:{sub:string}}}
 const requestId=z.string().uuid(),id=z.string().min(1).max(80);
 const schemas={
-  create:z.object({requestId,gender:z.enum(['MALE','FEMALE']),baseAvatarId:id,skinColorId:id.optional(),hairColorId:id,topColorId:id,bottomColorId:id}).strict(),
+  create:z.union([
+    z.object({requestId,gender:z.enum(['MALE','FEMALE']),skinToneId:id.optional(),hairId:id.optional(),outfitId:id.optional()}).strict(),
+    z.object({requestId,gender:z.enum(['MALE','FEMALE']),baseAvatarId:id,skinColorId:id.optional(),hairColorId:id,topColorId:id,bottomColorId:id}).strict()
+  ]),
   move:z.object({requestId,x:z.number().finite(),y:z.number().finite()}).strict(),
   enter:z.object({requestId,plotId:id,entranceId:id.optional()}).strict(),portal:z.object({requestId,portalId:id}).strict(),
   buy:z.object({requestId,buildingId:id,itemId:id,quantity:z.number().int().min(1).max(99)}).strict(),
   sell:z.object({requestId,buildingId:id,itemId:id,quantity:z.number().int().min(1).max(99)}).strict(),
   talk:z.object({requestId,npcId:id}).strict(),
   purchaseAppearance:z.object({requestId,buildingId:id,appearanceId:id}).strict(),
-  changeAppearance:z.object({requestId,buildingId:id,appearanceId:id,colorId:id}).strict()
+  changeAppearance:z.object({requestId,buildingId:id,appearanceId:id,colorId:id.optional()}).strict()
 };
 export async function buildApp(repo:Repository,env:Environment,options:{logger?:boolean;now?:()=>Date;exchangeCode?:(code:string)=>Promise<string>}={}){
   const app=Fastify({logger:options.logger?{redact:['req.headers.authorization','req.headers.cookie','req.body.code','req.body.token']}:false,bodyLimit:2*1024*1024,trustProxy:false});
@@ -67,7 +71,7 @@ if(status>=500){
     return login(result.openid);
   });
   app.post('/v1/auth/dev',async req=>{ensure(env.allowDevAuth&&env.appEnv==='DEV'&&env.mode!=='production','NOT_FOUND','接口不存在',404);const {account}=z.object({account:z.string().regex(/^[a-z0-9_-]{1,32}$/)}).strict().parse(req.body);return login(`dev:${account}`);});
-  app.get('/v1/bootstrap',async req=>{const w=await repo.world(),p=await repo.repairPosition(req.user.sub,w);return {player:publicPlayer(p),serverTime:game.now().toISOString(),worldVersion:w.worldVersion,configVersion:w.configVersion,assetVersion:w.assetVersion,assetManifest:`${env.assetBase}/${w.assetVersion}/manifest.json`,colors:w.colors,appearances:w.appearances.filter(a=>a.enabled),features:{trade:true,appearance:true,ghostPreview:true,gifts:false,property:false,quests:true,rank:false}};});
+  app.get('/v1/bootstrap',async req=>{const w=await repo.world(),p=await repo.repairPosition(req.user.sub,w);return {player:publicPlayer(p),serverTime:game.now().toISOString(),worldVersion:w.worldVersion,configVersion:w.configVersion,assetVersion:w.assetVersion,assetManifest:`${env.assetBase}/${w.assetVersion}/manifest.json`,colors:{...w.colors,...Object.fromEntries(starterSkinTones.map(s=>[s.id,s.hex]))},appearances:[...w.appearances.filter(a=>a.enabled&&!starterLooks.some(s=>s.id===a.id)),...starterLooks],features:{trade:true,appearance:true,ghostPreview:true,gifts:false,property:false,quests:true,rank:false}};});
   app.get('/v1/world/scenes/:id',async req=>{const w=await repo.world(),p=await repo.repairPosition(req.user.sub,w);ensure(p.appearance,'CHARACTER_REQUIRED','请先创建角色',409);return {...sceneView(w,(req.params as any).id,game.now(),requestGameContext(req).debugOpenAll),playerPosition:{sceneId:p.sceneId,x:p.x,y:p.y}};});
   app.get('/v1/scenes/:id/ghosts',async req=>{const p=await repo.player(req.user.sub);ensure(p.appearance&&p.sceneId===(req.params as any).id,'WRONG_SCENE','请进入对应场景');return {ghosts:await repo.ghosts(p.id)};});
   const routes:Record<keyof typeof schemas,string>={create:'/v1/player/appearance/create',move:'/v1/player/move',enter:'/v1/world/enter',portal:'/v1/world/portal',buy:'/v1/economy/buy',sell:'/v1/economy/sell',talk:'/v1/npc/talk',purchaseAppearance:'/v1/appearance/purchase',changeAppearance:'/v1/appearance/change'};
@@ -75,7 +79,7 @@ if(status>=500){
   app.post('/v1/player/debug-safe-reset',async req=>{ensure(env.appEnv==='DEV'&&env.mode!=='production','NOT_FOUND','接口不存在',404);return game.action(req.user.sub,'safeReset',z.object({requestId}).strict().parse(req.body));});
   app.get('/v1/player/appearance',async req=>{const p=await repo.player(req.user.sub);return {appearance:p.appearance,owned:p.cosmetics};});
   app.get('/v1/appearance/owned',async req=>({owned:(await repo.player(req.user.sub)).cosmetics}));
-  app.get('/v1/appearance/catalog',async req=>{const {shop}=z.object({shop:id}).parse(req.query),w=await repo.world(),p=await repo.player(req.user.sub);const b=game.shop(w,p,shop,requestGameContext(req));return {catalog:w.appearances.filter(a=>a.enabled&&(a.genderScope==='ALL'||a.genderScope===p.appearance?.gender)&&(b.buildingType==='SALON'?a.partType==='HAIR':b.buildingType==='CLOTH'?['TOP','BOTTOM','SHOES','ACCESSORY'].includes(a.partType):false))};});
+  app.get('/v1/appearance/catalog',async req=>{const {shop}=z.object({shop:id}).parse(req.query),w=await repo.world(),p=await repo.player(req.user.sub);const b=game.shop(w,p,shop,requestGameContext(req));return {catalog:[...w.appearances,...starterLooks.filter(a=>!w.appearances.some(old=>old.id===a.id))].filter(a=>a.enabled&&(a.genderScope==='ALL'||a.genderScope===p.appearance?.gender)&&(b.buildingType==='SALON'?a.partType==='HAIR'&&a.colors.length===0:b.buildingType==='CLOTH'?['OUTFIT','ACCESSORY'].includes(a.partType):false))};});
   for(const route of ['/v1/social/gifts','/v1/mail/:id/claim','/v1/property/purchase'])app.post(route,async()=>{throw new GameError('FEATURE_NOT_ENABLED','该功能将在后续开发阶段开放',501);});
   app.get('/v1/quests',async req=>{const world=await repo.world(),p=await repo.player(req.user.sub);const quests=world.quests.filter(q=>q.enabled).map(quest=>{const accepted=p.ledger.some(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId===quest.id),completed=p.ledger.some(l=>l.type==='QUEST_REWARD'&&l.referenceId===quest.id),stepProgress=questStepProgress(quest,p.ledger),progressed=stepProgress.some(Boolean),state=completed?'completed':accepted?(progressed?'in_progress':'accepted'):'available';return {...quest,state,progress:Object.fromEntries(quest.steps.map((step,index)=>[step.type,stepProgress[index]])),stepProgress,rewardClaimed:completed};});return {enabled:true,quests};});
   app.get('/v1/rank/wealth',async()=>({enabled:false,players:[]}));

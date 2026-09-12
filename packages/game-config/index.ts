@@ -1,4 +1,6 @@
 import type { WorldConfig, SceneConfig, BuildingConfig, AppearanceDefinition, EntranceDirection, PlotConfig } from '../shared-types/index.js';
+import { starterLooks } from './appearance-v1.js';
+export { starterLookOptions, starterSkinTones, starterLooks, availableStarterLookOptions } from './appearance-v1.js';
 const street = 'STREET_BAISHI_01';
 // Solid decorations reuse the shared static-collision path. Rectangles follow
 // only each object's footprint and leave every entrance corridor unobstructed.
@@ -53,6 +55,7 @@ for(const gender of ['MALE','FEMALE'] as const){
   for(let i=1;i<=6;i++) appearances.push({id:`${gender}_${String(i).padStart(2,'0')}`,partType:'BASE',name:`${gender==='MALE'?'少年':'少女'} ${i}`,genderScope:gender,assetKey:`avatars/${gender}_${i}`,price:0,colors:[],enabled:true,starter:true});
   for(const part of ['HAIR','TOP','BOTTOM','SHOES']) for(let i=1;i<=(part==='HAIR'?8:part==='TOP'?6:4);i++) appearances.push({id:`${part}_${gender}_${String(i).padStart(2,'0')}`,partType:part,name:`${{HAIR:'发型',TOP:'上衣',BOTTOM:'下装',SHOES:'鞋'}[part]} ${i}`,genderScope:gender,assetKey:`appearance/${part}_${gender}_${i}`,price:i===1?0:20+i*5,colors:['INK','CHESTNUT','CREAM','SAGE','BLUE','ROSE'],enabled:true,starter:i===1});
 }
+appearances.push(...starterLooks);
 // Entry markers sit immediately outside a blocked building plot. Make the
 // activation zone comfortably reachable from the public road, especially with
 // a touch joystick, without opening the building collision area itself.

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { PrismaClient, Prisma } from '@prisma/client';
 import type { PlayerState, WorldConfig, GhostProfile } from '../../../packages/shared-types/index.js';
 import { initialWorld } from '../../../packages/game-config/index.js';
-import { ensure, canStand, positionBlockers, recoverSafePosition } from '../../../packages/game-rules/index.js';
+import { ensure, canStand, positionBlockers, recoverSafePosition, formalizeAppearance } from '../../../packages/game-rules/index.js';
 export interface Release { id:string;version:number;status:string;config:WorldConfig;basedOn:number }
 export interface Repository {
   login(subject:string):Promise<PlayerState>; player(id:string):Promise<PlayerState>;
@@ -38,7 +38,7 @@ export class MemoryRepository implements Repository {
 function checkTransition(r:Release,status:string){ensure((r.status==='DRAFT'&&status==='TEST')||(r.status==='TEST'&&status==='PUBLISHED'),'INVALID_TRANSITION','必须先将草稿验证为 TEST，再发布',409);}
 const include={appearance:true,inventory:true,cosmetics:true,ledger:{orderBy:{createdAt:'desc' as const},take:100}};
 function decode(row:any):PlayerState{return {id:row.id,nickname:row.nickname,cash:Number(row.cash),stamina:row.stamina,status:row.status,sceneId:row.sceneId,x:row.x,y:row.y,
-  appearance:row.appearance?{gender:row.appearance.gender,baseAvatarId:row.appearance.baseAvatarId,skinColorId:row.appearance.skinColorId??'SKIN_LIGHT',hairStyleId:row.appearance.hairStyleId,hairColorId:row.appearance.hairColorId,topStyleId:row.appearance.topStyleId,topColorId:row.appearance.topColorId,bottomStyleId:row.appearance.bottomStyleId,bottomColorId:row.appearance.bottomColorId,shoesId:row.appearance.shoesId,accessoryIds:row.appearance.accessoryIds}:null,
+  appearance:row.appearance?formalizeAppearance({gender:row.appearance.gender,baseAvatarId:row.appearance.baseAvatarId,skinColorId:row.appearance.skinColorId??'SKIN_LIGHT',hairStyleId:row.appearance.hairStyleId,hairColorId:row.appearance.hairColorId,topStyleId:row.appearance.topStyleId,topColorId:row.appearance.topColorId,bottomStyleId:row.appearance.bottomStyleId,bottomColorId:row.appearance.bottomColorId,shoesId:row.appearance.shoesId,accessoryIds:row.appearance.accessoryIds}):null,
   inventory:Object.fromEntries(row.inventory.map((i:any)=>[i.itemId,i.quantity])),cosmetics:row.cosmetics.map((c:any)=>c.appearanceId),tradeCounts:row.tradeCounts,metNpcs:row.metNpcs,
   ledger:row.ledger.slice().reverse().map((l:any)=>({id:l.id,type:l.type,amount:Number(l.amount),before:Number(l.before),after:Number(l.after),referenceId:l.referenceId,requestId:l.requestId,createdAt:l.createdAt.toISOString()}))};}
 const json=(v:unknown)=>JSON.parse(JSON.stringify(v)) as Prisma.InputJsonValue;
@@ -65,7 +65,9 @@ export class PostgresRepository implements Repository {
       const row=await tx.player.findUnique({where:{id},include});ensure(row,'UNAUTHORIZED','请重新登录',401);
       const p=decode(row),ledgerIds=new Set(p.ledger.map(l=>l.id)),result=fn(p);
       await tx.player.update({where:{id},data:{cash:BigInt(p.cash),stamina:p.stamina,sceneId:p.sceneId,x:p.x,y:p.y,tradeCounts:json(p.tradeCounts),metNpcs:json(p.metNpcs)}});
-      if(p.appearance){await tx.playerAppearance.upsert({where:{playerId:id},create:{playerId:id,...p.appearance},update:{...p.appearance}});
+      if(p.appearance){const {gender,baseAvatarId,skinColorId,hairStyleId,hairColorId,topStyleId,topColorId,bottomStyleId,bottomColorId,shoesId,accessoryIds}=p.appearance;
+        const stored={gender,baseAvatarId,skinColorId:skinColorId??'SKIN_LIGHT',hairStyleId,hairColorId,topStyleId,topColorId,bottomStyleId,bottomColorId,shoesId,accessoryIds:json(accessoryIds)};
+        await tx.playerAppearance.upsert({where:{playerId:id},create:{playerId:id,...stored},update:stored});
         await tx.ghostSnapshot.upsert({where:{playerId:id},create:{playerId:id,snapshot:json({playerId:id,nickname:p.nickname,appearance:p.appearance,title:'初到横阳'})},update:{snapshot:json({playerId:id,nickname:p.nickname,appearance:p.appearance,title:'初到横阳'})}});}
       await tx.inventory.deleteMany({where:{playerId:id}});
       if(Object.keys(p.inventory).length)await tx.inventory.createMany({data:Object.entries(p.inventory).map(([itemId,quantity])=>({playerId:id,itemId,quantity}))});

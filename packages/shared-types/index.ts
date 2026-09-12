@@ -1,8 +1,13 @@
 export type Gender = 'MALE' | 'FEMALE';
 export interface Appearance {
+  /** V1 formal look: each hair ID includes its color; each outfit is a full set. */
+  skinToneId?: string; hairId?: string; outfitId?: string;
+  /** Legacy persistence and old NPC configs; no longer player creation choices. */
   gender: Gender; baseAvatarId: string; skinColorId?: string; hairStyleId: string; hairColorId: string;
   topStyleId: string; topColorId: string; bottomStyleId: string; bottomColorId: string; shoesId: string; accessoryIds: string[];
 }
+/** Future NPC configs can use complete IDs without authoring deprecated pieces. */
+export interface FormalNpcAppearance { gender: Gender; skinToneId: string; hairId: string; outfitId: string; accessoryIds: string[]; baseAvatarId?: string }
 export interface Rect { x: number; y: number; width: number; height: number }
 export type EntranceDirection = 'south' | 'west' | 'east' | 'north';
 export interface EntranceConfig { id: string; position: { x: number; y: number }; direction: EntranceDirection; interactionArea: Rect; targetScene: string; targetSpawnPoint: { x: number; y: number } }
@@ -19,7 +24,7 @@ export interface NPCConfig {
   id: string; name: string; nameLocked: boolean; enabled: boolean; sceneId: string;
   x: number; y: number; priority: number; hours: [string, string]; dialogue: string[]; route: {x: number; y: number}[]; questId?: string;
   /** NPC 的外观与主角解耦；未配置时由客户端使用兼容默认外观。 */
-  appearance?: Appearance; facing?: 'down'|'left'|'right'|'up'; formalArtKey?: string; portraitKey?: string;
+  appearance?: Appearance | FormalNpcAppearance; facing?: 'down'|'left'|'right'|'up'; formalArtKey?: string; portraitKey?: string;
 }
 export interface Portal { id: string; x: number; y: number; toSceneId: string; spawnX: number; spawnY: number; returnEntranceId?: string }
 export interface SceneConfig {

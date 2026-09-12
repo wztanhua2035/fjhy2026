@@ -153,7 +153,7 @@ test('白石街五个开放入口均可从公共道路步行到达',()=>{
 });
 
 test('街道 NPC 的完整可见身体范围不可被玩家穿过',()=>{for(const npc of initialWorld.npcs.filter(n=>n.sceneId==='STREET_BAISHI_01')){assert.equal(canStand(initialWorld,'STREET_BAISHI_01',npc.x,npc.y),false,npc.id);assert.equal(canStand(initialWorld,'STREET_BAISHI_01',npc.x,npc.y-.6),false,`${npc.id} 上半身`);}});
-test('白石街 NPC 使用独立外观并与主角默认外观区分',()=>{const npcs=initialWorld.npcs.filter(n=>n.sceneId==='STREET_BAISHI_01');assert.equal(npcs.length,3);assert.ok(npcs.every(n=>n.appearance));assert.equal(new Set(npcs.map(n=>n.appearance!.baseAvatarId)).size,3);assert.notEqual(npcs[0].appearance!.topColorId,npcs[1].appearance!.topColorId);});
+test('白石街 NPC 使用独立外观并与主角默认外观区分',()=>{const npcs=initialWorld.npcs.filter(n=>n.sceneId==='STREET_BAISHI_01');assert.equal(npcs.length,3);assert.ok(npcs.every(n=>n.appearance));assert.equal(new Set(npcs.map(n=>n.appearance!.baseAvatarId)).size,3);assert.notEqual('topColorId' in npcs[0].appearance! ? npcs[0].appearance.topColorId : undefined,'topColorId' in npcs[1].appearance! ? npcs[1].appearance.topColorId : undefined);});
 test('入口交互区域限制在门前范围内且可从道路侧稳定触发',()=>{const entrance=plotEntrances(initialWorld.plots[1])[0];assert.equal(inEntranceArea(entrance,21,20),true);assert.equal(inEntranceArea(entrance,20,18.7),true);assert.equal(inEntranceArea(entrance,19.5,20),false);});
 test('白石街图层挂载表保持地面启用、候选建筑停用并按 z 排序',()=>{const enabled=baishiLayerPlacements.filter(layer=>layer.enabled).sort((a,b)=>a.z-b.z);assert.equal(enabled[0].layer,'ground');assert.equal(enabled[0].asset,'baishi_composition_approved_v01');assert.equal(baishiLayerPlacements.find(layer=>layer.asset==='baishi_buildings_candidate_v01')?.enabled,false);assert.ok(baishiLayerPlacements.every(layer=>layer.width>0&&layer.height>0));});
 
