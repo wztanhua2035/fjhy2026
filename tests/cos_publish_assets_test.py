@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
@@ -27,9 +28,10 @@ class FakeCos:
         self.events.append(f"multipart:{Key}")
         self.multipart_part_size = PartSize
         self.objects[Key] = Path(LocalFilePath).read_bytes()
-    def head_object(self, *, Bucket: str, Key: str) -> dict[str, int]:
+    def head_object(self, *, Bucket: str, Key: str) -> dict[str, object]:
         self.events.append(f"head:{Key}")
-        return {"ContentLength": len(self.objects[Key])}
+        payload = self.objects[Key]
+        return {"Content-Length": str(len(payload)), "ETag": f'"{hashlib.md5(payload).hexdigest()}"'}
 
 class UploadError(Exception):
     def get_error_code(self) -> str: return "TransientUploadFailure"
@@ -48,6 +50,14 @@ class CosPublishAssetsTests(unittest.TestCase):
             publisher.upload_object(client, "bucket", "world/test.png", item, sleep=lambda _: None)
             publisher.verify_cos_size(client, "bucket", "world/test.png", item)
             self.assertEqual(client.events, ["put:world/test.png", "head:world/test.png"])
+
+    def test_head_content_length_accepts_both_sdk_spellings(self) -> None:
+        self.assertEqual(publisher.content_length_from_head({"Content-Length": "12"}), 12)
+        self.assertEqual(publisher.content_length_from_head({"ContentLength": 34}), 34)
+
+    def test_head_without_length_has_safe_diagnostic(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, r"COS HEAD missing content length; fields=\[ETag\]"):
+            publisher.content_length_from_head({"ETag": "abc"})
     def test_only_large_files_use_multipart_with_eight_mebibyte_parts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             item = self.write(Path(directory), "audio/large.ogg", b"x")
@@ -72,12 +82,28 @@ class CosPublishAssetsTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "cdn unavailable"):
                 publisher.publish_resources(client, "bucket", root, [asset], manifest, publish_manifest=True, cdn_base_url="https://cdn.test", verify_cdn_fn=cdn_fail)
             self.assertNotIn("put:manifests/remote-asset-manifest-v1.json", client.events)
+
+    def test_matching_size_and_etag_reuses_existing_resource(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            item = self.write(Path(directory), "world/test.png", b"asset")
+            client = FakeCos()
+            client.objects["world/test.png"] = b"asset"
+            publisher.upload_or_reuse_object(client, "bucket", "world/test.png", item)
+            self.assertEqual(client.events, ["head:world/test.png"])
+
+    def test_size_or_etag_mismatch_reuploads_resource(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            item = self.write(Path(directory), "world/test.png", b"new-asset")
+            client = FakeCos()
+            client.objects["world/test.png"] = b"old-asset"
+            publisher.upload_or_reuse_object(client, "bucket", "world/test.png", item)
+            self.assertEqual(client.events, ["head:world/test.png", "put:world/test.png"])
     def test_manifest_is_uploaded_only_after_resource_cos_and_cdn_checks(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); asset = self.write(root, "world/test.png", b"asset")
             manifest = self.write(root, "manifests/remote-asset-manifest-v1.json", b"manifest"); client = FakeCos(); cdn_events: list[str] = []
             publisher.publish_resources(client, "bucket", root, [asset], manifest, publish_manifest=True, cdn_base_url="https://cdn.test", verify_cdn_fn=lambda key, _: cdn_events.append(key))
-            self.assertEqual(client.events, ["put:world/test.png", "head:world/test.png", "put:manifests/remote-asset-manifest-v1.json", "head:manifests/remote-asset-manifest-v1.json"])
+            self.assertEqual(client.events, ["head:world/test.png", "put:world/test.png", "head:world/test.png", "head:manifests/remote-asset-manifest-v1.json", "put:manifests/remote-asset-manifest-v1.json", "head:manifests/remote-asset-manifest-v1.json"])
             self.assertEqual(cdn_events, ["world/test.png", "manifests/remote-asset-manifest-v1.json"])
     def test_error_diagnostics_do_not_render_exception_text(self) -> None:
         class SensitiveError(Exception):
