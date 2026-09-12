@@ -19,7 +19,7 @@ export function sceneView(world:WorldConfig,id:string,now:Date,forceOpen=false):
   const plots=world.plots.filter(p=>p.sceneId===id);
   const occupancy=scene.buildingId?world.plots.find(p=>p.buildingId===scene.buildingId):undefined;
   const entrances=occupancy?plotEntrances(occupancy):[];const entrance=entrances[0];
-  const configuredScene=occupancy&&entrance?{...scene,portals:scene.portals.map(p=>{const target=entrances.find(e=>e.id===p.returnEntranceId)??entrance;return {...p,toSceneId:occupancy.sceneId,spawnX:target.position.x,spawnY:target.position.y+1};})}:scene;
+  const configuredScene=occupancy&&entrance?{...scene,portals:scene.portals.map(p=>{if(!p.returnEntranceId)return p;const target=entrances.find(e=>e.id===p.returnEntranceId)??entrance;return {...p,toSceneId:occupancy.sceneId,spawnX:target.position.x,spawnY:target.position.y+1};})}:scene;
   return {scene:configuredScene,plots,buildings:world.buildings.filter(b=>b.enabled&&(plots.some(p=>p.buildingId===b.id)||b.id===scene.buildingId)),items:world.items,
     npcs:world.npcs.filter(n=>n.enabled&&n.sceneId===id&&isOpen(n.hours,now,forceOpen)).sort((a,b)=>b.priority-a.priority).slice(0,8),phase:phaseAt(now)};
 }
@@ -91,7 +91,7 @@ export function recoverSafePosition(world:WorldConfig,sceneId:string,x:number,y:
   ensure(fallback,'NO_SAFE_POSITION','场景没有可站立位置',503);
   return {x:fallback.x,y:fallback.y,source:'spawn' as const};
 }
-export function publicPlayer(p:PlayerState){return {...p,appearance:p.appearance?formalizeAppearance(p.appearance):null,tradeCounts:{},ledger:p.ledger.slice(-20)};}
+export function publicPlayer(p:PlayerState){return {...p,appearance:p.appearance?formalizeAppearance(p.appearance):null,tradeCounts:{},storyFlags:p.storyFlags??{},ledger:p.ledger.slice(-20)};}
 export function questStepLedgerType(type:QuestStepConfig['type']){return type==='BUY'?'SHOP_BUY':type==='SELL'?'SHOP_SELL':type==='ACQUIRE'?'QUEST_ITEM_ACQUIRED':type==='DELIVER'?'QUEST_ITEM_DELIVERED':'QUEST_REPORTED';}
 export function questStepReference(questId:string,step:QuestStepConfig){return step.type==='BUY'||step.type==='SELL'?step.target:`${questId}:${step.target}`;}
 export function questStepProgress(quest:QuestConfig,ledger:LedgerEntry[]){return quest.steps.map(step=>{const type=questStepLedgerType(step.type),reference=questStepReference(quest.id,step);return Math.min(step.count,ledger.filter(entry=>entry.type===type&&(step.type==='BUY'||step.type==='SELL'?entry.referenceId.includes(reference):entry.referenceId===reference)).length);});}

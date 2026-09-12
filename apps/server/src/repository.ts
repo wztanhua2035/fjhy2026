@@ -13,7 +13,7 @@ export interface Repository {
   draft(config:WorldConfig,basedOn:number):Promise<Release>; transition(id:string,status:string):Promise<Release>;
   ghosts(exclude:string):Promise<GhostProfile[]>; health():Promise<void>; close():Promise<void>;
 }
-const fresh=(id:string,nickname=`旅人${id.slice(0,4)}`):PlayerState=>({id,nickname,cash:0,stamina:100,status:'ACTIVE',sceneId:'INTERIOR_B_INN',x:12,y:15,appearance:null,inventory:{},cosmetics:[],ledger:[],tradeCounts:{},metNpcs:[]});
+const fresh=(id:string,nickname=`旅人${id.slice(0,4)}`):PlayerState=>({id,nickname,cash:0,stamina:100,status:'ACTIVE',sceneId:'INTERIOR_B_INN_GUEST_ROOM',x:6,y:7,appearance:null,inventory:{},cosmetics:[],ledger:[],tradeCounts:{},metNpcs:[],storyFlags:{}});
 export class MemoryRepository implements Repository {
   players=new Map<string,PlayerState>(); subjects=new Map<string,string>(); requests=new Map<string,{hash:string;result:any}>();
   versions:Release[]=[{id:'initial',version:1,status:'PUBLISHED',config:structuredClone(initialWorld),basedOn:0}];
@@ -41,7 +41,7 @@ function checkTransition(r:Release,status:string){ensure((r.status==='DRAFT'&&st
 const include={appearance:true,inventory:true,cosmetics:true,ledger:{orderBy:{createdAt:'desc' as const},take:100}};
 function decode(row:any):PlayerState{return {id:row.id,nickname:row.nickname,cash:Number(row.cash),stamina:row.stamina,status:row.status,sceneId:row.sceneId,x:row.x,y:row.y,
   appearance:row.appearance?formalizeAppearance({gender:row.appearance.gender,baseAvatarId:row.appearance.baseAvatarId,skinColorId:row.appearance.skinColorId??'SKIN_LIGHT',hairStyleId:row.appearance.hairStyleId,hairColorId:row.appearance.hairColorId,topStyleId:row.appearance.topStyleId,topColorId:row.appearance.topColorId,bottomStyleId:row.appearance.bottomStyleId,bottomColorId:row.appearance.bottomColorId,shoesId:row.appearance.shoesId,accessoryIds:row.appearance.accessoryIds}):null,
-  inventory:Object.fromEntries(row.inventory.map((i:any)=>[i.itemId,i.quantity])),cosmetics:row.cosmetics.map((c:any)=>c.appearanceId),tradeCounts:row.tradeCounts,metNpcs:row.metNpcs,
+  inventory:Object.fromEntries(row.inventory.map((i:any)=>[i.itemId,i.quantity])),cosmetics:row.cosmetics.map((c:any)=>c.appearanceId),tradeCounts:row.tradeCounts,metNpcs:row.metNpcs,storyFlags:row.storyFlags??{},
   ledger:row.ledger.slice().reverse().map((l:any)=>({id:l.id,type:l.type,amount:Number(l.amount),before:Number(l.before),after:Number(l.after),referenceId:l.referenceId,requestId:l.requestId,createdAt:l.createdAt.toISOString()}))};}
 const json=(v:unknown)=>JSON.parse(JSON.stringify(v)) as Prisma.InputJsonValue;
 export class PostgresRepository implements Repository {
@@ -60,7 +60,7 @@ export class PostgresRepository implements Repository {
     await tx.playerCosmetic.deleteMany({where:{playerId:id}});
     await tx.playerLedger.deleteMany({where:{playerId:id}});
     await tx.ghostSnapshot.deleteMany({where:{playerId:id}});
-    await tx.player.update({where:{id},data:{cash:0n,stamina:next.stamina,sceneId:next.sceneId,x:next.x,y:next.y,tradeCounts:json({}),metNpcs:json([])}});
+    await tx.player.update({where:{id},data:{cash:0n,stamina:next.stamina,sceneId:next.sceneId,x:next.x,y:next.y,tradeCounts:json({}),metNpcs:json([]),storyFlags:json({})}});
     return next;
   },{timeout:15000});}
   async repairPosition(id:string,world:WorldConfig){return this.db.$transaction(async tx=>{
@@ -81,7 +81,7 @@ export class PostgresRepository implements Repository {
       if(old){ensure(old.hash===hash,'REQUEST_CONFLICT','请求编号已被其他操作使用',409);return old.result;}
       const row=await tx.player.findUnique({where:{id},include});ensure(row,'UNAUTHORIZED','请重新登录',401);
       const p=decode(row),ledgerIds=new Set(p.ledger.map(l=>l.id)),result=fn(p);
-      await tx.player.update({where:{id},data:{cash:BigInt(p.cash),stamina:p.stamina,sceneId:p.sceneId,x:p.x,y:p.y,tradeCounts:json(p.tradeCounts),metNpcs:json(p.metNpcs)}});
+      await tx.player.update({where:{id},data:{cash:BigInt(p.cash),stamina:p.stamina,sceneId:p.sceneId,x:p.x,y:p.y,tradeCounts:json(p.tradeCounts),metNpcs:json(p.metNpcs),storyFlags:json(p.storyFlags??{})}});
       if(p.appearance){const {gender,baseAvatarId,skinColorId,hairStyleId,hairColorId,topStyleId,topColorId,bottomStyleId,bottomColorId,shoesId,accessoryIds}=p.appearance;
         const stored={gender,baseAvatarId,skinColorId:skinColorId??'SKIN_LIGHT',hairStyleId,hairColorId,topStyleId,topColorId,bottomStyleId,bottomColorId,shoesId,accessoryIds:json(accessoryIds)};
         await tx.playerAppearance.upsert({where:{playerId:id},create:{playerId:id,...stored},update:stored});

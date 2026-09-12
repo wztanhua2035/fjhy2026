@@ -24,6 +24,7 @@ const schemas={
   buy:z.object({requestId,buildingId:id,itemId:id,quantity:z.number().int().min(1).max(99)}).strict(),
   sell:z.object({requestId,buildingId:id,itemId:id,quantity:z.number().int().min(1).max(99)}).strict(),
   talk:z.object({requestId,npcId:id}).strict(),
+  introComplete:z.object({requestId}).strict(),inspect:z.object({requestId,zoneId:id}).strict(),
   purchaseAppearance:z.object({requestId,buildingId:id,appearanceId:id}).strict(),
   changeAppearance:z.object({requestId,buildingId:id,appearanceId:id,colorId:id.optional()}).strict()
 };
@@ -78,7 +79,7 @@ if(status>=500){
   app.post('/v1/player/restart',async req=>{const body=z.object({requestId,confirm:z.literal(true)}).strict().parse(req.body);return {player:publicPlayer(await repo.restartGame(req.user.sub,body.requestId))};});
   app.get('/v1/world/scenes/:id',async req=>{const w=await repo.world(),p=await repo.repairPosition(req.user.sub,w);ensure(p.appearance,'CHARACTER_REQUIRED','请先创建角色',409);return {...sceneView(w,(req.params as any).id,game.now(),requestGameContext(req).debugOpenAll),playerPosition:{sceneId:p.sceneId,x:p.x,y:p.y}};});
   app.get('/v1/scenes/:id/ghosts',async req=>{const p=await repo.player(req.user.sub);ensure(p.appearance&&p.sceneId===(req.params as any).id,'WRONG_SCENE','请进入对应场景');return {ghosts:await repo.ghosts(p.id)};});
-  const routes:Record<keyof typeof schemas,string>={create:'/v1/player/appearance/create',move:'/v1/player/move',enter:'/v1/world/enter',portal:'/v1/world/portal',buy:'/v1/economy/buy',sell:'/v1/economy/sell',talk:'/v1/npc/talk',purchaseAppearance:'/v1/appearance/purchase',changeAppearance:'/v1/appearance/change'};
+  const routes:Record<keyof typeof schemas,string>={create:'/v1/player/appearance/create',move:'/v1/player/move',enter:'/v1/world/enter',portal:'/v1/world/portal',buy:'/v1/economy/buy',sell:'/v1/economy/sell',talk:'/v1/npc/talk',introComplete:'/v1/intro/complete',inspect:'/v1/world/inspect',purchaseAppearance:'/v1/appearance/purchase',changeAppearance:'/v1/appearance/change'};
   for(const action of Object.keys(routes) as (keyof typeof schemas)[])app.post(routes[action],async req=>game.action(req.user.sub,action,schemas[action].parse(req.body),requestGameContext(req)));
   app.post('/v1/player/debug-safe-reset',async req=>{ensure(env.appEnv==='DEV'&&env.mode!=='production','NOT_FOUND','接口不存在',404);return game.action(req.user.sub,'safeReset',z.object({requestId}).strict().parse(req.body));});
   app.get('/v1/player/appearance',async req=>{const p=await repo.player(req.user.sub);return {appearance:p.appearance,owned:p.cosmetics};});

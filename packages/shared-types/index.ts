@@ -27,7 +27,7 @@ export interface NPCConfig {
   appearance?: Appearance | FormalNpcAppearance; facing?: 'down'|'left'|'right'|'up'; formalArtKey?: string; portraitKey?: string;
 }
 export interface Portal { id: string; x: number; y: number; toSceneId: string; spawnX: number; spawnY: number; returnEntranceId?: string }
-export interface InteriorZone extends Rect { id: string; kind: 'wall'|'counter'|'shelf'|'storage'|'stairs'|'room'|'waitingArea'|'servicePoint'|'displayArea'|'chair'|'mirror'|'exit'|'entry'|'future'; solid: boolean; label?: string }
+export interface InteriorZone extends Rect { id: string; kind: 'wall'|'counter'|'shelf'|'storage'|'stairs'|'room'|'waitingArea'|'servicePoint'|'displayArea'|'chair'|'mirror'|'exit'|'entry'|'future'|'bed'|'wardrobe'|'desk'; solid: boolean; label?: string; interactionPoint?: {x:number;y:number} }
 export interface SceneConfig {
   id: string; name: string; townId: string; width: number; height: number; tileSize: number;
   mapAsset: string; roads: Rect[]; collision: Rect[]; portals: Portal[]; buildingId?: string;
@@ -49,7 +49,7 @@ export interface LedgerEntry { id: string; type: string; amount: number; before:
 export interface PlayerState {
   id: string; nickname: string; cash: number; stamina: number; status: string;
   sceneId: string; x: number; y: number; appearance: Appearance | null; inventory: Record<string, number>;
-  cosmetics: string[]; ledger: LedgerEntry[]; tradeCounts: Record<string, number>; metNpcs: string[];
+  cosmetics: string[]; ledger: LedgerEntry[]; tradeCounts: Record<string, number>; metNpcs: string[]; storyFlags?: Record<string, boolean>;
 }
 export interface GhostProfile { playerId: string; nickname: string; appearance: Appearance; title: string; updatedAt: string }
 export interface MailboxPayload { items: {itemId: string; quantity: number}[]; cash: number }

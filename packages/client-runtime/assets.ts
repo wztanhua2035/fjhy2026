@@ -37,14 +37,14 @@ export interface PortraitAsset {
   slot: 'left'|'right'; originX: number; originY: number;
 }
 
-/** A full 24×20 interior backdrop plus the narrow front edges that occlude actors. */
+/** Interior backdrop and optional transparent front edges, in scene pixels. */
 export interface InteriorArtAsset {
   sceneId: string;
   assetKey: string;
   imagePath: string;
   foreground: { assetKey: string; imagePath: string; occlusionFrontY: number };
-  width: 768;
-  height: 640;
+  width: number;
+  height: number;
 }
 
 export interface ImageSource { width: number; height: number; }
@@ -119,6 +119,7 @@ export const baishiInteriorArtRegistry: InteriorArtAsset[] = [
   { sceneId: 'INTERIOR_B_TRADE', assetKey: 'interior-trade-bg-v1', imagePath: '/scene-layers/baishi/interiors/interior_trade_v1.png', foreground: { assetKey: 'interior-trade-fg-v1', imagePath: '/scene-layers/baishi/interiors/interior_trade_fg_v1.png', occlusionFrontY: 10.0 }, width: 768, height: 640 },
   { sceneId: 'INTERIOR_B_CLOTH', assetKey: 'interior-cloth-bg-v1', imagePath: '/scene-layers/baishi/interiors/interior_cloth_v1.png', foreground: { assetKey: 'interior-cloth-fg-v1', imagePath: '/scene-layers/baishi/interiors/interior_cloth_fg_v1.png', occlusionFrontY: 12.0 }, width: 768, height: 640 },
   { sceneId: 'INTERIOR_B_INN', assetKey: 'interior-inn-bg-v1', imagePath: '/scene-layers/baishi/interiors/interior_inn_v1.png', foreground: { assetKey: 'interior-inn-fg-v1', imagePath: '/scene-layers/baishi/interiors/interior_inn_fg_v1.png', occlusionFrontY: 10.0 }, width: 768, height: 640 },
+  { sceneId: 'INTERIOR_B_INN_GUEST_ROOM', assetKey: 'interior-guest-room-bg-v1', imagePath: '/scene-layers/baishi/interiors/interior_guest_room_v1.png', foreground: { assetKey: 'interior-guest-room-fg-v1', imagePath: '/scene-layers/baishi/interiors/interior_guest_room_fg_v1.png', occlusionFrontY: 7.5 }, width: 384, height: 320 },
 ];
 export const streetGroceryV1ArtAssets = {
   building: { assetKey:'building_street_grocery_base', imagePath:'/scene-layers/baishi/formal/building_street_grocery_base.png', worldX:21, worldY:20, renderWidth:320, renderHeight:384, originX:.5, originY:1, depth:30, occlusionFrontY:19, foreground:{assetKey:'building_street_grocery_fg',imagePath:'/scene-layers/baishi/formal/building_street_grocery_fg.png',offsetX:0,offsetY:0,depth:50} },

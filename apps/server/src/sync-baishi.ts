@@ -10,7 +10,7 @@ function merge<T extends { id: string }>(old: T[], current: T[]) {
 
 // Publish content through the existing release lifecycle; never overwrite player saves.
 export function baishiSyncPlan(previous: WorldConfig) {
-  const scenes = initialWorld.scenes.filter(s => s.id === 'STREET_BAISHI_01' || initialWorld.plots.some(p => p.sceneId === 'STREET_BAISHI_01' && initialWorld.buildings.some(b => b.id === p.buildingId && b.interiorSceneId === s.id)));
+  const scenes = initialWorld.scenes.filter(s => s.id === 'STREET_BAISHI_01' || s.id === 'INTERIOR_B_INN_GUEST_ROOM' || initialWorld.plots.some(p => p.sceneId === 'STREET_BAISHI_01' && initialWorld.buildings.some(b => b.id === p.buildingId && b.interiorSceneId === s.id)));
   const sceneIds = new Set(scenes.map(s => s.id));
   const plots = initialWorld.plots.filter(p => p.sceneId === 'STREET_BAISHI_01');
   const buildings = initialWorld.buildings.filter(b => plots.some(p => p.buildingId === b.id));

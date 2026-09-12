@@ -57,6 +57,6 @@ test('world objects remain above ground and below portrait UI',()=>{
 test('白石街建筑遮挡前沿以南立面与门前步道分界校准',()=>{const front=Object.fromEntries(baishiFormalArtRegistry.buildings.map(asset=>[asset.buildingId,asset.occlusionFrontY]));assert.deepEqual(front,{B_TRADE:19,B_INN:19,B_GROCERY:19,B_SALON:19,B_CLOTH:37});for(const buildingId of ['B_TRADE','B_INN','B_GROCERY'] as const){const edge=front[buildingId]!;assert.ok(worldActorDepth(20)>worldBuildingDepth(edge),buildingId+' 门前主街应显示玩家');assert.ok(worldActorDepth(18)<worldBuildingDepth(edge),buildingId+' 北侧应被建筑遮挡');}});
 
 test('五座室内正式美术均复用锁定的 24×20 尺寸并拥有独立前景',()=>{
-  assert.deepEqual(baishiInteriorArtRegistry.map(asset=>asset.sceneId),['INTERIOR_B_SALON','INTERIOR_B_GROCERY','INTERIOR_B_TRADE','INTERIOR_B_CLOTH','INTERIOR_B_INN']);
-  for(const asset of baishiInteriorArtRegistry){assert.equal(asset.width,768);assert.equal(asset.height,640);assert.match(asset.imagePath,/\/interiors\//);assert.match(asset.foreground.imagePath,/\/interiors\//);assert.ok(worldActorDepth(asset.foreground.occlusionFrontY-.1)<worldBuildingDepth(asset.foreground.occlusionFrontY));}
+  assert.deepEqual(baishiInteriorArtRegistry.filter(asset=>asset.width===768).map(asset=>asset.sceneId),['INTERIOR_B_SALON','INTERIOR_B_GROCERY','INTERIOR_B_TRADE','INTERIOR_B_CLOTH','INTERIOR_B_INN']);
+  for(const asset of baishiInteriorArtRegistry){assert.equal(asset.width,asset.sceneId==='INTERIOR_B_INN_GUEST_ROOM'?384:768);assert.equal(asset.height,asset.sceneId==='INTERIOR_B_INN_GUEST_ROOM'?320:640);assert.match(asset.imagePath,/\/interiors\//);assert.match(asset.foreground.imagePath,/\/interiors\//);assert.ok(worldActorDepth(asset.foreground.occlusionFrontY-.1)<worldBuildingDepth(asset.foreground.occlusionFrontY));}
 });

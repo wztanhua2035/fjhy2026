@@ -3,6 +3,7 @@ import type { Repository } from './repository.js';
 import type { PlayerState, WorldConfig } from '../../../packages/shared-types/index.js';
 import { ensure, canStand, recoverSafePosition, positionBlockers, isOpen, starterAppearance, createStarterAppearance, formalizeAppearance, publicPlayer, sceneView, plotEntrances, inEntranceArea, questStepProgress, questStepLedgerType, questStepReference } from '../../../packages/game-rules/index.js';
 import { starterLooks } from '../../../packages/game-config/appearance-v1.js';
+import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, guestRoomObjectDialogue } from '../../../packages/game-config/inn-opening.js';
 export interface RequestGameContext { debugOpenAll?: boolean }
 function money(p:PlayerState,amount:number,type:string,referenceId:string,requestId:string){
   ensure(Number.isSafeInteger(p.cash+amount)&&p.cash+amount>=0&&p.cash+amount<=1e12,'INSUFFICIENT_CASH','铜钱不足或超出余额上限');
@@ -17,6 +18,7 @@ export class GameService {
       let questDialogue:string|undefined;
       ensure(p.status==='ACTIVE','BANNED','账号不可用',403);
       if(action!=='create')ensure(p.appearance,'CHARACTER_REQUIRED','请先创建角色',409);
+      if(p.appearance&&p.sceneId===INN_LOBBY_SCENE_ID&&!p.storyFlags?.[INTRO_INN_KEEPER_DONE]&&action!=='introComplete')ensure(false,'INTRO_IN_PROGRESS','请先听陈掌柜说完开场的话',409);
       switch(action){
         case 'create':{
           ensure(!p.appearance,'ALREADY_CREATED','角色已创建',409);
@@ -24,7 +26,9 @@ export class GameService {
             ?formalizeAppearance(starterAppearance(world,body.gender,body.baseAvatarId,{skinColorId:body.skinColorId,hairColorId:body.hairColorId,topColorId:body.topColorId,bottomColorId:body.bottomColorId}))
             :createStarterAppearance(body.gender,{skinToneId:body.skinToneId,hairId:body.hairId,outfitId:body.outfitId});
           p.cosmetics=[p.appearance.hairId!,p.appearance.outfitId!];
-          money(p,120,'SYSTEM_GRANT','NEW_PLAYER',body.requestId);break;
+          p.sceneId=GUEST_ROOM_SCENE_ID;p.x=6;p.y=7;p.metNpcs=[...new Set([...p.metNpcs,'NPC_001'])];p.storyFlags={};
+          money(p,120,'SYSTEM_GRANT','NEW_PLAYER',body.requestId);
+          questDialogue='临时借住的房间不大，却总算有个落脚的地方。出门就是客栈大厅。';break;
         }
         case 'move':{
           if(!canStand(world,p.sceneId,p.x,p.y)){
@@ -44,8 +48,21 @@ export class GameService {
           p.sceneId=entrance.targetScene;const safe=recoverSafePosition(world,p.sceneId,entrance.targetSpawnPoint.x,entrance.targetSpawnPoint.y);p.x=safe.x;p.y=safe.y;break;
         }
         case 'portal':{
-          const portal=sceneView(world,p.sceneId,this.now()).scene.portals.find(t=>t.id===body.portalId);ensure(portal,'NO_PORTAL','出口不存在');ensure(Math.hypot(p.x-portal.x,p.y-portal.y)<4,'TOO_FAR','请走到出口');
+          const portal=sceneView(world,p.sceneId,this.now()).scene.portals.find(t=>t.id===body.portalId);ensure(portal,'NO_PORTAL','出口不存在');ensure(Math.hypot(p.x-portal.x,p.y-portal.y)<(portal.id==='EXIT_INN_GUEST_ROOM'||portal.id==='ENTER_INN_GUEST_ROOM'?1.1:4),'TOO_FAR','请走到出口');
           p.sceneId=portal.toSceneId;const safe=recoverSafePosition(world,p.sceneId,portal.spawnX,portal.spawnY);p.x=safe.x;p.y=safe.y;break;
+        }
+        case 'introComplete':{
+          ensure(p.sceneId===INN_LOBBY_SCENE_ID,'WRONG_SCENE','请先进入客栈大厅');
+          p.storyFlags??={};p.storyFlags[INTRO_INN_KEEPER_DONE]=true;
+          if(!p.metNpcs.includes('NPC_001'))p.metNpcs.push('NPC_001');
+          break;
+        }
+        case 'inspect':{
+          ensure(p.sceneId===GUEST_ROOM_SCENE_ID,'WRONG_SCENE','请先进入临时房');
+          const zone=world.scenes.find(s=>s.id===GUEST_ROOM_SCENE_ID)?.interior?.zones.find(z=>z.id===body.zoneId);
+          ensure(zone?.interactionPoint&&guestRoomObjectDialogue[zone.id],'NO_INTERACTION','这里没有可查看的物件');
+          ensure(Math.hypot(p.x-zone.interactionPoint.x,p.y-zone.interactionPoint.y)<1.1,'TOO_FAR','请走近一些');
+          return {player:publicPlayer(p),dialogue:guestRoomObjectDialogue[zone.id],speaker:'心声'};
         }
         case 'safeReset':{
           const scene=world.scenes.find(s=>s.id===p.sceneId);ensure(scene,'SCENE_NOT_FOUND','场景不存在',404);

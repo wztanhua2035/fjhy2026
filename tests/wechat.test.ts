@@ -40,7 +40,8 @@ test('wx.request → HTTP → 共享控制器：送样、关系、断线重登�
     let c = new GameController(platform.transport);
     await c.loginWechat('code');
     await c.create('FEMALE',{skinToneId:'SKIN_LIGHT',hairId:'F_HAIR_01',outfitId:'F_OUTFIT_01'});
-    const place = async (npcId: string) => { const npc = initialWorld.npcs.find(n => n.id === npcId)!; Object.assign(repo.players.get(c.player!.id)!,{sceneId:npc.sceneId,x:npc.x,y:npc.y+1}); await c.refresh(); };
+    await c.advanceDialogue();
+    const place = async (npcId: string) => { if(c.dialogue)await c.advanceDialogue();const npc = initialWorld.npcs.find(n => n.id === npcId)!; Object.assign(repo.players.get(c.player!.id)!,{sceneId:npc.sceneId,x:npc.x,y:npc.y+1}); await c.refresh(); };
     await place('NPC_CLOTH_SHOPKEEPER'); await c.interact();
     assert.equal(c.player!.inventory.CLOTH_SAMPLE_01, 1);
     assert.ok(c.player!.metNpcs.includes('NPC_CLOTH_SHOPKEEPER'));
@@ -52,7 +53,7 @@ test('wx.request → HTTP → 共享控制器：送样、关系、断线重登�
     await place('NPC_CLOTH_SHOPKEEPER'); await c.interact();
     assert.equal(c.questTracker().find(q => q.id === 'Q_003')!.completed, true);
     const cash = c.player!.cash;
-    await c.interact(); assert.equal(c.player!.cash, cash);
+    await c.advanceDialogue();await c.interact(); assert.equal(c.player!.cash, cash);
   } finally { (globalThis as any).wx = previousWx; await app.close(); }
 });
 
@@ -66,7 +67,7 @@ test('微信原生图片完整注册正式资源、spritesheet，并缓存跨场
   assert.equal(new Set(paths).size, paths.length);
   assert.ok(paths.every(path => /^baishi-(ground|world|portraits|interior-[a-z]+)\//.test(path)));
   assert.ok(paths.includes('baishi-world/building_cloth_shop_fg.png'));
-  assert.equal(paths.filter(path => path.startsWith('baishi-interior-')).length, 10);
+  assert.equal(paths.filter(path => path.startsWith('baishi-interior-')).length, 12);
   await loadWechatAssets(textures, createImage);
   assert.equal(paths.length, wechatAssets.length, '切换场景不得再次加载');
 });

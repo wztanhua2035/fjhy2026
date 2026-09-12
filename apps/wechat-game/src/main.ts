@@ -228,8 +228,7 @@ class BaishiWechatScene extends Phaser.Scene {
   private clearStick() { this.stickPointer = null; this.move = { x: 0, y: 0 }; if (this.stick) this.stick.setPosition(this.stickBase.x, this.stickBase.y); }
   private advanceDialogue() {
     if (!controller.dialogue || this.dialogueUi.advance()) return;
-    controller.dialogue = null; controller.dialogueSpeaker = null; controller.message = '';
-    this.syncUi();
+    void this.run(() => controller.advanceDialogue());
   }
   private async run(action: () => Promise<unknown>) { try { await action(); } catch (error: any) { controller.message = error.message ?? '操作失败'; } this.syncUi(); }
   private async createPreviewPlayer() {
@@ -308,8 +307,8 @@ class BaishiWechatScene extends Phaser.Scene {
     this.portraitDim.setVisible(dialogue);
     this.dialogueUi.sync(controller.dialogueSpeaker ?? '', controller.message, dialogue);
     this.message.setVisible(!dialogue);
-    for (const [speaker, portrait] of this.portraits) portrait.setVisible(dialogue && speaker === controller.dialogueSpeaker && this.textures.exists(portrait.texture.key)).setAlpha(1);
-    for (const [gender, portrait] of this.playerPortraits) portrait.setVisible(dialogue && gender === player?.appearance?.gender && this.textures.exists(portrait.texture.key)).setAlpha(DIALOGUE_INACTIVE_ALPHA);
+    for (const [speaker, portrait] of this.portraits) portrait.setVisible(dialogue && (speaker === controller.dialogueSpeaker || controller.introPending && speaker === '陈掌柜') && this.textures.exists(portrait.texture.key)).setAlpha(speaker === controller.dialogueSpeaker ? 1 : DIALOGUE_INACTIVE_ALPHA);
+    for (const [gender, portrait] of this.playerPortraits) portrait.setVisible(dialogue && gender === player?.appearance?.gender && this.textures.exists(portrait.texture.key)).setAlpha(controller.dialogueSpeaker === '主角' ? 1 : DIALOGUE_INACTIVE_ALPHA);
     this.questToggle.setVisible(hasPlayer);
     this.syncQuestPanel();
     this.syncShopPanel();
