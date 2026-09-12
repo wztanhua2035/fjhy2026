@@ -1,7 +1,7 @@
 import type { Appearance, FormalNpcAppearance, Bootstrap, GhostProfile, PlayerState, QuestRuntime, QuestTrackerItem, SceneView, ShopPanelView } from '../shared-types/index.js';
 import {inEntranceArea,npcCollisionRect,questStepProgress} from '../game-rules/index.js';
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, innOpeningDialogue } from '../game-config/inn-opening.js';
-import { furnitureInteractionLabels, interactionZoneOverrides, serviceInteractionNpcs } from '../game-config/interactions.js';
+import { furnitureInteractionLabels, serviceInteractionNpcs } from '../game-config/interactions.js';
 import { canInteractWithNpc, interactionDefaults, interactionLabel, scoredInteraction, selectInteraction, type InteractionCandidate, type InteractionRect } from './interaction-targeting.js';
 export * from './assets.js';
 export * from './remote-assets.js';
@@ -104,10 +104,10 @@ export class GameController {
   async acceptQuest(){await this.write('/v1/quest/accept',{questId:'Q_001'});}
   /** Player x/y are the foot world position; rendering scale never participates in targeting. */
   get footWorldPosition(){return {x:this.x,y:this.y};}
-  private portalZone(portal:{id:string;x:number;y:number},scene=this.view?.scene):InteractionRect{
-    const override=interactionZoneOverrides[portal.id];if(override)return override;
-    const exit=scene?.interior?.zones.find(zone=>zone.kind==='exit');
-    return exit?{x:exit.x,y:exit.y,width:exit.width,height:exit.height}:{x:portal.x-.7,y:portal.y-interactionDefaults.doorZoneDepth,width:1.4,height:interactionDefaults.doorZoneDepth+.25};
+  private portalZone(portal:{id:string;x:number;y:number}):InteractionRect{
+    // A portal anchor is a door centre, not a point the player must hit exactly.
+    // The same continuous footprint is used for every interior portal.
+    return {x:portal.x-interactionDefaults.doorZoneHalfWidth,y:portal.y-interactionDefaults.doorZoneHalfDepth,width:interactionDefaults.doorZoneHalfWidth*2,height:interactionDefaults.doorZoneHalfDepth*2};
   }
   private portalLabel(portalId:string,sceneName:string){
     if(portalId==='ENTER_INN_GUEST_ROOM')return '进入临时房';

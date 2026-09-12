@@ -13,7 +13,9 @@ export const interactionDefaults={
   npcCloseRadius:.9,
   furnitureRadius:.8,
   serviceRadius:.9,
-  doorZoneDepth:.8,
+  /** Portal anchors are doorway centres: keep a continuous one-tile corridor on either side. */
+  doorZoneHalfWidth:.8,
+  doorZoneHalfDepth:1,
   npcFacingConeDegrees:140,
   targetSwitchMargin:.15,
   targetStickinessSeconds:.25

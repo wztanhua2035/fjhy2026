@@ -20,8 +20,8 @@ test('NPC 使用脚底坐标、小范围和宽松朝向锥',()=>{
 });
 
 test('门区是连续区域，贴近或越过门锚点不会因为最小距离失效',()=>{
-  const zone={x:6.2,y:9.75,width:1.6,height:.9};
-  for(const doorFoot of [{x:6.25,y:10.15},{x:7,y:10.2},{x:7.75,y:10.6}]){
+  const zone={x:6.2,y:9.2,width:1.6,height:2};
+  for(const doorFoot of [{x:6.25,y:9.25},{x:7,y:10.2},{x:7.75,y:11.15}]){
     const door=scoredInteraction({id:'portal:room',type:'portal',label:'前往客栈大厅',path:'/portal',body:{},anchor:{x:7,y:10.2},zone,point:doorFoot});
     assert.ok(door,`door must remain available at ${doorFoot.x},${doorFoot.y}`);
   }
