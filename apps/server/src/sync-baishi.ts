@@ -45,8 +45,13 @@ export async function ensureGuestRoomScene(repo: Repository) {
   const existingDoor = existingLobby.portals.find(p => p.id === door.id);
   const needsGuest = !isDeepStrictEqual(existingGuest, guest);
   const needsDoor = !isDeepStrictEqual(existingDoor, door);
-  if (!needsGuest && !needsDoor) return { published: false, version: previous.configVersion };
-  const scenes = previous.scenes.map(s => s.id === INN_LOBBY_SCENE_ID && needsDoor
+  const withPortalAreas = previous.scenes.map(scene => ({...scene,portals:scene.portals.map(portal=>{
+    const source=initialWorld.scenes.find(s=>s.id===scene.id)?.portals.find(p=>p.id===portal.id);
+    return source?.interactionArea?{...portal,interactionArea:source.interactionArea}:portal;
+  })}));
+  const needsAreas=!isDeepStrictEqual(withPortalAreas,previous.scenes);
+  if (!needsGuest && !needsDoor && !needsAreas) return { published: false, version: previous.configVersion };
+  const scenes = withPortalAreas.map(s => s.id === INN_LOBBY_SCENE_ID && needsDoor
     ? { ...s, portals: [...s.portals.filter(p => p.id !== door.id), door] } : s.id === GUEST_ROOM_SCENE_ID && needsGuest ? guest : s);
   if (!existingGuest) scenes.push(guest);
   const config = validateWorld({ ...previous, scenes }, previous);

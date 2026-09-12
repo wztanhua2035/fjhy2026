@@ -26,6 +26,7 @@ export function sceneView(world:WorldConfig,id:string,now:Date,forceOpen=false):
 // The portrait is taller than one map tile. Keep the collision body aligned with
 // the visible torso and legs so players cannot appear to walk through an NPC.
 export function npcCollisionRect(n:{x:number;y:number}){return {x:n.x-.5,y:n.y-.72,width:1,height:1.44};}
+export function portalInteractionZone(p:{x:number;y:number;interactionArea?:{x:number;y:number;width:number;height:number}}){return p.interactionArea??{x:p.x-1.8,y:p.y-1,width:3.6,height:2};}
 export function canStand(world:WorldConfig,sceneId:string,x:number,y:number){
   const s=world.scenes.find(s=>s.id===sceneId);if(!s||x<1||y<1||x>s.width-1||y>s.height-1)return false;
   const staticBlocks=[...s.collision,...world.plots.filter(p=>p.sceneId===sceneId&&p.buildingId)];const npcBlocks=world.npcs.filter(n=>n.enabled&&n.sceneId===sceneId).map(npcCollisionRect);return !staticBlocks.some(r=>x>r.x-.18&&x<r.x+r.width+.18&&y>r.y-.18&&y<r.y+r.height+.18)&&!npcBlocks.some(r=>x>r.x&&x<r.x+r.width&&y>r.y&&y<r.y+r.height);

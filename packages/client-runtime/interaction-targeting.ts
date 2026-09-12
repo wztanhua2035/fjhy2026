@@ -1,6 +1,7 @@
+import { npcCollisionRect } from '../game-rules/index.js';
 /** Shared interaction targeting rules. World coordinates are always player feet. */
 /** Embedded in the client bundle so the build can reject stale interaction code. */
-export const INTERACTION_TARGETING_BUILD_MARKER = 'interaction-targeting-v2';
+export const INTERACTION_TARGETING_BUILD_MARKER = 'interaction-targeting-v3';
 export type InteractionType='scripted'|'portal'|'entrance'|'npc'|'service'|'furniture';
 export type InteractionDirection='up'|'down'|'left'|'right';
 export interface InteractionRect {x:number;y:number;width:number;height:number}
@@ -10,14 +11,12 @@ export interface InteractionCandidate {
   distance:number; score:number;
 }
 export const interactionDefaults={
-  npcRadius:1.1,
+  /** Reach measured from the fixed collision rectangle, not the sprite or centre. */
+  npcRadius:.8,
   /** Close to the NPC collision body, joystick direction must not block interaction. */
-  npcCloseRadius:.9,
+  npcCloseRadius:.5,
   furnitureRadius:.8,
   serviceRadius:.9,
-  /** Portal anchors are doorway centres: keep a continuous one-tile corridor on either side. */
-  doorZoneHalfWidth:.8,
-  doorZoneHalfDepth:1,
   npcFacingConeDegrees:140,
   targetSwitchMargin:.15,
   targetStickinessSeconds:.25
@@ -35,13 +34,14 @@ export function facesInteraction(direction:InteractionDirection,from:{x:number;y
  * collision-body centres, never sprite or portrait centres.
  */
 export function canInteractWithNpc(direction:InteractionDirection,playerFoot:{x:number;y:number},npcFoot:{x:number;y:number}){
-  const distance=interactionDistance(playerFoot,npcFoot);
+  const body=npcCollisionRect(npcFoot);
+  const distance=Math.hypot(Math.max(body.x-playerFoot.x,0,playerFoot.x-body.x-body.width),Math.max(body.y-playerFoot.y,0,playerFoot.y-body.y-body.height));
   if(distance>interactionDefaults.npcRadius)return {allowed:false,distance,facingRequired:false};
   const facingRequired=distance>interactionDefaults.npcCloseRadius;
   return {allowed:!facingRequired||facesInteraction(direction,playerFoot,npcFoot),distance,facingRequired};
 }
-export function scoredInteraction(input:Omit<InteractionCandidate,'distance'|'score'>&{point:{x:number;y:number};questBonus?:number}){
-  const distance=interactionDistance(input.point,input.anchor);
+export function scoredInteraction(input:Omit<InteractionCandidate,'distance'|'score'>&{point:{x:number;y:number};questBonus?:number;validatedDistance?:number}){
+  const distance=input.validatedDistance??interactionDistance(input.point,input.anchor);
   const range=input.radius??0;
   const valid=input.zone?withinInteractionRect(input.point,input.zone):distance<=range;
   if(!valid)return null;

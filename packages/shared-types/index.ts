@@ -33,7 +33,7 @@ export interface NPCConfig {
   /** NPC 的外观与主角解耦；未配置时由客户端使用兼容默认外观。 */
   appearance?: Appearance | FormalNpcAppearance; facing?: 'down'|'left'|'right'|'up'; formalArtKey?: string; portraitKey?: string;
 }
-export interface Portal { id: string; x: number; y: number; toSceneId: string; spawnX: number; spawnY: number; returnEntranceId?: string }
+export interface Portal { id: string; x: number; y: number; toSceneId: string; spawnX: number; spawnY: number; returnEntranceId?: string; interactionArea?: Rect }
 export interface InteriorZone extends Rect { id: string; kind: 'wall'|'counter'|'shelf'|'storage'|'stairs'|'room'|'waitingArea'|'servicePoint'|'displayArea'|'chair'|'mirror'|'exit'|'entry'|'future'|'bed'|'wardrobe'|'desk'; solid: boolean; label?: string; interactionPoint?: {x:number;y:number} }
 export interface SceneConfig {
   id: string; name: string; townId: string; width: number; height: number; tileSize: number;

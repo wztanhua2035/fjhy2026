@@ -1,5 +1,5 @@
 import type { Appearance, FormalNpcAppearance, Bootstrap, GhostProfile, PlayerState, QuestRuntime, QuestTrackerItem, SceneView, ShopPanelView } from '../shared-types/index.js';
-import {inEntranceArea,npcCollisionRect,questStepProgress} from '../game-rules/index.js';
+import {inEntranceArea,npcCollisionRect,questStepProgress,portalInteractionZone} from '../game-rules/index.js';
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, innOpeningDialogue } from '../game-config/inn-opening.js';
 import { furnitureInteractionLabels, serviceInteractionNpcs } from '../game-config/interactions.js';
 import { canInteractWithNpc, interactionDefaults, interactionLabel, scoredInteraction, selectInteraction, type InteractionCandidate, type InteractionRect } from './interaction-targeting.js';
@@ -104,10 +104,10 @@ export class GameController {
   async acceptQuest(){await this.write('/v1/quest/accept',{questId:'Q_001'});}
   /** Player x/y are the foot world position; rendering scale never participates in targeting. */
   get footWorldPosition(){return {x:this.x,y:this.y};}
-  private portalZone(portal:{id:string;x:number;y:number}):InteractionRect{
+  private portalZone(portal:{id:string;x:number;y:number;interactionArea?:InteractionRect}):InteractionRect{
     // A portal anchor is a door centre, not a point the player must hit exactly.
     // The same continuous footprint is used for every interior portal.
-    return {x:portal.x-interactionDefaults.doorZoneHalfWidth,y:portal.y-interactionDefaults.doorZoneHalfDepth,width:interactionDefaults.doorZoneHalfWidth*2,height:interactionDefaults.doorZoneHalfDepth*2};
+    return portalInteractionZone(portal);
   }
   private portalLabel(portalId:string,sceneName:string){
     if(portalId==='ENTER_INN_GUEST_ROOM')return '进入临时房';
@@ -135,7 +135,7 @@ export class GameController {
     for(const npc of view.npcs){
       const anchor={x:npc.x,y:npc.y},physical=canInteractWithNpc(this.direction,point,anchor);
       if(!physical.allowed)continue;
-      const candidate=scoredInteraction({id:`npc:${npc.id}`,type:'npc',label:interactionLabel('npc',npc.name),path:'/v1/npc/talk',body:{npcId:npc.id},anchor,radius:interactionDefaults.npcRadius,facingRequired:physical.facingRequired,point,questBonus:npc.questId&&this.quests.some(quest=>quest.id===npc.questId&&quest.state!=='completed')?20:0});
+      const candidate=scoredInteraction({id:`npc:${npc.id}`,type:'npc',label:interactionLabel('npc',npc.name),path:'/v1/npc/talk',body:{npcId:npc.id},anchor,radius:interactionDefaults.npcRadius,facingRequired:physical.facingRequired,point,validatedDistance:physical.distance,questBonus:npc.questId&&this.quests.some(quest=>quest.id===npc.questId&&quest.state!=='completed')?20:0});
       if(candidate)candidates.push(candidate);
     }
     return candidates;
@@ -147,10 +147,11 @@ export class GameController {
       for(const portal of view.scene.portals)zones.push({id:`portal:${portal.id}`,type:'portal',anchor:{x:portal.x,y:portal.y},zone:this.portalZone(portal)});
       for(const plot of view.plots)for(const entrance of plot.entrances??[])if(plot.buildingId)zones.push({id:`entrance:${entrance.id}`,type:'entrance',anchor:entrance.position,zone:entrance.interactionArea});
       for(const zone of view.scene.interior?.zones??[]){if(zone.interactionPoint)zones.push({id:`furniture:${zone.id}`,type:'furniture',anchor:zone.interactionPoint,radius:interactionDefaults.furnitureRadius});if(zone.kind==='servicePoint'&&serviceInteractionNpcs[zone.id])zones.push({id:`service:${zone.id}`,type:'service',anchor:{x:zone.x+zone.width/2,y:zone.y+zone.height/2},radius:interactionDefaults.serviceRadius});}
-      for(const npc of view.npcs)zones.push({id:`npc:${npc.id}`,type:'npc',anchor:{x:npc.x,y:npc.y},radius:interactionDefaults.npcRadius});
+      for(const npc of view.npcs){const body=npcCollisionRect(npc),r=interactionDefaults.npcRadius;zones.push({id:`npc:${npc.id}`,type:'npc',anchor:{x:npc.x,y:npc.y},radius:r,zone:{x:body.x-r,y:body.y-r,width:body.width+2*r,height:body.height+2*r}});}
     }
-    return {foot:this.footWorldPosition,candidates,active,zones};
+    return {foot:this.footWorldPosition,candidates,active,zones,npcChecks:(view?.npcs??[]).map(n=>({id:n.id,...canInteractWithNpc(this.direction,this.footWorldPosition,n)}))};
   }
+  canUseNpcServices(){return !this.dialogue&&!this.introPending&&!!this.view?.npcs.some(n=>canInteractWithNpc(this.direction,this.footWorldPosition,n).allowed);}
   nearby(){const candidates=this.interactionCandidates();const next=selectInteraction(candidates,this.activeInteraction?.id);this.activeInteraction=next;return next;}
   async interact(){const target=this.nearby();if(!target)return;const entrance=target.path==='/v1/world/enter'?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===target.body.entranceId):undefined;const portal=target.path==='/v1/world/portal'?this.view?.scene.portals.find(p=>p.id===target.body.portalId):undefined;const returned=portal?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===portal.returnEntranceId):undefined;await this.sync();await this.write(target.path,target.body);if(entrance){this.direction=entrance.direction==='south'?'up':entrance.direction==='west'?'right':entrance.direction==='east'?'left':'down';this.message='进入建筑…';}else if(portal){if(returned)this.direction=returned.direction==='south'?'down':returned.direction==='west'?'left':returned.direction==='east'?'right':'up';this.interactionCooldown=.8;if(!this.dialogue)this.message='已到达'+(this.view?.scene.name??'场景');}this.onChange();}
   async trade(action:'buy'|'sell',itemId:string,quantity=1){

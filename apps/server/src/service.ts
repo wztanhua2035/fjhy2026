@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { Repository } from './repository.js';
 import type { PlayerState, WorldConfig } from '../../../packages/shared-types/index.js';
-import { ensure, canStand, recoverSafePosition, positionBlockers, isOpen, starterAppearance, createStarterAppearance, formalizeAppearance, publicPlayer, sceneView, plotEntrances, inEntranceArea, questStepProgress, questStepLedgerType, questStepReference } from '../../../packages/game-rules/index.js';
+import { ensure, canStand, recoverSafePosition, positionBlockers, isOpen, starterAppearance, createStarterAppearance, formalizeAppearance, publicPlayer, sceneView, plotEntrances, inEntranceArea, questStepProgress, questStepLedgerType, questStepReference, portalInteractionZone } from '../../../packages/game-rules/index.js';
 import { starterLooks } from '../../../packages/game-config/appearance-v1.js';
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, guestRoomObjectDialogue } from '../../../packages/game-config/inn-opening.js';
 export interface RequestGameContext { debugOpenAll?: boolean }
@@ -48,7 +48,7 @@ export class GameService {
           p.sceneId=entrance.targetScene;const safe=recoverSafePosition(world,p.sceneId,entrance.targetSpawnPoint.x,entrance.targetSpawnPoint.y);p.x=safe.x;p.y=safe.y;break;
         }
         case 'portal':{
-          const portal=sceneView(world,p.sceneId,this.now()).scene.portals.find(t=>t.id===body.portalId);ensure(portal,'NO_PORTAL','出口不存在');ensure(Math.hypot(p.x-portal.x,p.y-portal.y)<(portal.id==='EXIT_INN_GUEST_ROOM'||portal.id==='ENTER_INN_GUEST_ROOM'?1.1:4),'TOO_FAR','请走到出口');
+          const portal=sceneView(world,p.sceneId,this.now()).scene.portals.find(t=>t.id===body.portalId);ensure(portal,'NO_PORTAL','出口不存在');ensure(inEntranceArea({interactionArea:portalInteractionZone(portal)} as any,p.x,p.y),'TOO_FAR','请走到出口');
           p.sceneId=portal.toSceneId;const safe=recoverSafePosition(world,p.sceneId,portal.spawnX,portal.spawnY);p.x=safe.x;p.y=safe.y;break;
         }
         case 'introComplete':{
