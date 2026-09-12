@@ -17,7 +17,7 @@ await cp(path.resolve('apps/wechat-game/project.config.json'), path.join(outputR
 await mkdir(path.join(outputRoot, 'libs'), { recursive: true });
 await cp(path.resolve('apps/wechat-game/libs/weapp-adapter.js'), path.join(outputRoot, 'libs/weapp-adapter.js'));
 await cp(path.resolve('apps/wechat-game/libs/WEAPP_ADAPTER_LICENSE'), path.join(outputRoot, 'libs/WEAPP_ADAPTER_LICENSE'));
-const packageRoots = ['baishi-ground', 'baishi-world', 'baishi-portraits'];
+const packageRoots = [...new Set(['baishi-ground', 'baishi-world', 'baishi-portraits', ...wechatAssets.map(asset => asset.path.split('/')[0]).filter(root => root.startsWith('baishi-interior-'))])];
 for (const root of packageRoots) {
   await mkdir(path.join(outputRoot, root), { recursive: true });
   // 微信小游戏要求每个分包根目录提供 game.js；资源分包无需额外业务逻辑。

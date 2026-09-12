@@ -1,6 +1,16 @@
 # 白石街五座建筑室内美术工程规格 V1
 
-本规格对应 `packages/game-config/index.ts` 的 `interiorZones`、五个 `SceneConfig`、`baishiPlots` 和核心 NPC 配置。这里的矩形均为连续 tile 坐标 `(x, y, width, height)`；原点在背景左上角，X 向右，Y 向下。单 tile 为 32×32 世界像素。五张正式背景各制作 **768×640 px**（24×20 tile），保持原尺寸与左上角锚点，勿将人物、交互提示或出口按钮烙入背景。当前仍使用简洁测试地面和实体碰撞显示，没有正式室内背景图。
+本规格对应 `packages/game-config/index.ts` 的 `interiorZones`、五个 `SceneConfig`、`baishiPlots` 和核心 NPC 配置。这里的矩形均为连续 tile 坐标 `(x, y, width, height)`；原点在背景左上角，X 向右，Y 向下。单 tile 为 32×32 世界像素。五张正式背景均为 **768×640 px**（24×20 tile），保持原尺寸与左上角锚点；人物、交互提示和出口按钮不烙入背景。
+
+## 已接入资源 V1
+
+- `INTERIOR_B_SALON`：`scene-layers/baishi/interiors/interior_salon_v1.png` / `interior_salon_fg_v1.png`
+- `INTERIOR_B_GROCERY`：`scene-layers/baishi/interiors/interior_grocery_v1.png` / `interior_grocery_fg_v1.png`
+- `INTERIOR_B_TRADE`：`scene-layers/baishi/interiors/interior_trade_v1.png` / `interior_trade_fg_v1.png`
+- `INTERIOR_B_CLOTH`：`scene-layers/baishi/interiors/interior_cloth_v1.png` / `interior_cloth_fg_v1.png`
+- `INTERIOR_B_INN`：`scene-layers/baishi/interiors/interior_inn_v1.png` / `interior_inn_fg_v1.png`
+
+背景由共享 `baishiInteriorArtRegistry` 读取；每座都有透明前景图层，按 `foreground.occlusionFrontY` 与角色脚底 Y 深度排序。碰撞、入口、出口、NPC 与服务点仍只来自现有场景配置。
 
 所有室内沿用 `spawn=(12,15)`；内部出口 portal 在 `(12,18)`，出口语义区 `(11.3,17.3,1.4,1.4)`。由街道入口进入时使用同一合法 spawn；由内部出口返回街道时使用对应外部门口的 X 与门口 Y+1。主要行走走廊保留在中央 `x≈10–14, y≈11–18`；NPC、门与柜台前至少保留一条可绕行通路。实体矩形已进入 `scene.collision`，正式美术的可行走表现必须与这些占地一致。室内人物视觉倍率为室外的 1.43 倍，但脚底世界位置和碰撞不变。
 

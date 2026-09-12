@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GameController, formatQuestTracker, formatCyclingQuestTracker, baishiFormalArtRegistry, baishiV2ArtAssets, GROUND_DEPTH, WORLD_BASE, PORTRAIT_DIM_DEPTH, PORTRAIT_DEPTH, UI_DEPTH_BASE, DEBUG_DEPTH, worldActorDepth, worldBuildingDepth, buildingImagePosition, foregroundImagePosition, OUTDOOR_CAMERA_ZOOM, actorVisualScale, DIALOGUE_PORTRAIT_SCALE, DIALOGUE_ACTIVE_PORTRAIT_SCALE, DIALOGUE_INACTIVE_ALPHA, JOYSTICK_VISUAL_SCALE, JOYSTICK_HIT_SCALE, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
+import { GameController, formatQuestTracker, formatCyclingQuestTracker, baishiFormalArtRegistry, baishiInteriorArtRegistry, baishiV2ArtAssets, GROUND_DEPTH, WORLD_BASE, PORTRAIT_DIM_DEPTH, PORTRAIT_DEPTH, UI_DEPTH_BASE, DEBUG_DEPTH, worldActorDepth, worldBuildingDepth, buildingImagePosition, foregroundImagePosition, OUTDOOR_CAMERA_ZOOM, actorVisualScale, DIALOGUE_PORTRAIT_SCALE, DIALOGUE_ACTIVE_PORTRAIT_SCALE, DIALOGUE_INACTIVE_ALPHA, JOYSTICK_VISUAL_SCALE, JOYSTICK_HIT_SCALE, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
 import { availableStarterLookOptions } from '../../../packages/game-config/appearance-v1.js';
 import { createWeChatPlatform, safeInsets, allowWechatDebug } from './wechat-platform';
 import { loadWechatAssets } from './assets';
@@ -52,6 +52,8 @@ class BaishiWechatScene extends Phaser.Scene {
   private ground?: Phaser.GameObjects.Image;
   private buildings = new Map<string, Phaser.GameObjects.Image>();
   private foregrounds = new Map<string, Phaser.GameObjects.Image>();
+  private interiorBackgrounds = new Map<string, Phaser.GameObjects.Image>();
+  private interiorForegrounds = new Map<string, Phaser.GameObjects.Image>();
   private actors = new Map<string, Phaser.GameObjects.Sprite>();
   private actorNames = new Map<string, Phaser.GameObjects.Text>();
   private playerSprite!: Phaser.GameObjects.Sprite;
@@ -126,6 +128,10 @@ class BaishiWechatScene extends Phaser.Scene {
     this.debugGraphics = this.add.graphics().setDepth(DEBUG_DEPTH).setVisible(debugCollision);
     const insets = safeInsets(WIDTH, HEIGHT);
     this.ground = this.add.image(0, 0, groundKey).setOrigin(0).setDisplaySize(48 * TILE, 48 * TILE).setDepth(GROUND_DEPTH).setVisible(false);
+    for (const asset of baishiInteriorArtRegistry) {
+      this.interiorBackgrounds.set(asset.sceneId, this.add.image(0, 0, asset.assetKey).setOrigin(0).setDisplaySize(asset.width, asset.height).setDepth(GROUND_DEPTH).setVisible(false));
+      this.interiorForegrounds.set(asset.sceneId, this.add.image(0, 0, asset.foreground.assetKey).setOrigin(0).setDisplaySize(asset.width, asset.height).setDepth(WORLD_BASE).setVisible(false));
+    }
     for (const asset of baishiFormalArtRegistry.buildings) {
       this.buildings.set(asset.buildingId, this.add.image(0, 0, asset.assetKey).setOrigin(0).setDisplaySize(asset.renderWidth, asset.renderHeight).setDepth(WORLD_BASE).setVisible(false));
       if (asset.foreground && asset.foregroundOcclusionFrontY !== undefined) this.foregrounds.set(asset.buildingId, this.add.image(0, 0, asset.foreground.assetKey).setOrigin(0).setDisplaySize(asset.renderWidth, asset.renderHeight).setDepth(WORLD_BASE).setVisible(false));
@@ -182,7 +188,7 @@ class BaishiWechatScene extends Phaser.Scene {
     this.questToggle.setY(rightTop + 42);
     this.questPanel.setY(rightTop + 72);
     controller.onChange = () => this.syncUi();
-    const world = [this.graphics, this.debugGraphics, this.ground, this.playerSprite, this.playerName, ...this.buildings.values(), ...this.foregrounds.values(), ...this.actors.values(), ...this.actorNames.values()];
+    const world = [this.graphics, this.debugGraphics, this.ground, this.playerSprite, this.playerName, ...this.buildings.values(), ...this.foregrounds.values(), ...this.interiorBackgrounds.values(), ...this.interiorForegrounds.values(), ...this.actors.values(), ...this.actorNames.values()];
     const ui = this.children.list.filter(child => !world.includes(child as typeof world[number]));
     this.cameras.main.ignore(ui);
     this.worldOverlayCamera = this.cameras.add(0, 0, WIDTH, HEIGHT);
@@ -361,13 +367,20 @@ class BaishiWechatScene extends Phaser.Scene {
       circle: (x, y, r, fill) => { const c = color(fill); this.graphics.fillStyle(c.value, c.alpha); this.graphics.fillCircle(x, y, r); },
       text: (value, x, y, size, fill) => { let label = this.labels[this.labelIndex++]; if (!label) { label = this.add.text(0, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: size, color: '#ffffff', stroke: '#23352b', strokeThickness: 1 }).setOrigin(.5).setDepth(WORLD_BASE - 1); this.worldOverlayCamera.ignore(label); this.labels.push(label); } label.setText(value).setPosition(x, y).setFontSize(size).setColor(fill).setVisible(true); },
     };
-    if (controller.boot && !controller.player?.appearance) { this.ground?.setVisible(false); this.nightOverlay.setVisible(false); for (const image of [...this.buildings.values(), ...this.foregrounds.values(), ...this.actors.values(), ...this.actorNames.values()]) image.setVisible(false); this.playerSprite.setVisible(false); this.playerName.setVisible(false); const asset = draft.gender === 'MALE' ? baishiV2ArtAssets.playerMale : baishiV2ArtAssets.playerFemale; this.playerSprite.setTexture(asset.assetKey, asset.directionRows.down * asset.columns).setPosition(WIDTH * .35, HEIGHT / 2 + 35).setDisplaySize(128, 128).setDepth(WORLD_BASE).setVisible(true); }
+    if (controller.boot && !controller.player?.appearance) { this.ground?.setVisible(false); this.nightOverlay.setVisible(false); for (const image of [...this.buildings.values(), ...this.foregrounds.values(), ...this.interiorBackgrounds.values(), ...this.interiorForegrounds.values(), ...this.actors.values(), ...this.actorNames.values()]) image.setVisible(false); this.playerSprite.setVisible(false); this.playerName.setVisible(false); const asset = draft.gender === 'MALE' ? baishiV2ArtAssets.playerMale : baishiV2ArtAssets.playerFemale; this.playerSprite.setTexture(asset.assetKey, asset.directionRows.down * asset.columns).setPosition(WIDTH * .35, HEIGHT / 2 + 35).setDisplaySize(128, 128).setDepth(WORLD_BASE).setVisible(true); }
     else if (view) {
       const ox = WIDTH / 2 - controller.x * TILE, oy = HEIGHT / 2 - controller.y * TILE, street = view.scene.id === 'STREET_BAISHI_01';
       const groundReady = this.textures.exists(groundKey);
       this.ground?.setVisible(street && groundReady).setPosition(ox, oy);
+      const interiorArt = baishiInteriorArtRegistry.find(asset => asset.sceneId === view.scene.id);
+      const interiorReady = !!interiorArt && this.textures.exists(interiorArt.assetKey) && this.textures.exists(interiorArt.foreground.assetKey);
+      for (const asset of baishiInteriorArtRegistry) {
+        this.interiorBackgrounds.get(asset.sceneId)?.setVisible(!street && interiorReady && asset.sceneId === view.scene.id).setPosition(ox, oy);
+        this.interiorForegrounds.get(asset.sceneId)?.setVisible(!street && interiorReady && asset.sceneId === view.scene.id).setPosition(ox, oy).setDepth(worldBuildingDepth(asset.foreground.occlusionFrontY));
+      }
       const formalNpcIds = baishiFormalArtRegistry.npcs.filter(asset => this.textures.exists(asset.assetKey)).map(asset => asset.npcId), playerKey = controller.player?.appearance?.gender === 'MALE' ? 'formal-player-male' : 'formal-player-female', playerReady = this.textures.exists(playerKey);
-      controller.render(painter, WIDTH, HEIGHT, !street || !groundReady, !street, true, formalNpcIds, playerReady, !street);
+      const drawInteriorFallback = !street && !interiorReady;
+      controller.render(painter, WIDTH, HEIGHT, !street ? drawInteriorFallback : !groundReady, !street ? drawInteriorFallback : false, true, formalNpcIds, playerReady, drawInteriorFallback);
       this.renderFormalWorld(ox, oy);
       if (debugCollision) {
         this.debugGraphics.fillStyle(0xff334f, .2); this.debugGraphics.lineStyle(2, 0xff5d73, .9);
@@ -379,7 +392,7 @@ class BaishiWechatScene extends Phaser.Scene {
         this.debugGraphics.fillStyle(0xffffff, 1); this.debugGraphics.fillCircle(ox + controller.x * TILE, oy + controller.y * TILE, 7);
       }
       const night = view.phase === '深夜' || view.phase === '夜晚'; this.nightOverlay.setVisible(night).setFillStyle(0x233052, view.phase === '深夜' ? .32 : .2);
-    } else { this.ground?.setVisible(false); this.nightOverlay.setVisible(false); for (const image of [...this.buildings.values(), ...this.foregrounds.values(), ...this.actors.values(), ...this.actorNames.values()]) image.setVisible(false); this.playerSprite.setVisible(false); this.playerName.setVisible(false); }
+    } else { this.ground?.setVisible(false); this.nightOverlay.setVisible(false); for (const image of [...this.buildings.values(), ...this.foregrounds.values(), ...this.interiorBackgrounds.values(), ...this.interiorForegrounds.values(), ...this.actors.values(), ...this.actorNames.values()]) image.setVisible(false); this.playerSprite.setVisible(false); this.playerName.setVisible(false); }
     for (let i = this.labelIndex; i < this.labels.length; i++) this.labels[i].setVisible(false);
   }
 }

@@ -1,13 +1,15 @@
-import { baishiFormalArtRegistry, baishiV2ArtAssets } from '../../../packages/client-runtime/assets.js';
+import { baishiFormalArtRegistry, baishiInteriorArtRegistry, baishiV2ArtAssets } from '../../../packages/client-runtime/assets.js';
 
 export interface WechatAsset { key: string; source: string; path: string; frameWidth?: number; frameHeight?: number }
 export function packagedAssetPath(source: string) {
   const file = source.split('?')[0].split('/').pop()!;
-  const root = source.includes('/ground/') ? 'baishi-ground' : file.startsWith('portrait_') ? 'baishi-portraits' : 'baishi-world';
+  const interior = source.includes('/interiors/') ? file.match(/^interior_([a-z]+)_/)?.[1] : undefined;
+  const root = source.includes('/ground/') ? 'baishi-ground' : interior ? `baishi-interior-${interior}` : file.startsWith('portrait_') ? 'baishi-portraits' : 'baishi-world';
   return `${root}/${file}`;
 }
 export const wechatAssets: WechatAsset[] = [
   { key: 'baishi-ground-image', source: '/scene-layers/baishi/ground/baishi_composition_approved_v01.png' },
+  ...baishiInteriorArtRegistry.flatMap(asset => [{ key: asset.assetKey, source: asset.imagePath }, { key: asset.foreground.assetKey, source: asset.foreground.imagePath }]),
   ...baishiFormalArtRegistry.buildings.flatMap(a => [{ key: a.assetKey, source: a.imagePath }, ...(a.foreground && a.foregroundOcclusionFrontY !== undefined ? [{ key: a.foreground.assetKey, source: a.foreground.imagePath }] : [])]),
   ...baishiFormalArtRegistry.npcs.map(a => ({ key: a.assetKey, source: a.imagePath, frameWidth: a.frameWidth, frameHeight: a.frameHeight })),
   ...[baishiV2ArtAssets.playerMale, baishiV2ArtAssets.playerFemale].map(a => ({ key: a.assetKey, source: a.imagePath, frameWidth: a.frameWidth, frameHeight: a.frameHeight })),

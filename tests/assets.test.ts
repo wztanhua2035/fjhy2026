@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {drawBuildingAsset,drawSpriteSheet,drawSpriteSheetOrFallback,emptyPortraitState,portraitState,spriteFrame,ImageAssetStore,GROUND_DEPTH,PORTRAIT_DIM_DEPTH,PORTRAIT_DEPTH,UI_DEPTH_BASE,worldActorDepth,worldBuildingDepth,buildingImagePosition,foregroundImagePosition,baishiFormalArtRegistry,type ImageSource} from '../packages/client-runtime/assets.js';
+import {drawBuildingAsset,drawSpriteSheet,drawSpriteSheetOrFallback,emptyPortraitState,portraitState,spriteFrame,ImageAssetStore,GROUND_DEPTH,PORTRAIT_DIM_DEPTH,PORTRAIT_DEPTH,UI_DEPTH_BASE,worldActorDepth,worldBuildingDepth,buildingImagePosition,foregroundImagePosition,baishiFormalArtRegistry,baishiInteriorArtRegistry,type ImageSource} from '../packages/client-runtime/assets.js';
 
 const image:ImageSource={width:1254,height:1254};
 test('建筑资源使用 origin 绘制并保留前景元数据',()=>{const calls:any[]=[];const target={drawImage:(...args:any[])=>calls.push(args)};drawBuildingAsset(target,image,{assetKey:'test',imagePath:'/test.png',worldX:32.5,worldY:20,renderWidth:320,renderHeight:384,originX:.5,originY:1,depth:30,foreground:{assetKey:'fg',imagePath:'/fg.png',offsetX:0,offsetY:-128,depth:50}});assert.deepEqual(calls[0].slice(5),[-127.5,-364,320,384]);});
@@ -55,3 +55,8 @@ test('world objects remain above ground and below portrait UI',()=>{
 
 
 test('白石街建筑遮挡前沿以南立面与门前步道分界校准',()=>{const front=Object.fromEntries(baishiFormalArtRegistry.buildings.map(asset=>[asset.buildingId,asset.occlusionFrontY]));assert.deepEqual(front,{B_TRADE:19,B_INN:19,B_GROCERY:19,B_SALON:19,B_CLOTH:37});for(const buildingId of ['B_TRADE','B_INN','B_GROCERY'] as const){const edge=front[buildingId]!;assert.ok(worldActorDepth(20)>worldBuildingDepth(edge),buildingId+' 门前主街应显示玩家');assert.ok(worldActorDepth(18)<worldBuildingDepth(edge),buildingId+' 北侧应被建筑遮挡');}});
+
+test('五座室内正式美术均复用锁定的 24×20 尺寸并拥有独立前景',()=>{
+  assert.deepEqual(baishiInteriorArtRegistry.map(asset=>asset.sceneId),['INTERIOR_B_SALON','INTERIOR_B_GROCERY','INTERIOR_B_TRADE','INTERIOR_B_CLOTH','INTERIOR_B_INN']);
+  for(const asset of baishiInteriorArtRegistry){assert.equal(asset.width,768);assert.equal(asset.height,640);assert.match(asset.imagePath,/\/interiors\//);assert.match(asset.foreground.imagePath,/\/interiors\//);assert.ok(worldActorDepth(asset.foreground.occlusionFrontY-.1)<worldBuildingDepth(asset.foreground.occlusionFrontY));}
+});

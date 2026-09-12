@@ -64,8 +64,9 @@ test('微信原生图片完整注册正式资源、spritesheet，并缓存跨场
   assert.equal(keys.size, wechatAssets.length);
   assert.equal(sheets.length, 7);
   assert.equal(new Set(paths).size, paths.length);
-  assert.ok(paths.every(path => /^baishi-(ground|world|portraits)\//.test(path)));
+  assert.ok(paths.every(path => /^baishi-(ground|world|portraits|interior-[a-z]+)\//.test(path)));
   assert.ok(paths.includes('baishi-world/building_cloth_shop_fg.png'));
+  assert.equal(paths.filter(path => path.startsWith('baishi-interior-')).length, 10);
   await loadWechatAssets(textures, createImage);
   assert.equal(paths.length, wechatAssets.length, '切换场景不得再次加载');
 });
