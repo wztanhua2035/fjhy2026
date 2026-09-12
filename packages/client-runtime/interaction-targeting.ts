@@ -1,4 +1,6 @@
 /** Shared interaction targeting rules. World coordinates are always player feet. */
+/** Embedded in the client bundle so the build can reject stale interaction code. */
+export const INTERACTION_TARGETING_BUILD_MARKER = 'interaction-targeting-v2';
 export type InteractionType='scripted'|'portal'|'entrance'|'npc'|'service'|'furniture';
 export type InteractionDirection='up'|'down'|'left'|'right';
 export interface InteractionRect {x:number;y:number;width:number;height:number}

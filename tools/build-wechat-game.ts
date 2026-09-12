@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { wechatAssets, WECHAT_STARTUP_PACKAGE_ROOTS } from '../apps/wechat-game/src/assets.js';
-import { baishiInteriorArtRegistry, remoteAsset } from '../packages/client-runtime/index.js';
+import { baishiInteriorArtRegistry, remoteAsset, INTERACTION_TARGETING_BUILD_MARKER } from '../packages/client-runtime/index.js';
 
 const outputRoot = path.resolve(process.env.WECHAT_GAME_OUTPUT_DIR ?? 'dist/wechat-game');
 const retiredInteriorPackages = ['baishi-interior-salon', 'baishi-interior-grocery', 'baishi-interior-trade', 'baishi-interior-cloth', 'baishi-interior-inn', 'baishi-interior-guest'];
@@ -77,6 +77,7 @@ for (const file of finalConfigFiles) {
 }
 const bundle = await readFile(path.join(outputRoot, 'game.bundle.js'), 'utf8');
 if (retiredInteriorPackages.some(root => bundle.includes(root))) throw new Error('WeChat runtime still references a retired interior subpackage');
+if (!bundle.includes(INTERACTION_TARGETING_BUILD_MARKER)) throw new Error('WeChat bundle is missing the current interaction targeting marker');
 console.log(`正式 PNG ${resourceReport.length} 张，内容与 Web 源文件逐字节一致；解码像素约 ${(resourceReport.reduce((sum, item) => sum + item.decodedBytes, 0) / 1024 / 1024).toFixed(2)} MiB（不含引擎/Canvas）。`);
 
 async function directoryBytes(root: string, ignoredTopLevel = new Set<string>()): Promise<number> {

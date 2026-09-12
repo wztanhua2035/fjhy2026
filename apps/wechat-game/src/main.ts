@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GameController, formatQuestTracker, formatCyclingQuestTracker, baishiFormalArtRegistry, baishiInteriorArtRegistry, baishiV2ArtAssets, GROUND_DEPTH, WORLD_BASE, PORTRAIT_DIM_DEPTH, PORTRAIT_DEPTH, UI_DEPTH_BASE, DEBUG_DEPTH, worldActorDepth, worldBuildingDepth, buildingImagePosition, foregroundImagePosition, OUTDOOR_CAMERA_ZOOM, actorVisualScale, DIALOGUE_PORTRAIT_SCALE, DIALOGUE_ACTIVE_PORTRAIT_SCALE, DIALOGUE_INACTIVE_ALPHA, JOYSTICK_VISUAL_SCALE, JOYSTICK_HIT_SCALE, baishiShopSignPlacements, buildingDisplayName, shouldUseCustomSign, signTemplateTextStyle, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
+import { GameController, formatQuestTracker, formatCyclingQuestTracker, baishiFormalArtRegistry, baishiInteriorArtRegistry, baishiV2ArtAssets, GROUND_DEPTH, WORLD_BASE, PORTRAIT_DIM_DEPTH, PORTRAIT_DEPTH, UI_DEPTH_BASE, DEBUG_DEPTH, worldActorDepth, worldBuildingDepth, buildingImagePosition, foregroundImagePosition, OUTDOOR_CAMERA_ZOOM, actorVisualScale, DIALOGUE_PORTRAIT_SCALE, DIALOGUE_ACTIVE_PORTRAIT_SCALE, DIALOGUE_INACTIVE_ALPHA, JOYSTICK_VISUAL_SCALE, JOYSTICK_HIT_SCALE, baishiShopSignPlacements, buildingDisplayName, shouldUseCustomSign, signTemplateTextStyle, INTERACTION_TARGETING_BUILD_MARKER, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
 import { availableStarterLookOptions } from '../../../packages/game-config/appearance-v1.js';
 import { createWeChatPlatform, safeInsets, allowWechatDebug } from './wechat-platform';
 import { loadWechatAssets, loadWechatImage } from './assets';
@@ -21,6 +21,8 @@ const layout = mobileLayout(windowInfo, wx.getMenuButtonBoundingClientRect?.());
 const WIDTH = layout.width, HEIGHT = layout.height, TILE = 32, groundKey = 'baishi-ground-image';
 const platform = createWeChatPlatform(__WECHAT_API_BASE_URL__, { debugOpenAll: __WECHAT_DEV_OPEN_ALL__ });
 const controller = new GameController(platform.transport);
+// Allows DEV diagnostics and the build script to distinguish the targeting V2 bundle.
+(globalThis as { __fjhyInteractionTargetingBuild?: string }).__fjhyInteractionTargetingBuild = INTERACTION_TARGETING_BUILD_MARKER;
 const debugCollision = allowWechatDebug(__WECHAT_DEV_COLLISION__, wx.getAccountInfoSync?.().miniProgram?.envVersion);
 type Draft = { gender: 'MALE' | 'FEMALE'; skinToneId: string; hairId: string; outfitId: string; direction: Direction };
 const draft: Draft = { gender: 'FEMALE', skinToneId: 'SKIN_LIGHT', hairId: 'F_HAIR_01', outfitId: 'F_OUTFIT_01', direction: 'down' };
