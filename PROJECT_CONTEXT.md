@@ -1,5 +1,15 @@
 # 富甲横阳长期开发交接记录
 
+## 2026-09-12 微信白石街追平修正（待线上配置同步与用户真机验收）
+
+- 实际微信入口为 `apps/wechat-game`，输出 `dist/wechat-game`，旧 `apps/client-wechat` Cocos 原型保留但不作为本轮导入目录。
+- 已定位适配断点：默认 Phaser 图片 XHR 在旧 adapter 中落到 wx.request，本地正式分包资源须用 wx.createImage。新增统一打包/加载清单、失败文件提示和构建资源哈希核对，停止正式街区占位覆盖。
+- 五栋建筑、春衫 V2.1 foreground、主角/NPC/portrait、共享 depth/锚点、运行时碰撞与入口沿用 Web；微信补交谈/交易分离、进行中 tracker 优先、多点摇杆、对话停止移动、横屏比例/安全区和男女正式预览。
+- 线上使用 PostgreSQL 已发布 worldRelease，不能把部署代码等同发布配置。新增显式 STAGING/DEV `SYNC_BAISHI_CONTENT` 发布流程（保留历史/玩家数据、幂等），客户端检测过期白石街数据并显示差异。**线上发布尚未由本轮执行或确认**。
+- DEV 全营业为构建开关 + develop 客户端环境 + 服务端 DEV 三重约束；STAGING/production 不接受覆盖。
+- 自动验证包括原生图片注册/缓存/失败、微信请求→API→共享任务/关系/重登→REPORT、五店入口及碰撞、配置升级/幂等。仅报告内部自动验证，不代表用户视觉验收。
+- 导入、清编译缓存、重新预览、服务端配置同步及已知包体/内存边界见 [微信构建与验收](docs/WECHAT.md)。不扩第二街区、不新增玩法；春衫周边偶发空气墙仍为以后优化。
+
 最后更新：2026-09-09（北京时间）。本文件用于记录已确定的设计、实际开发与部署进度、已解决问题及下一阶段验收目标。以后接手开发时，先读本文件、README 和相关代码；每完成重要阶段，都同步更新本文件。
 
 当前结论：第一阶段原型已在 Zeabur 测试服运行，已实测创建角色、入住客栈和进入白石街。下一步优先完成“客栈 → 白石街 → NPC → 商店 → 买卖 → 理发/换装 → 存档重登”完整可玩闭环，再扩地图、任务和 NPC。生产环境尚未部署。
@@ -281,3 +291,5 @@ pm.cmd run typecheck 通过；定向测试 31 项通过、1 项 PostgreSQL 集�
 - 2026-09-11：白石街第二验证任务《雨前送样》已实现通用 `ACQUIRE → DELIVER → REPORT → REWARD` 范式。任务由春衫掌柜发起，领取任务物品“新布样”，交给青丝美发师后必须返回春衫衣坊汇报，最终奖励 15 文仅在 REPORT 完成后发放。`REPORT` 使用共享任务步骤类型和 `QUEST_REPORTED` 账本事件，任务接口、客户端 tracker 与服务端推进共用账本进度语义；没有新增数据库表或玩家存档字段。
 - 2026-09-12：已新增 [生活循环 / 活力 / 睡眠 / 状态系统阶段设计](docs/LIFE_ENERGY_STATUS_DESIGN.md)。已确定总体目标是形成轻生活循环而非生存压力，普通走路和对话不消耗活力，睡眠采用真实时间并支持离线完成，负面状态只影响效率；“见识 / 人缘 / 手艺”、活力 `0～100` 为建议项，小吃、正餐、休闲服务恢复量、服务时长及睡眠折损均为待验证参考值。当前只固化规则，不新增字段、数据库表、计时器或消费逻辑。客栈开局正式调整为一楼临时客房/侧房醒来，经轻量互动和一楼大堂陈掌柜对话后进入白石街；二楼保持软封锁。
 - 2026-09-12：已将 Web 本地人工测试页面交付方式写入 `AGENTS.md`。以后启动测试页供用户人工验收时，默认同时提供普通页面、`debugCollision=1` 碰撞调试页面和 `debugOpenAll=1` DEV 全部营业页面；需要时再提供两个参数的组合页面。端口以 Vite 实际启动端口为准。`debugOpenAll=1` 已实现 URL 参数 → Web 请求头 → 服务端请求级上下文 → 场景 NPC、建筑进入和店内服务统一营业判断的完整链路；仅在非 production 且 `APP_ENV=DEV` 时生效，不改变正式营业配置或昼夜显示。
+- 2026-09-12：白石街 Web First 垂直切片已同步到 Phaser 微信小游戏构建目标 `apps/wechat-game`。微信包复用共享 `GameController`、正式美术注册、五栋建筑、world Y-depth、春衫 foreground、主角/NPC spritesheet、portrait、入口碰撞、商店、`metNpcs`、“第一桶金”和“雨前送样”；平台专用层只处理微信网络、存储、生命周期、Canvas 触摸、固定横屏和安全区。构建输出为 `dist/wechat-game`，总量约 8.60 MiB，并按微信 4 MiB 单包限制拆为主包、底图、世界资源和 portrait 四个包；构建脚本逐包校验体积，`game.js` 在 Phaser 启动前加载三个资源分包。连接 STAGING 时必须使用 `wx.login → /v1/auth/wechat`；`WECHAT_GAME_DEV_LOGIN` 与 `WECHAT_GAME_DEBUG_OPEN_ALL` 仅用于本地 DEV API，STAGING/production 会拒绝或忽略。开发者工具运行、手机预览、真机手感、刘海适配和资源加载性能仍由用户验收。
+- 2026-09-12：STAGING 微信登录曾因数据库未应用 `202609070001_skin_color` 而触发 Prisma `P2022`（缺少 `player_appearance.skinColorId`），同时 Zeabur 网页终端无法连接。当前单实例 `game-api` 部署入口调整为先执行幂等的 `prisma migrate deploy`，迁移成功后再启动服务；未来扩为多实例时应迁移到独立 release job。

@@ -11,10 +11,8 @@ export const PORTRAIT_DEPTH = UI_DEPTH_BASE + 110;
 export const DEBUG_DEPTH = UI_DEPTH_BASE + 1000;
 export const worldActorDepth = (footWorldY: number) => WORLD_BASE + footWorldY * WORLD_DEPTH_SCALE + ACTOR_BIAS;
 export const worldBuildingDepth = (occlusionFrontY: number) => WORLD_BASE + occlusionFrontY * WORLD_DEPTH_SCALE;
-export const foregroundImagePosition = (asset: BuildingImageAsset, tileSize = 1) => ({
-  x: asset.worldX * tileSize - asset.renderWidth * asset.originX + (asset.foreground?.offsetX ?? 0),
-  y: asset.worldY * tileSize - asset.renderHeight * asset.originY + (asset.foreground?.offsetY ?? 0)
-});
+export const buildingImagePosition = (asset: BuildingImageAsset, tileSize = 1) => ({ x: asset.worldX * tileSize - asset.renderWidth * asset.originX, y: asset.worldY * tileSize - asset.renderHeight * asset.originY });
+export const foregroundImagePosition = (asset: BuildingImageAsset, tileSize = 1) => { const base = buildingImagePosition(asset, tileSize); return { x: base.x + (asset.foreground?.offsetX ?? 0), y: base.y + (asset.foreground?.offsetY ?? 0) }; };
 
 export interface BuildingImageAsset {
   assetKey: string; imagePath: string; worldX: number; worldY: number;
@@ -72,7 +70,7 @@ export class ImageAssetStore {
 }
 
 export const baishiV2ArtAssets = {
-  building: { assetKey:'building_baishi_shop_base', imagePath:'/scene-layers/baishi/formal/building_baishi_shop_base.png', worldX:32.5, worldY:20, renderWidth:320, renderHeight:384, originX:0, originY:0, depth:30, occlusionFrontY:19, foreground:{assetKey:'building_baishi_shop_fg',imagePath:'/scene-layers/baishi/formal/building_baishi_shop_fg.png',offsetX:0,offsetY:0,depth:50} },
+  building: { assetKey:'building_baishi_shop_base', imagePath:'/scene-layers/baishi/formal/building_baishi_shop_base.png', worldX:32.5, worldY:20, renderWidth:320, renderHeight:384, originX:165/320, originY:1, depth:30, occlusionFrontY:19, foreground:{assetKey:'building_baishi_shop_fg',imagePath:'/scene-layers/baishi/formal/building_baishi_shop_fg.png',offsetX:0,offsetY:0,depth:50} },
   npcClerk: {assetKey:'npc_baishi_clerk_walk',imagePath:'/scene-layers/baishi/formal/npc_baishi_clerk_walk.png',frameWidth:64,frameHeight:64,columns:4,rows:4,directionRows:{down:0,left:1,right:2,up:3},framesPerDirection:4,footAnchorX:32,footAnchorY:59,renderScale:1,frameOffsets:{down:[{x:-14,y:0},{x:5,y:0},{x:-5,y:0},{x:8.5,y:0}],left:[{x:-3.5,y:0},{x:-3.5,y:0},{x:5,y:0},{x:8.5,y:0}],right:[{x:-12.5,y:0},{x:4,y:0},{x:-4,y:0},{x:12.5,y:0}],up:[{x:-14,y:0},{x:5.5,y:0},{x:-4.5,y:0},{x:14,y:0}]}},
   playerMale: {assetKey:'player_male_base',imagePath:'/scene-layers/baishi/formal/player_male_base.png',frameWidth:64,frameHeight:64,columns:4,rows:4,directionRows:{down:0,left:1,right:2,up:3},framesPerDirection:4,footAnchorX:32,footAnchorY:59,renderScale:1,frameOffsets:{down:[{x:-13.5,y:0},{x:3,y:0},{x:-2.5,y:0},{x:12,y:0}],left:[{x:-12,y:0},{x:3,y:0},{x:.5,y:0},{x:8.5,y:0}],right:[{x:-12,y:0},{x:2.5,y:0},{x:-3,y:0},{x:5,y:0}],up:[{x:-13.5,y:0},{x:1.5,y:0},{x:-4,y:0},{x:10,y:0}]}},
   playerFemale: {assetKey:'player_female_base',imagePath:'/scene-layers/baishi/formal/player_female_base.png',frameWidth:64,frameHeight:64,columns:4,rows:4,directionRows:{down:0,left:1,right:2,up:3},framesPerDirection:4,footAnchorX:32,footAnchorY:59,renderScale:1,frameOffsets:{down:[{x:-13,y:0},{x:2,y:0},{x:3,y:0},{x:2,y:0}],left:[{x:-13,y:0},{x:3,y:0},{x:6,y:0},{x:0,y:0}],right:[{x:-11.5,y:0},{x:3,y:0},{x:3.5,y:0},{x:6.5,y:0}],up:[{x:-14.5,y:0},{x:2,y:0},{x:1,y:0},{x:7.5,y:0}]}},
@@ -81,7 +79,7 @@ export const baishiV2ArtAssets = {
 const standardWalk = (assetKey: string, imagePath: string) => ({ assetKey, imagePath, frameWidth:64, frameHeight:64, columns:4, rows:4, directionRows:{down:0,left:1,right:2,up:3}, framesPerDirection:4, footAnchorX:32, footAnchorY:59, renderScale:1, frameOffsets:{down:[{x:0,y:0}],left:[{x:0,y:0}],right:[{x:0,y:0}],up:[{x:0,y:0}]}});
 
 export const hengyangInnV1ArtAssets = {
-  building: { assetKey:'building_hengyang_inn_base', imagePath:'/scene-layers/baishi/formal/building_hengyang_inn_base.png', worldX:8.5, worldY:20, renderWidth:320, renderHeight:384, originX:0, originY:0, depth:30, occlusionFrontY:19, foreground:{assetKey:'building_hengyang_inn_fg',imagePath:'/scene-layers/baishi/formal/building_hengyang_inn_fg.png',offsetX:0,offsetY:0,depth:50} },
+  building: { assetKey:'building_hengyang_inn_base', imagePath:'/scene-layers/baishi/formal/building_hengyang_inn_base.png', worldX:8.5, worldY:20, renderWidth:320, renderHeight:384, originX:165/320, originY:1, depth:30, occlusionFrontY:19, foreground:{assetKey:'building_hengyang_inn_fg',imagePath:'/scene-layers/baishi/formal/building_hengyang_inn_fg.png',offsetX:0,offsetY:0,depth:50} },
   shopkeeper: {...standardWalk('npc_chen_shopkeeper_walk','/scene-layers/baishi/formal/npc_chen_shopkeeper_walk.png')},
   portrait: {assetKey:'portrait_chen_shopkeeper_normal',imagePath:'/scene-layers/baishi/formal/portrait_chen_shopkeeper_normal.png',preferredWidth:264,preferredHeight:264,slot:'right',originX:.5,originY:1}
 } as const;
@@ -104,7 +102,7 @@ export const baishiFormalArtRegistry = {
   ] as FormalPortraitRegistration[]
 };
 export const streetGroceryV1ArtAssets = {
-  building: { assetKey:'building_street_grocery_base', imagePath:'/scene-layers/baishi/formal/building_street_grocery_base.png', worldX:21, worldY:20, renderWidth:320, renderHeight:384, originX:0, originY:0, depth:30, occlusionFrontY:19, foreground:{assetKey:'building_street_grocery_fg',imagePath:'/scene-layers/baishi/formal/building_street_grocery_fg.png',offsetX:0,offsetY:0,depth:50} },
+  building: { assetKey:'building_street_grocery_base', imagePath:'/scene-layers/baishi/formal/building_street_grocery_base.png', worldX:21, worldY:20, renderWidth:320, renderHeight:384, originX:.5, originY:1, depth:30, occlusionFrontY:19, foreground:{assetKey:'building_street_grocery_fg',imagePath:'/scene-layers/baishi/formal/building_street_grocery_fg.png',offsetX:0,offsetY:0,depth:50} },
   assistant: {...standardWalk('npc_shop_assistant_walk','/scene-layers/baishi/formal/npc_shop_assistant_walk.png')},
   portrait: {assetKey:'portrait_shop_assistant_normal',imagePath:'/scene-layers/baishi/formal/portrait_shop_assistant_normal.png',preferredWidth:264,preferredHeight:264,slot:'right',originX:.5,originY:1}
 } as const;

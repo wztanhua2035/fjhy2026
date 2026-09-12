@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {drawBuildingAsset,drawSpriteSheet,drawSpriteSheetOrFallback,emptyPortraitState,portraitState,spriteFrame,ImageAssetStore,GROUND_DEPTH,PORTRAIT_DIM_DEPTH,PORTRAIT_DEPTH,UI_DEPTH_BASE,worldActorDepth,worldBuildingDepth,foregroundImagePosition,baishiFormalArtRegistry,type ImageSource} from '../packages/client-runtime/assets.js';
+import {drawBuildingAsset,drawSpriteSheet,drawSpriteSheetOrFallback,emptyPortraitState,portraitState,spriteFrame,ImageAssetStore,GROUND_DEPTH,PORTRAIT_DIM_DEPTH,PORTRAIT_DEPTH,UI_DEPTH_BASE,worldActorDepth,worldBuildingDepth,buildingImagePosition,foregroundImagePosition,baishiFormalArtRegistry,type ImageSource} from '../packages/client-runtime/assets.js';
 
 const image:ImageSource={width:1254,height:1254};
 test('建筑资源使用 origin 绘制并保留前景元数据',()=>{const calls:any[]=[];const target={drawImage:(...args:any[])=>calls.push(args)};drawBuildingAsset(target,image,{assetKey:'test',imagePath:'/test.png',worldX:32.5,worldY:20,renderWidth:320,renderHeight:384,originX:.5,originY:1,depth:30,foreground:{assetKey:'fg',imagePath:'/fg.png',offsetX:0,offsetY:-128,depth:50}});assert.deepEqual(calls[0].slice(5),[-127.5,-364,320,384]);});
@@ -32,6 +32,17 @@ test('春衫衣坊 V2.1 独立启用同锚点 foreground',()=>{
   assert.equal(cloth.foregroundOcclusionFrontY,36);
   assert.deepEqual(foregroundImagePosition(cloth),{x:-158,y:-283});
   assert.deepEqual(baishiFormalArtRegistry.buildings.filter(asset=>asset.foregroundOcclusionFrontY!==undefined).map(asset=>asset.buildingId),['B_CLOTH']);
+});
+
+test('五栋正式建筑使用共享挂载元数据还原 Web world-space 位置',()=>{
+  const positions=Object.fromEntries(baishiFormalArtRegistry.buildings.map(asset=>[asset.buildingId,buildingImagePosition(asset,32)]));
+  assert.deepEqual(positions,{
+    B_TRADE:{x:875,y:256},
+    B_INN:{x:107,y:256},
+    B_GROCERY:{x:512,y:256},
+    B_SALON:{x:1248,y:224},
+    B_CLOTH:{x:896,y:864}
+  });
 });
 
 test('world objects remain above ground and below portrait UI',()=>{

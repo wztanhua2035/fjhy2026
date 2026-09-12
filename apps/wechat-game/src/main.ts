@@ -1,13 +1,22 @@
 import Phaser from 'phaser';
-import { GameController, drawAppearance, formatQuestTracker, ImageAssetStore, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
+import { GameController, formatQuestTracker, baishiFormalArtRegistry, baishiV2ArtAssets, GROUND_DEPTH, WORLD_BASE, PORTRAIT_DIM_DEPTH, PORTRAIT_DEPTH, UI_DEPTH_BASE, DEBUG_DEPTH, worldActorDepth, worldBuildingDepth, buildingImagePosition, foregroundImagePosition, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
 import type { Appearance } from '../../../packages/shared-types/index.js';
-import { createWeChatPlatform, safeInsets } from './wechat-platform';
+import { createWeChatPlatform, safeInsets, allowWechatDebug } from './wechat-platform';
+import { loadWechatAssets } from './assets';
+import { mobileLayout } from './layout';
+import { baishiCompatibility } from './compatibility';
+declare const wx: any;
 
 declare const __WECHAT_API_BASE_URL__: string;
-const WIDTH = 960, HEIGHT = 540, TILE = 32, groundKey = 'baishi-ground';
-const platform = createWeChatPlatform(__WECHAT_API_BASE_URL__);
+declare const __WECHAT_DEV_OPEN_ALL__: boolean;
+declare const __WECHAT_DEV_COLLISION__: boolean;
+declare const __WECHAT_DEV_LOGIN__: boolean;
+const windowInfo = wx.getWindowInfo?.() ?? wx.getSystemInfoSync();
+const layout = mobileLayout(windowInfo, wx.getMenuButtonBoundingClientRect?.());
+const WIDTH = layout.width, HEIGHT = layout.height, TILE = 32, groundKey = 'baishi-ground-image';
+const platform = createWeChatPlatform(__WECHAT_API_BASE_URL__, { debugOpenAll: __WECHAT_DEV_OPEN_ALL__ });
 const controller = new GameController(platform.transport);
-const imageAssets = new ImageAssetStore();
+const debugCollision = allowWechatDebug(__WECHAT_DEV_COLLISION__, wx.getAccountInfoSync?.().miniProgram?.envVersion);
 type Draft = { gender: 'MALE' | 'FEMALE'; base: number; skin: string; hair: string; top: string; bottom: string; direction: Direction };
 const draft: Draft = { gender: 'FEMALE', base: 1, skin: 'SKIN_LIGHT', hair: 'INK', top: 'SAGE', bottom: 'CREAM', direction: 'down' };
 // WeChat sends touch coordinates directly to the game canvas. Phaser's web-only
@@ -36,7 +45,19 @@ function color(value: string) { const hex = value.replace('#', ''); const rgb = 
 function appearance(): Appearance { return { gender: draft.gender, baseAvatarId: `${draft.gender}_${String(draft.base).padStart(2, '0')}`, skinColorId: draft.skin, hairStyleId: `HAIR_${draft.gender}_01`, topStyleId: `TOP_${draft.gender}_01`, bottomStyleId: `BOTTOM_${draft.gender}_01`, shoesId: `SHOES_${draft.gender}_01`, hairColorId: draft.hair, topColorId: draft.top, bottomColorId: draft.bottom, accessoryIds: [] }; }
 class BaishiWechatScene extends Phaser.Scene {
   private graphics!: Phaser.GameObjects.Graphics;
+  private debugGraphics!: Phaser.GameObjects.Graphics;
   private ground?: Phaser.GameObjects.Image;
+  private buildings = new Map<string, Phaser.GameObjects.Image>();
+  private foregrounds = new Map<string, Phaser.GameObjects.Image>();
+  private actors = new Map<string, Phaser.GameObjects.Sprite>();
+  private actorNames = new Map<string, Phaser.GameObjects.Text>();
+  private playerSprite!: Phaser.GameObjects.Sprite;
+  private playerName!: Phaser.GameObjects.Text;
+  private nightOverlay!: Phaser.GameObjects.Rectangle;
+  private dialogueName!: Phaser.GameObjects.Text;
+  private portraitDim!: Phaser.GameObjects.Rectangle;
+  private portraits = new Map<string, Phaser.GameObjects.Image>();
+  private playerPortraits = new Map<'MALE'|'FEMALE', Phaser.GameObjects.Image>();
   private labels: Phaser.GameObjects.Text[] = [];
   private labelIndex = 0;
   private hud!: Phaser.GameObjects.Text;
@@ -51,6 +72,8 @@ class BaishiWechatScene extends Phaser.Scene {
   private questPanel!: Phaser.GameObjects.Text;
   private questToggle!: Phaser.GameObjects.Text;
   private questCollapsed = false;
+  private questIndex = 0;
+  private loginFailed = false;
   private move = { x: 0, y: 0 };
   private stickBase!: Phaser.GameObjects.Arc;
   private stick!: Phaser.GameObjects.Arc;
@@ -58,41 +81,103 @@ class BaishiWechatScene extends Phaser.Scene {
   private fpsElapsed = 0;
   private fpsFrames = 0;
   constructor() { super('baishi-wechat'); }
-  create() {
-    this.graphics = this.add.graphics().setDepth(10);
+  private ready = false;
+  private contentError = '';
+  private shopOpen = false;
+  private shopToggle!: Phaser.GameObjects.Text;
+  private genderToggle!: Phaser.GameObjects.Text;
+  private stickPointer: number | null = null;
+  /* Native package images bypass the browser XHR/Blob loader. */
+  async create() {
+    const loading = this.add.text(WIDTH / 2, HEIGHT / 2, '正在加载正式资源…', { fontSize: '20px', color: '#203a2c', wordWrap: { width: 800 } }).setOrigin(.5);
+    const failures = await loadWechatAssets(this.textures, () => wx.createImage(), (done, total) => loading.setText(`正在加载正式资源 ${done}/${total}`));
+    if (failures.length) {
+      loading.setText(`正式资源加载失败，点击重试：\n${failures.join('\n')}`);
+      console.error('[FJHY assets]', failures);
+      loading.setInteractive().on('pointerdown', () => this.scene.restart());
+      return;
+    }
+    // Keep the existing texture aliases compatible with the formal player renderer.
+    for (const [key, asset] of [['formal-player-male', baishiV2ArtAssets.playerMale], ['formal-player-female', baishiV2ArtAssets.playerFemale]] as const) {
+      if (!this.textures.exists(key)) this.textures.addSpriteSheet(key, this.textures.get(asset.assetKey).getSourceImage() as HTMLImageElement, { frameWidth: asset.frameWidth, frameHeight: asset.frameHeight });
+    }
+    loading.destroy();
+    this.createWorld();
+    this.ready = true;
+  }
+  private createWorld() {
+    this.graphics = this.add.graphics().setDepth(GROUND_DEPTH + 1);
+    this.debugGraphics = this.add.graphics().setDepth(DEBUG_DEPTH).setVisible(debugCollision);
     const insets = safeInsets(WIDTH, HEIGHT);
-    this.hud = this.add.text(insets.left + 18, insets.top + 14, '', { fontFamily: 'Arial', fontSize: '17px', color: '#ffffff', stroke: '#26352d', strokeThickness: 3, lineSpacing: 5 }).setDepth(50);
-    this.message = this.add.text(WIDTH / 2, HEIGHT - insets.bottom - 116, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '18px', color: '#ffffff', align: 'center', stroke: '#26352d', strokeThickness: 3, wordWrap: { width: 560 }, lineSpacing: 4 }).setOrigin(.5, 1).setDepth(50);
-    this.frame = this.add.text(WIDTH - insets.right - 12, insets.top + 12, '', { fontFamily: 'Arial', fontSize: '14px', color: '#edf3d7', stroke: '#26352d', strokeThickness: 3 }).setOrigin(1, 0).setDepth(50);
+    this.ground = this.add.image(0, 0, groundKey).setOrigin(0).setDisplaySize(48 * TILE, 48 * TILE).setDepth(GROUND_DEPTH).setVisible(false);
+    for (const asset of baishiFormalArtRegistry.buildings) {
+      this.buildings.set(asset.buildingId, this.add.image(0, 0, asset.assetKey).setOrigin(0).setDisplaySize(asset.renderWidth, asset.renderHeight).setDepth(WORLD_BASE).setVisible(false));
+      if (asset.foreground && asset.foregroundOcclusionFrontY !== undefined) this.foregrounds.set(asset.buildingId, this.add.image(0, 0, asset.foreground.assetKey).setOrigin(0).setDisplaySize(asset.renderWidth, asset.renderHeight).setDepth(WORLD_BASE).setVisible(false));
+    }
+    for (const asset of baishiFormalArtRegistry.npcs) {
+      this.actors.set(asset.npcId, this.add.sprite(0, 0, asset.assetKey, 0).setOrigin(asset.footAnchorX / asset.frameWidth, asset.footAnchorY / asset.frameHeight).setDisplaySize(asset.frameWidth * asset.renderScale, asset.frameHeight * asset.renderScale).setVisible(false));
+      this.actorNames.set(asset.npcId, this.add.text(0, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '16px', color: '#445749', stroke: '#f8f3df', strokeThickness: 3 }).setOrigin(.5, 1).setVisible(false));
+    }
+    this.playerSprite = this.add.sprite(0, 0, 'formal-player-female', 0).setOrigin(.5, 59 / 64).setDisplaySize(60, 60).setVisible(false);
+    this.playerName = this.add.text(0, 0, '你', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '17px', color: '#445749', stroke: '#f8f3df', strokeThickness: 3 }).setOrigin(.5, 1).setVisible(false);
+    this.nightOverlay = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x233052, 0).setDepth(UI_DEPTH_BASE - 10).setVisible(false);
+    this.portraitDim = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x18251c, .38).setDepth(PORTRAIT_DIM_DEPTH).setVisible(false);
+    this.portraitDim.setInteractive().on('pointerdown', () => { controller.dialogue = null; controller.dialogueSpeaker = null; controller.message = ''; this.syncUi(); });
+    for (const asset of baishiFormalArtRegistry.portraits) this.portraits.set(asset.speaker, this.add.image(WIDTH - insets.right - 180, HEIGHT - insets.bottom - 24, asset.assetKey).setOrigin(asset.originX, asset.originY).setDisplaySize(asset.preferredWidth, asset.preferredHeight).setDepth(PORTRAIT_DEPTH).setVisible(false));
+    this.playerPortraits.set('MALE', this.add.image(insets.left + 180, HEIGHT - insets.bottom - 24, 'portrait-player-male').setOrigin(.5, 1).setDisplaySize(264, 264).setDepth(PORTRAIT_DEPTH).setVisible(false));
+    this.playerPortraits.set('FEMALE', this.add.image(insets.left + 180, HEIGHT - insets.bottom - 24, 'portrait-player-female').setOrigin(.5, 1).setDisplaySize(264, 264).setDepth(PORTRAIT_DEPTH).setVisible(false));
+    this.dialogueName = this.add.text(WIDTH / 2, HEIGHT - insets.bottom - 210, '', {fontFamily:'Microsoft YaHei, Arial', fontSize:'21px', color:'#ffffff', backgroundColor:'#26352d', padding:{left:14,right:14,top:8,bottom:8}}).setOrigin(.5).setDepth(PORTRAIT_DEPTH + 11).setVisible(false);
+    this.hud = this.add.text(insets.left + 18, insets.top + 14, '', { fontFamily: 'Arial', fontSize: '17px', color: '#ffffff', stroke: '#26352d', strokeThickness: 3, lineSpacing: 5 }).setDepth(UI_DEPTH_BASE + 20);
+    this.message = this.add.text(WIDTH / 2, HEIGHT - insets.bottom - 116, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '18px', color: '#ffffff', align: 'center', stroke: '#26352d', strokeThickness: 3, wordWrap: { width: Math.max(420, 560 - insets.left - insets.right) }, lineSpacing: 4 }).setOrigin(.5, 1).setDepth(UI_DEPTH_BASE + 30);
+    this.frame = this.add.text(WIDTH - insets.right - 12, insets.top + 12, '', { fontFamily: 'Arial', fontSize: '14px', color: '#edf3d7', stroke: '#26352d', strokeThickness: 3 }).setOrigin(1, 0).setDepth(UI_DEPTH_BASE + 20);
     this.questToggle = this.button(WIDTH - insets.right - 62, insets.top + 54, 100, '任务 ▲', () => { this.questCollapsed = !this.questCollapsed; this.syncQuestPanel(); });
-    this.questPanel = this.add.text(WIDTH - insets.right - 12, insets.top + 82, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '15px', color: '#385446', backgroundColor: '#fffef0', padding: { left: 14, right: 14, top: 12, bottom: 12 }, fixedWidth: 330, wordWrap: { width: 302 }, lineSpacing: 5 }).setOrigin(1, 0).setDepth(59);
-    this.primary = this.button(WIDTH - insets.right - 92, HEIGHT - insets.bottom - 80, 72, '互动', () => void this.run(() => controller.interact()));
-    this.shopBackdrop = this.add.rectangle(492, 224, 388, 70, 0xfff9e9, .96).setOrigin(0).setStrokeStyle(2, 0xa8794f).setDepth(57).setVisible(false);
-    this.shopTitle = this.add.text(510, 238, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '18px', color: '#fef9ec', backgroundColor: '#7a9a77', fixedWidth: 350, padding: { left: 12, right: 12, top: 8, bottom: 8 } }).setDepth(58).setVisible(false);
-    this.shopBalance = this.add.text(855, 246, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '13px', color: '#fffdf3' }).setOrigin(1, 0).setDepth(59).setVisible(false);
-    this.shopFeedback = this.add.text(510, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '12px', color: '#7a6046', wordWrap: { width: 350 }, lineSpacing: 3 }).setDepth(59).setVisible(false);
+    this.questPanel = this.add.text(WIDTH - insets.right - 12, insets.top + 82, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '15px', color: '#385446', backgroundColor: '#fffef0', padding: { left: 14, right: 14, top: 12, bottom: 12 }, fixedWidth: 330, wordWrap: { width: 302 }, lineSpacing: 5 }).setOrigin(1, 0).setDepth(UI_DEPTH_BASE + 39);
+    this.questPanel.setInteractive().on('pointerdown', () => { this.questIndex++; this.syncQuestPanel(); });
+    this.primary = this.button(WIDTH - insets.right - 92, HEIGHT - insets.bottom - 80, 104, '互动', () => void this.run(() => controller.interact()));
+    this.shopBackdrop = this.add.rectangle(WIDTH - 468, 224, 388, 70, 0xfff9e9, .96).setOrigin(0).setStrokeStyle(2, 0xa8794f).setDepth(UI_DEPTH_BASE + 37).setVisible(false);
+    this.shopTitle = this.add.text(WIDTH - 450, 238, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '18px', color: '#fef9ec', backgroundColor: '#7a9a77', fixedWidth: 350, padding: { left: 12, right: 12, top: 8, bottom: 8 } }).setDepth(UI_DEPTH_BASE + 38).setVisible(false);
+    this.shopBalance = this.add.text(WIDTH - 105, 246, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '13px', color: '#fffdf3' }).setOrigin(1, 0).setDepth(UI_DEPTH_BASE + 39).setVisible(false);
+    this.shopFeedback = this.add.text(WIDTH - 450, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '12px', color: '#7a6046', wordWrap: { width: 350 }, lineSpacing: 3 }).setDepth(UI_DEPTH_BASE + 39).setVisible(false);
     const baseX = insets.left + 86, baseY = HEIGHT - insets.bottom - 88;
-    this.stickBase = this.add.circle(baseX, baseY, 50, 0x24342d, .38).setDepth(55).setInteractive();
-    this.stick = this.add.circle(baseX, baseY, 21, 0xd7e7cf, .62).setDepth(56);
-    this.stickBase.on('pointerdown', (p: Phaser.Input.Pointer) => this.setStick(p));
-    this.stickBase.on('pointermove', (p: Phaser.Input.Pointer) => { if (p.isDown) this.setStick(p); });
-    this.input.on('pointerup', () => this.clearStick());
+    this.stickBase = this.add.circle(baseX, baseY, 50, 0x24342d, .38).setDepth(UI_DEPTH_BASE + 35).setInteractive();
+    this.stick = this.add.circle(baseX, baseY, 21, 0xd7e7cf, .62).setDepth(UI_DEPTH_BASE + 36);
+    this.input.addPointer(2);
+    this.stickBase.on('pointerdown', (p: Phaser.Input.Pointer) => { if (controller.dialogue || this.shopOpen) return; this.stickPointer = p.id; this.setStick(p); });
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => { if (p.isDown && p.id === this.stickPointer) this.setStick(p); });
+    this.input.on('pointerup', (p: Phaser.Input.Pointer) => { if (p.id === this.stickPointer) this.clearStick(); });
     platform.onLifecycle(state => { if (state === 'hide') this.clearStick(); });
+    this.shopToggle = this.button(WIDTH - insets.right - 92, HEIGHT - insets.bottom - 150, 112, '交易', () => { this.shopOpen = !this.shopOpen; this.clearStick(); this.syncUi(); });
+    this.genderToggle = this.button(WIDTH / 2, HEIGHT / 2 + 100, 160, '切换男/女', () => { draft.gender = draft.gender === 'MALE' ? 'FEMALE' : 'MALE'; this.syncUi(); });
+    const capsule = wx.getMenuButtonBoundingClientRect?.();
+    const rightTop = Math.max(insets.top + 12, (capsule?.bottom ?? 0) / windowInfo.windowHeight * HEIGHT + 12);
+    this.frame.setY(rightTop);
+    this.questToggle.setY(rightTop + 42);
+    this.questPanel.setY(rightTop + 72);
     controller.onChange = () => this.syncUi();
     void this.loginPreview();
   }
   private async loginPreview() {
+    this.loginFailed = false;
     try {
-      // The staging test environment intentionally uses the existing development account route.
-      // Production WeChat login stays outside this acceptance task.
-      let account = platform.readLocal('fjhy.wechatPreviewAccount');
-      if (!account) { account = 'wechat-preview-' + Date.now().toString(36); platform.writeLocal('fjhy.wechatPreviewAccount', account); }
-      await controller.loginDev(account);
+      if (allowWechatDebug(__WECHAT_DEV_LOGIN__, wx.getAccountInfoSync?.().miniProgram?.envVersion)) {
+        let account = platform.readLocal('fjhy.wechatPreviewAccount');
+        if (!account) { account = 'wechat-preview-' + Date.now().toString(36); platform.writeLocal('fjhy.wechatPreviewAccount', account); }
+        await controller.loginDev(account);
+      } else await controller.loginWechat(await platform.getLoginCode());
+      if (controller.player?.appearance) await this.checkContent();
       this.syncUi();
-    } catch (error: any) { controller.message = `连接测试服务失败：${error.message ?? '未知错误'}`; this.syncUi(); }
+    } catch (error: any) { this.loginFailed = true; controller.message = `连接测试服务失败：${error.message ?? '未知错误'}`; this.syncUi(); }
+  }
+  private async checkContent() {
+    const street = await platform.transport('/v1/world/scenes/STREET_BAISHI_01', undefined, controller.token);
+    const missing = baishiCompatibility(street, controller.quests);
+    if (missing.length) {
+      this.contentError = `服务端白石街配置尚未同步（版本 ${controller.boot?.configVersion}）：${missing.join('、')}。请发布当前白石街配置后重新编译进入。`;
+      console.error('[FJHY content mismatch]', this.contentError);
+    }
   }
   private button(x: number, y: number, width: number, text: string, action: () => void) {
-    const button = this.add.text(x, y, text, { fontFamily: 'Arial', fontSize: '19px', color: '#ffffff', backgroundColor: '#39775f', padding: { left: 12, right: 12, top: 10, bottom: 10 }, align: 'center', fixedWidth: width }).setOrigin(.5).setDepth(60).setInteractive({ useHandCursor: true });
+    const button = this.add.text(x, y, text, { fontFamily: 'Arial', fontSize: '20px', color: '#ffffff', backgroundColor: '#39775f', padding: { left: 12, right: 12, top: 20, bottom: 20 }, align: 'center', fixedWidth: width }).setOrigin(.5).setDepth(UI_DEPTH_BASE + 40).setInteractive({ useHandCursor: true });
     button.on('pointerdown', action); return button;
   }
   private setStick(pointer: Phaser.Input.Pointer) {
@@ -100,44 +185,108 @@ class BaishiWechatScene extends Phaser.Scene {
     this.stick.setPosition(this.stickBase.x + dx * scale, this.stickBase.y + dy * scale);
     this.move = { x: dx / length, y: dy / length };
   }
-  private clearStick() { this.move = { x: 0, y: 0 }; if (this.stick) this.stick.setPosition(this.stickBase.x, this.stickBase.y); }
+  private clearStick() { this.stickPointer = null; this.move = { x: 0, y: 0 }; if (this.stick) this.stick.setPosition(this.stickBase.x, this.stickBase.y); }
   private async run(action: () => Promise<unknown>) { try { await action(); } catch (error: any) { controller.message = error.message ?? '操作失败'; } this.syncUi(); }
-  private createPreviewPlayer() {
-    // The currently deployed staging API predates skinColorId; it defaults to SKIN_LIGHT.
-    return controller.write('/v1/player/appearance/create', { gender: draft.gender, baseAvatarId: appearance().baseAvatarId, hairColorId: draft.hair, topColorId: draft.top, bottomColorId: draft.bottom });
+  private async createPreviewPlayer() {
+    await controller.create(draft.gender, appearance().baseAvatarId, draft.skin, draft.hair, draft.top, draft.bottom);
+    await this.checkContent();
   }
   private syncUi() {
     const player = controller.player; const hasPlayer = !!player?.appearance;
-    const isShop = !!controller.shopPanel() && !!controller.view?.npcs.some(n => Math.hypot(n.x - controller.x, n.y - controller.y) < 6);
+    const dialogue = !!controller.dialogue && !!controller.dialogueSpeaker;
+    const canShop = !dialogue && !!controller.shopPanel() && !!controller.view?.npcs.some(n => Math.hypot(n.x - controller.x, n.y - controller.y) < 6);
+    this.genderToggle.setVisible(!!controller.boot && !hasPlayer);
+    if (!canShop || controller.offline || controller.pending) this.shopOpen = false;
+    const isShop = canShop && this.shopOpen;
+    this.shopToggle.setVisible(canShop).setText(this.shopOpen ? '收起交易' : '交易');
+    if (this.shopOpen) this.shopToggle.setPosition(WIDTH - 530, 248); else this.shopToggle.setPosition(WIDTH - safeInsets(WIDTH, HEIGHT).right - 92, HEIGHT - safeInsets(WIDTH, HEIGHT).bottom - 150);
+    if (dialogue || isShop) this.clearStick();
     if (controller.boot && !hasPlayer) { this.message.setText('选择一个初始形象，然后开始白石街测试。'); this.primary.setText('开始'); this.primary.setVisible(true); this.primary.removeAllListeners('pointerdown').on('pointerdown', () => void this.run(() => this.createPreviewPlayer())); }
-    else { this.primary.removeAllListeners('pointerdown').on('pointerdown', () => void this.run(() => controller.interact())); this.primary.setText(controller.nearby()?.label?.replace(/^进入/, '进 ') ?? '互动'); this.primary.setVisible(hasPlayer && !isShop); }
+    else { this.primary.removeAllListeners('pointerdown').on('pointerdown', () => void this.run(() => controller.interact())); this.primary.setText(controller.nearby()?.label?.replace(/^进入/, '进 ') ?? '互动'); this.primary.setVisible(hasPlayer && !isShop && !dialogue); }
     this.hud.setText(hasPlayer ? `${controller.view?.scene.name ?? '横阳'} · ${player!.cash} 文` : '富甲横阳 · 白石街真机体验');
-    this.message.setText(controller.message || '');
+    this.message.setText(this.contentError || controller.message || '').setDepth(dialogue ? PORTRAIT_DEPTH + 10 : UI_DEPTH_BASE + 30);
+    if (controller.offline || controller.pending || this.loginFailed) this.primary.setVisible(true).setText('重新连接').removeAllListeners('pointerdown').on('pointerdown', () => void this.run(() => this.loginFailed ? this.loginPreview() : controller.retry()));
+    if (this.contentError) this.primary.setVisible(false);
+    this.portraitDim.setVisible(dialogue);
+    this.dialogueName.setText(`${controller.dialogueSpeaker ?? ''} · 已认识　（点击空白处结束）`).setVisible(dialogue);
+    for (const [speaker, portrait] of this.portraits) portrait.setVisible(dialogue && speaker === controller.dialogueSpeaker && this.textures.exists(portrait.texture.key));
+    for (const [gender, portrait] of this.playerPortraits) portrait.setVisible(dialogue && gender === player?.appearance?.gender && this.textures.exists(portrait.texture.key)).setAlpha(.72);
     this.questToggle.setVisible(hasPlayer);
     this.syncQuestPanel();
     this.syncShopPanel();
   }
-  private syncQuestPanel() { const task = controller.questTracker()[0]; this.questToggle?.setText(`任务 ${this.questCollapsed ? '▼' : '▲'}`); this.questPanel?.setText(task ? formatQuestTracker(task) : '暂无进行中的任务').setVisible(!!controller.player?.appearance && !this.questCollapsed); }
-  private ensureShopRows(count: number) { while (this.shopRows.length < count) { const icon = this.add.text(512, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '18px', color: '#6a472c', backgroundColor: '#f1d58d', fixedWidth: 34, fixedHeight: 34, align: 'center', padding: { top: 6 } }).setDepth(59); const title = this.add.text(555, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '15px', color: '#4c392b' }).setDepth(59); const detail = this.add.text(555, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '11px', color: '#806f5c' }).setDepth(59); const buy = this.button(774, 0, 76, '买入', () => {}); const sell = this.button(850, 0, 76, '出售', () => {}); this.shopRows.push({ icon, title, detail, buy, sell }); } }
-  private syncShopPanel() { const shop = controller.shopPanel(), nearClerk = !!controller.view?.npcs.some(n => Math.hypot(n.x - controller.x, n.y - controller.y) < 6), visible = !!shop && nearClerk; this.shopBackdrop.setVisible(visible); this.shopTitle.setVisible(visible); this.shopBalance.setVisible(visible); this.shopFeedback.setVisible(visible); for (const row of this.shopRows) Object.values(row).forEach(node => node.setVisible(false)); if (!shop || !visible) return; const height = 62 + shop.items.length * 64 + 34; this.shopBackdrop.setSize(388, height); this.shopTitle.setText(`  ${shop.title}`); this.shopBalance.setText(`铜钱 ${shop.balance} 文`); this.shopFeedback.setPosition(510, 224 + height - 28).setText(controller.message || ''); this.ensureShopRows(shop.items.length); shop.items.forEach((item, index) => { const row = this.shopRows[index], y = 286 + index * 64; row.icon.setPosition(512, y).setText(item.icon).setVisible(true); row.title.setPosition(555, y).setText(item.name).setVisible(true); row.detail.setPosition(555, y + 24).setText(`持有 ×${item.owned}　买入 ${item.buyPrice} 文　卖出 ${item.sellPrice} 文`).setVisible(true); row.buy.setPosition(774, y + 18).setText(`买入 ${item.buyPrice}`).setVisible(true).setInteractive(); row.sell.setPosition(850, y + 18).setText(`出售 ${item.sellPrice}`).setVisible(true).setInteractive(); row.buy.removeAllListeners('pointerdown').on('pointerdown', () => void this.run(() => controller.trade('buy', item.id))); row.sell.removeAllListeners('pointerdown').on('pointerdown', () => void this.run(() => controller.trade('sell', item.id))); }); }
+  private syncQuestPanel() {
+    const tasks = controller.questTracker().sort((a, b) => Number(a.completed) - Number(b.completed));
+    this.questIndex %= Math.max(tasks.length, 1);
+    const task = tasks[this.questIndex];
+    this.questToggle?.setText(`任务 ${this.questCollapsed ? '▼' : '▲'}`);
+    this.questPanel?.setText(task ? `${tasks.length > 1 ? (this.questIndex + 1) + '/' + tasks.length + ' · 点击切换任务\\n' : ''}${formatQuestTracker(task)}` : '暂无进行中的任务').setVisible(!!controller.player?.appearance && !this.questCollapsed && !this.shopOpen && !controller.dialogue);
+  }
+  private ensureShopRows(count: number) { while (this.shopRows.length < count) { const icon = this.add.text(WIDTH - 448, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '18px', color: '#6a472c', backgroundColor: '#f1d58d', fixedWidth: 34, fixedHeight: 34, align: 'center', padding: { top: 6 } }).setDepth(UI_DEPTH_BASE + 39); const title = this.add.text(WIDTH - 405, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '15px', color: '#4c392b' }).setDepth(UI_DEPTH_BASE + 39); const detail = this.add.text(WIDTH - 405, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '14px', color: '#806f5c' }).setDepth(UI_DEPTH_BASE + 39); const buy = this.button(WIDTH - 186, 0, 76, '买入', () => {}); const sell = this.button(WIDTH - 110, 0, 76, '出售', () => {}); this.shopRows.push({ icon, title, detail, buy, sell }); } }
+  private syncShopPanel() { const shop = controller.shopPanel(), nearClerk = !!controller.view?.npcs.some(n => Math.hypot(n.x - controller.x, n.y - controller.y) < 6), visible = this.shopOpen && !controller.dialogue && !!shop && nearClerk; this.shopBackdrop.setVisible(visible); this.shopTitle.setVisible(visible); this.shopBalance.setVisible(visible); this.shopFeedback.setVisible(visible); for (const row of this.shopRows) Object.values(row).forEach(node => node.setVisible(false)); if (!shop || !visible) return; const height = 62 + shop.items.length * 64 + 34; this.shopBackdrop.setSize(388, height); this.shopTitle.setText(`  ${shop.title}`); this.shopBalance.setText(`铜钱 ${shop.balance} 文`); this.shopFeedback.setPosition(WIDTH - 450, 224 + height - 28).setText(controller.message || ''); this.ensureShopRows(shop.items.length); shop.items.forEach((item, index) => { const row = this.shopRows[index], y = 286 + index * 64; row.icon.setPosition(WIDTH - 448, y).setText(item.icon).setVisible(true); row.title.setPosition(WIDTH - 405, y).setText(item.name).setVisible(true); row.detail.setPosition(WIDTH - 405, y + 24).setText(`背包持有 ×${item.owned}`).setVisible(true); row.buy.setPosition(WIDTH - 186, y + 18).setText(`买入 ${item.buyPrice}`).setVisible(true).setInteractive(); row.sell.setPosition(WIDTH - 110, y + 18).setText(`出售 ${item.sellPrice}`).setVisible(true).setInteractive(); row.buy.removeAllListeners('pointerdown').on('pointerdown', () => void this.run(() => controller.trade('buy', item.id))); row.sell.removeAllListeners('pointerdown').on('pointerdown', () => void this.run(() => controller.trade('sell', item.id))); }); }
   update(_: number, delta: number) {
+    if (!this.ready) return;
     this.fpsElapsed += delta; this.fpsFrames++; if (this.fpsElapsed >= 500) { this.fps = Math.round(this.fpsFrames * 1000 / this.fpsElapsed); this.fpsElapsed = 0; this.fpsFrames = 0; }
-    controller.tick(Math.min(delta / 1000, .05), this.move.x, this.move.y);
+    controller.tick(Math.min(delta / 1000, .05), this.contentError || controller.dialogue || this.shopOpen ? 0 : this.move.x, this.contentError || controller.dialogue || this.shopOpen ? 0 : this.move.y);
     this.frame.setText(`${this.fps} FPS`);
     this.render();
   }
+  private renderFormalWorld(ox: number, oy: number) {
+    const view = controller.view, street = view?.scene.id === 'STREET_BAISHI_01';
+    for (const [buildingId, image] of this.buildings) {
+      const asset = baishiFormalArtRegistry.buildings.find(candidate => candidate.buildingId === buildingId)!;
+      const position = buildingImagePosition(asset, TILE);
+      image.setVisible(!!street && this.textures.exists(asset.assetKey)).setPosition(ox + position.x, oy + position.y).setDepth(worldBuildingDepth(asset.occlusionFrontY!));
+    }
+    for (const [buildingId, image] of this.foregrounds) {
+      const asset = baishiFormalArtRegistry.buildings.find(candidate => candidate.buildingId === buildingId)!;
+      const position = foregroundImagePosition(asset, TILE);
+      image.setVisible(!!street && this.textures.exists(asset.foreground!.assetKey)).setPosition(ox + position.x, oy + position.y).setDepth(worldBuildingDepth(asset.foregroundOcclusionFrontY!));
+    }
+    for (const [npcId, sprite] of this.actors) {
+      const npc = view?.npcs.find(candidate => candidate.id === npcId), asset = baishiFormalArtRegistry.npcs.find(candidate => candidate.npcId === npcId)!;
+      const visible = !!npc && this.textures.exists(asset.assetKey);
+      sprite.setVisible(visible);
+      const name = this.actorNames.get(npcId)!; name.setVisible(visible);
+      if (npc) {
+        const offset = asset.frameOffsets?.down?.[0] ?? { x: 0, y: 0 }, depth = worldActorDepth(npc.y);
+        sprite.setFrame(asset.directionRows.down * asset.columns).setPosition(ox + npc.x * TILE + offset.x, oy + npc.y * TILE + offset.y).setDepth(depth);
+        name.setText(npc.name).setPosition(ox + npc.x * TILE, oy + npc.y * TILE - 48).setDepth(depth + 2);
+      }
+    }
+    const appearance = controller.player?.appearance, playerAsset = appearance?.gender === 'MALE' ? baishiV2ArtAssets.playerMale : baishiV2ArtAssets.playerFemale;
+    const playerKey = appearance?.gender === 'MALE' ? 'formal-player-male' : 'formal-player-female', row = playerAsset.directionRows[controller.direction], frame = controller.moving ? Math.floor((controller.walkTime * 8) % playerAsset.framesPerDirection) : 0;
+    const offset = playerAsset.frameOffsets?.[controller.direction]?.[frame] ?? { x: 0, y: 0 }, playerDepth = worldActorDepth(controller.y);
+    const playerReady = this.textures.exists(playerKey);
+    this.playerSprite.setTexture(playerKey).setOrigin(playerAsset.footAnchorX / playerAsset.frameWidth, playerAsset.footAnchorY / playerAsset.frameHeight).setDisplaySize(playerAsset.frameWidth * playerAsset.renderScale, playerAsset.frameHeight * playerAsset.renderScale).setFrame(row * playerAsset.columns + frame).setPosition(ox + controller.x * TILE + offset.x, oy + controller.y * TILE + offset.y).setDepth(playerDepth).setVisible(!!appearance && playerReady);
+    this.playerName.setPosition(ox + controller.x * TILE, oy + controller.y * TILE - 52).setDepth(playerDepth + 2).setVisible(!!appearance && playerReady);
+  }
   private render() {
-    const view = controller.view; this.graphics.clear(); this.labelIndex = 0;
+    const view = controller.view; this.graphics.clear(); this.debugGraphics.clear(); this.labelIndex = 0;
     const painter: Painter = {
       rect: (x, y, w, h, fill) => { const c = color(fill); this.graphics.fillStyle(c.value, c.alpha); this.graphics.fillRect(x, y, w, h); },
       circle: (x, y, r, fill) => { const c = color(fill); this.graphics.fillStyle(c.value, c.alpha); this.graphics.fillCircle(x, y, r); },
-      text: (value, x, y, size, fill) => { let label = this.labels[this.labelIndex++]; if (!label) { label = this.add.text(0, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: size, color: '#ffffff', stroke: '#23352b', strokeThickness: 1 }).setOrigin(.5).setDepth(20); this.labels.push(label); } label.setText(value).setPosition(x, y).setFontSize(size).setColor(fill).setVisible(true); },
+      text: (value, x, y, size, fill) => { let label = this.labels[this.labelIndex++]; if (!label) { label = this.add.text(0, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: size, color: '#ffffff', stroke: '#23352b', strokeThickness: 1 }).setOrigin(.5).setDepth(WORLD_BASE - 1); this.labels.push(label); } label.setText(value).setPosition(x, y).setFontSize(size).setColor(fill).setVisible(true); },
     };
-    if (controller.boot && !controller.player?.appearance) { this.ground?.setVisible(false); drawAppearance(painter, appearance(), controller.boot.colors, WIDTH / 2, HEIGHT / 2, 4, draft.direction, controller.walkTime); }
+    if (controller.boot && !controller.player?.appearance) { this.ground?.setVisible(false); this.nightOverlay.setVisible(false); for (const image of [...this.buildings.values(), ...this.foregrounds.values(), ...this.actors.values(), ...this.actorNames.values()]) image.setVisible(false); this.playerSprite.setVisible(false); this.playerName.setVisible(false); const asset = draft.gender === 'MALE' ? baishiV2ArtAssets.playerMale : baishiV2ArtAssets.playerFemale; this.playerSprite.setTexture(asset.assetKey, asset.directionRows.down * asset.columns).setPosition(WIDTH / 2, HEIGHT / 2 + 35).setDisplaySize(128, 128).setDepth(WORLD_BASE).setVisible(true); }
     else if (view) {
-      if (this.ground) { const ox = WIDTH / 2 - controller.x * TILE, oy = HEIGHT / 2 - controller.y * TILE; this.ground.setVisible(view.scene.id === 'STREET_BAISHI_01').setPosition(ox, oy); }
-      controller.render(painter, WIDTH, HEIGHT, !this.ground, !this.ground, true);
-    } else this.ground?.setVisible(false);
+      const ox = WIDTH / 2 - controller.x * TILE, oy = HEIGHT / 2 - controller.y * TILE, street = view.scene.id === 'STREET_BAISHI_01';
+      const groundReady = this.textures.exists(groundKey);
+      this.ground?.setVisible(street && groundReady).setPosition(ox, oy);
+      const formalNpcIds = baishiFormalArtRegistry.npcs.filter(asset => this.textures.exists(asset.assetKey)).map(asset => asset.npcId), playerKey = controller.player?.appearance?.gender === 'MALE' ? 'formal-player-male' : 'formal-player-female', playerReady = this.textures.exists(playerKey);
+      controller.render(painter, WIDTH, HEIGHT, !street || !groundReady, !street, true, formalNpcIds, playerReady, false);
+      this.renderFormalWorld(ox, oy);
+      if (debugCollision) {
+        this.debugGraphics.fillStyle(0xff334f, .2); this.debugGraphics.lineStyle(2, 0xff5d73, .9);
+        for (const rect of view.scene.collision) { this.debugGraphics.fillRect(ox + rect.x * TILE, oy + rect.y * TILE, rect.width * TILE, rect.height * TILE); this.debugGraphics.strokeRect(ox + rect.x * TILE, oy + rect.y * TILE, rect.width * TILE, rect.height * TILE); }
+        this.debugGraphics.fillStyle(0xffd54f, .18); this.debugGraphics.lineStyle(2, 0xffe680, .9);
+        for (const plot of view.plots.filter(plot => plot.buildingId)) { this.debugGraphics.fillRect(ox + plot.x * TILE, oy + plot.y * TILE, plot.width * TILE, plot.height * TILE); this.debugGraphics.strokeRect(ox + plot.x * TILE, oy + plot.y * TILE, plot.width * TILE, plot.height * TILE); }
+        this.debugGraphics.lineStyle(2, 0x38d9ff, .95);
+        for (const plot of view.plots) for (const entrance of plot.entrances ?? []) { const area = entrance.interactionArea; this.debugGraphics.strokeRect(ox + area.x * TILE, oy + area.y * TILE, area.width * TILE, area.height * TILE); }
+        this.debugGraphics.fillStyle(0xffffff, 1); this.debugGraphics.fillCircle(ox + controller.x * TILE, oy + controller.y * TILE, 7);
+      }
+      const night = view.phase === '深夜' || view.phase === '夜晚'; this.nightOverlay.setVisible(night).setFillStyle(0x233052, view.phase === '深夜' ? .32 : .2);
+    } else { this.ground?.setVisible(false); this.nightOverlay.setVisible(false); for (const image of [...this.buildings.values(), ...this.foregrounds.values(), ...this.actors.values(), ...this.actorNames.values()]) image.setVisible(false); this.playerSprite.setVisible(false); this.playerName.setVisible(false); }
     for (let i = this.labelIndex; i < this.labels.length; i++) this.labels[i].setVisible(false);
   }
 }

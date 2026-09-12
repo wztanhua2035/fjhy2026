@@ -3,8 +3,13 @@ import path from 'node:path';
 
 export default defineConfig({
   root: path.resolve('apps/wechat-game'),
-  publicDir: path.resolve('apps/wechat-game/public'),
-  define: { __WECHAT_API_BASE_URL__: JSON.stringify(process.env.WECHAT_GAME_API_BASE_URL ?? 'https://api-fjhy-staging.wzpy.net') },
+  publicDir: false,
+  define: {
+    __WECHAT_API_BASE_URL__: JSON.stringify(process.env.WECHAT_GAME_API_BASE_URL ?? 'https://api-fjhy-staging.wzpy.net'),
+    __WECHAT_DEV_OPEN_ALL__: JSON.stringify(process.env.WECHAT_GAME_DEBUG_OPEN_ALL === 'true'),
+    __WECHAT_DEV_COLLISION__: JSON.stringify(process.env.WECHAT_GAME_DEBUG_COLLISION === 'true'),
+    __WECHAT_DEV_LOGIN__: JSON.stringify(process.env.WECHAT_GAME_DEV_LOGIN === 'true'),
+  },
   build: {
     outDir: path.resolve('dist/wechat-game'),
     emptyOutDir: true,

@@ -2,13 +2,21 @@ import type { LifecycleState, PlatformAdapter, PlatformTransport } from '../../.
 
 declare const wx: any;
 
-export function createWeChatPlatform(apiBase: string): PlatformAdapter {
+export function allowWechatDebug(buildEnabled: boolean, envVersion: string | undefined) {
+  return buildEnabled && envVersion === 'develop';
+}
+
+export function wechatRequestHeaders(token = '', debugOpenAll = false) {
+  return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(debugOpenAll ? { 'X-Debug-Open-All': '1' } : {}) };
+}
+
+export function createWeChatPlatform(apiBase: string, options: { debugOpenAll?: boolean } = {}): PlatformAdapter {
   const base = apiBase.replace(/\/$/, '');
   const transport: PlatformTransport = (path, body, token) => new Promise((resolve, reject) => {
     wx.request({
       url: `${base}${path}`,
       method: body ? 'POST' : 'GET',
-      header: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      header: wechatRequestHeaders(token, allowWechatDebug(!!options.debugOpenAll, wx.getAccountInfoSync?.().miniProgram?.envVersion)),
       data: body,
       timeout: 10000,
       success: (result: any) => result.statusCode >= 200 && result.statusCode < 300
@@ -32,16 +40,13 @@ export function createWeChatPlatform(apiBase: string): PlatformAdapter {
   };
 }
 
+export function scaleSafeInsets(info: { windowWidth?: number; windowHeight?: number; safeArea?: { left: number; right: number; top: number; bottom: number } }, width: number, height: number) {
+  const safe = info.safeArea;
+  if (!safe || !info.windowWidth || !info.windowHeight) return { left: 0, right: 0, top: 0, bottom: 0 };
+  return { left: safe.left / info.windowWidth * width, right: (info.windowWidth - safe.right) / info.windowWidth * width, top: safe.top / info.windowHeight * height, bottom: (info.windowHeight - safe.bottom) / info.windowHeight * height };
+}
+
 export function safeInsets(width: number, height: number) {
-  try {
-    const info = wx.getWindowInfo?.() ?? wx.getSystemInfoSync();
-    const safe = info.safeArea;
-    if (!safe || !info.windowWidth || !info.windowHeight) return { left: 0, right: 0, top: 0, bottom: 0 };
-    return {
-      left: safe.left / info.windowWidth * width,
-      right: (info.windowWidth - safe.right) / info.windowWidth * width,
-      top: safe.top / info.windowHeight * height,
-      bottom: (info.windowHeight - safe.bottom) / info.windowHeight * height,
-    };
-  } catch { return { left: 0, right: 0, top: 0, bottom: 0 }; }
+  try { return scaleSafeInsets(wx.getWindowInfo?.() ?? wx.getSystemInfoSync(), width, height); }
+  catch { return { left: 0, right: 0, top: 0, bottom: 0 }; }
 }

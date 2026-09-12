@@ -1,5 +1,10 @@
 {
   "deviceOrientation": "landscape",
   "showStatusBar": false,
-  "navigateToMiniProgramAppIdList": []
+  "navigateToMiniProgramAppIdList": [],
+  "subpackages": [
+    { "name": "baishi-ground", "root": "baishi-ground" },
+    { "name": "baishi-world", "root": "baishi-world" },
+    { "name": "baishi-portraits", "root": "baishi-portraits" }
+  ]
 }
