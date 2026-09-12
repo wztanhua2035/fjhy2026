@@ -1,8 +1,8 @@
 import type { Appearance, FormalNpcAppearance, Bootstrap, GhostProfile, PlayerState, QuestRuntime, QuestTrackerItem, SceneView, ShopPanelView } from '../shared-types/index.js';
 import {inEntranceArea,npcCollisionRect,questStepProgress} from '../game-rules/index.js';
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, innOpeningDialogue } from '../game-config/inn-opening.js';
-import { furnitureInteractionLabels, interactionZoneOverrides, serviceInteractionLabels, serviceInteractionNpcs } from '../game-config/interactions.js';
-import { facesInteraction, interactionDefaults, interactionDistance, interactionLabel, scoredInteraction, selectInteraction, type InteractionCandidate, type InteractionRect } from './interaction-targeting.js';
+import { furnitureInteractionLabels, interactionZoneOverrides, serviceInteractionNpcs } from '../game-config/interactions.js';
+import { canInteractWithNpc, interactionDefaults, interactionLabel, scoredInteraction, selectInteraction, type InteractionCandidate, type InteractionRect } from './interaction-targeting.js';
 export * from './assets.js';
 export * from './remote-assets.js';
 export * from './shop-signs.js';
@@ -132,17 +132,10 @@ export class GameController {
       const candidate=scoredInteraction({id:`furniture:${zone.id}`,type:'furniture',label:furnitureInteractionLabels[zone.id]??interactionLabel('furniture',zone.label),path:'/v1/world/inspect',body:{zoneId:zone.id},anchor:zone.interactionPoint,radius:interactionDefaults.furnitureRadius,point});
       if(candidate)candidates.push(candidate);
     }
-    for(const zone of view.scene.interior?.zones??[]){
-      if(zone.kind!=='servicePoint')continue;
-      const npcId=serviceInteractionNpcs[zone.id];if(!npcId)continue;
-      const anchor={x:zone.x+zone.width/2,y:zone.y+zone.height/2};
-      const candidate=scoredInteraction({id:`service:${zone.id}`,type:'service',label:interactionLabel('service',serviceInteractionLabels[zone.id]),path:'/v1/npc/talk',body:{npcId},anchor,radius:interactionDefaults.serviceRadius,point});
-      if(candidate)candidates.push(candidate);
-    }
     for(const npc of view.npcs){
-      const anchor={x:npc.x,y:npc.y},distance=interactionDistance(point,anchor);
-      if(distance>interactionDefaults.npcRadius||!facesInteraction(this.direction,point,anchor))continue;
-      const candidate=scoredInteraction({id:`npc:${npc.id}`,type:'npc',label:interactionLabel('npc',npc.name),path:'/v1/npc/talk',body:{npcId:npc.id},anchor,radius:interactionDefaults.npcRadius,facingRequired:true,point,questBonus:npc.questId&&this.quests.some(quest=>quest.id===npc.questId&&quest.state!=='completed')?20:0});
+      const anchor={x:npc.x,y:npc.y},physical=canInteractWithNpc(this.direction,point,anchor);
+      if(!physical.allowed)continue;
+      const candidate=scoredInteraction({id:`npc:${npc.id}`,type:'npc',label:interactionLabel('npc',npc.name),path:'/v1/npc/talk',body:{npcId:npc.id},anchor,radius:interactionDefaults.npcRadius,facingRequired:physical.facingRequired,point,questBonus:npc.questId&&this.quests.some(quest=>quest.id===npc.questId&&quest.state!=='completed')?20:0});
       if(candidate)candidates.push(candidate);
     }
     return candidates;

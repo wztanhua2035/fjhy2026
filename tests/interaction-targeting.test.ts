@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { facesInteraction, interactionDefaults, scoredInteraction, selectInteraction, withinInteractionRect } from '../packages/client-runtime/interaction-targeting.js';
+import { canInteractWithNpc, facesInteraction, interactionDefaults, scoredInteraction, selectInteraction, withinInteractionRect } from '../packages/client-runtime/interaction-targeting.js';
 import { GameController } from '../packages/client-runtime/index.js';
 
 const point={x:10,y:10};
@@ -17,6 +17,22 @@ test('NPC 使用脚底坐标、小范围和宽松朝向锥',()=>{
   assert.equal(facesInteraction('left',{x:1,y:1},{x:2,y:1}),false);
   assert.equal(facesInteraction('right',{x:1,y:1},{x:1.5,y:1.7}),true);
   assert.equal(facesInteraction('right',{x:1,y:1},{x:1,y:2}),false);
+});
+
+test('门区是连续区域，贴近或越过门锚点不会因为最小距离失效',()=>{
+  const zone={x:6.2,y:9.75,width:1.6,height:.9};
+  for(const doorFoot of [{x:6.25,y:10.15},{x:7,y:10.2},{x:7.75,y:10.6}]){
+    const door=scoredInteraction({id:'portal:room',type:'portal',label:'前往客栈大厅',path:'/portal',body:{},anchor:{x:7,y:10.2},zone,point:doorFoot});
+    assert.ok(door,`door must remain available at ${doorFoot.x},${doorFoot.y}`);
+  }
+});
+
+test('NPC 近距离不要求朝向，外围范围才使用朝向辅助',()=>{
+  const outer=canInteractWithNpc('up',{x:8,y:10},{x:8,y:9});assert.equal(outer.allowed,true);assert.equal(outer.facingRequired,true);
+  const close=canInteractWithNpc('down',{x:8,y:9.8},{x:8,y:9});assert.equal(close.allowed,true);assert.equal(close.facingRequired,false);
+  assert.equal(canInteractWithNpc('left',{x:8,y:9.8},{x:8,y:9}).allowed,true);
+  assert.equal(canInteractWithNpc('right',{x:8,y:9.8},{x:8,y:9}).allowed,true);
+  assert.equal(canInteractWithNpc('left',{x:8,y:10.3},{x:8,y:9}).allowed,false);
 });
 
 test('门使用矩形，家具只允许正面锚点附近互动',()=>{
@@ -50,4 +66,11 @@ test('共享 GameController 在同一位置给 Web 与微信同一个互动结�
   assert.equal(controller.nearby()?.id,'portal:EXIT_INN_GUEST_ROOM');
   controller.x=9.45;controller.y=8.2;
   assert.equal(controller.nearby()?.id,'furniture:GUEST_CHEST');
+});
+
+test('服务点不会用独立范围抢占 NPC：交谈与后续服务共用 NPC 物理门槛',()=>{
+  const controller=new GameController(async()=>({}));
+  controller.view={scene:{id:'INTERIOR_B_TRADE',name:'白石商行',width:24,height:20,collision:[],roads:[],portals:[],buildingId:'B_TRADE',interior:{zones:[{id:'TRADE_SERVICE',kind:'servicePoint',x:11,y:12,width:2,height:1,solid:false}]},tileSize:32,mapAsset:'',spawnX:12,spawnY:15},plots:[],buildings:[],items:[],npcs:[{id:'NPC_TRADE_CLERK',name:'白石商行伙计',x:12,y:9,enabled:true}],phase:'白天'} as any;
+  controller.x=12;controller.y=12.5;controller.direction='up';assert.equal(controller.nearby(),null,'远处服务点不能替代 NPC 对话范围');
+  controller.y=10;controller.direction='up';assert.equal(controller.nearby()?.id,'npc:NPC_TRADE_CLERK');
 });

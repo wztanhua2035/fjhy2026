@@ -9,6 +9,8 @@ export interface InteractionCandidate {
 }
 export const interactionDefaults={
   npcRadius:1.1,
+  /** Close to the NPC collision body, joystick direction must not block interaction. */
+  npcCloseRadius:.9,
   furnitureRadius:.8,
   serviceRadius:.9,
   doorZoneDepth:.8,
@@ -23,6 +25,16 @@ export function facesInteraction(direction:InteractionDirection,from:{x:number;y
   const distance=interactionDistance(from,to);if(distance<.001)return true;
   const facing={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}}[direction];
   return (facing.x*(to.x-from.x)+facing.y*(to.y-from.y))/distance>=Math.cos(coneDegrees*Math.PI/360);
+}
+/**
+ * One shared physical gate for every NPC action. Both points are world feet /
+ * collision-body centres, never sprite or portrait centres.
+ */
+export function canInteractWithNpc(direction:InteractionDirection,playerFoot:{x:number;y:number},npcFoot:{x:number;y:number}){
+  const distance=interactionDistance(playerFoot,npcFoot);
+  if(distance>interactionDefaults.npcRadius)return {allowed:false,distance,facingRequired:false};
+  const facingRequired=distance>interactionDefaults.npcCloseRadius;
+  return {allowed:!facingRequired||facesInteraction(direction,playerFoot,npcFoot),distance,facingRequired};
 }
 export function scoredInteraction(input:Omit<InteractionCandidate,'distance'|'score'>&{point:{x:number;y:number};questBonus?:number}){
   const distance=interactionDistance(input.point,input.anchor);
