@@ -41,6 +41,8 @@ export class GameController {
   onChange=()=>{};
   constructor(public transport:Transport){}
   get player(){return this.boot?.player??null;}
+  homeActions(){return this.player?.appearance?['继续游戏','重新开始'] as const:['开始游戏'] as const;}
+  async restart(){await this.write('/v1/player/restart',{confirm:true});this.view=null;this.ghosts=[];this.quests=[];this.dialogue=null;this.dialogueSpeaker=null;await this.refresh();}
   logout(){this.token='';this.boot=null;this.view=null;this.ghosts=[];this.quests=[];this.pending=null;this.busy=false;this.offline=false;this.x=12;this.y=15;this.interactionCooldown=0;this.message='已退出，可以重新登录验证存档';this.dialogue=null;this.dialogueSpeaker=null;this.onChange();}
   async loginDev(account:string){const data=await this.transport('/v1/auth/dev',{account});this.token=data.token;await this.refresh();}
   async loginWechat(code:string){const data=await this.transport('/v1/auth/wechat',{code});this.token=data.token;await this.refresh();}
@@ -52,7 +54,7 @@ export class GameController {
     this.pending={path,body:{...body,requestId:uuid()}};return this.retry();
   }
   async retry(){if(this.busy)return;if(!this.pending){try{await this.refresh();this.offline=false;this.message='连接已恢复';}catch{this.offline=true;this.message='场景加载失败，请再次重连';}this.onChange();return;}this.busy=true;this.onChange();const op=this.pending;
-    try{const knownNpcs=new Set(this.player?.metNpcs??[]),npc=this.view?.npcs.find(n=>n.id===op.body?.npcId);const result=await this.transport(op.path,op.body,this.token);this.pending=null;this.offline=false;this.dialogue=typeof result.dialogue==='string'?result.dialogue:null;this.dialogueSpeaker=this.dialogue?(npc?.name??'白石街'):null;if(result.player){const old=this.player?.sceneId;this.boot!.player=result.player;this.x=result.player.x;this.y=result.player.y;if(old!==result.player.sceneId||!this.view)await this.loadScene();}const relationship=op.path==='/v1/npc/talk'&&npc?(knownNpcs.has(npc.id)?'关系状态：已认识。\n':'初次结识：'+npc.name+'。\n关系状态：已认识。\n'):'';this.message=relationship+(result.dialogue??'操作已完成');return result;}
+    try{const knownNpcs=new Set(this.player?.metNpcs??[]),npc=this.view?.npcs.find(n=>n.id===op.body?.npcId);const result=await this.transport(op.path,op.body,this.token);this.pending=null;this.offline=false;this.dialogue=typeof result.dialogue==='string'?result.dialogue:null;this.dialogueSpeaker=this.dialogue?(npc?.name??'白石街'):null;if(result.player){const old=this.player?.sceneId;this.boot!.player=result.player;this.x=result.player.x;this.y=result.player.y;if(op.path==='/v1/player/restart'){this.view=null;this.ghosts=[];this.quests=[];}else if(old!==result.player.sceneId||!this.view)await this.loadScene();}const relationship=op.path==='/v1/npc/talk'&&npc?(knownNpcs.has(npc.id)?'关系状态：已认识。\n':'初次结识：'+npc.name+'。\n关系状态：已认识。\n'):'';this.message=relationship+(result.dialogue??'操作已完成');return result;}
     catch(e:any){this.dialogue=null;this.dialogueSpeaker=null;this.message=e.message;if(e.status){this.pending=null;this.x=this.player?.x??this.x;this.y=this.player?.y??this.y;}else{this.offline=true;this.message=this.pending?'网络中断，操作结果待确认。点击重试，使用同一请求编号。':'操作已确认，场景加载失败，请重新连接。';}throw e;}
     finally{this.busy=false;this.onChange();}
   }

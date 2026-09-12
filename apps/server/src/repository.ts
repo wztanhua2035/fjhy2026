@@ -6,18 +6,20 @@ import { ensure, canStand, positionBlockers, recoverSafePosition, formalizeAppea
 export interface Release { id:string;version:number;status:string;config:WorldConfig;basedOn:number }
 export interface Repository {
   login(subject:string):Promise<PlayerState>; player(id:string):Promise<PlayerState>;
+  restartGame(id:string,requestId:string):Promise<PlayerState>;
   repairPosition(id:string,world:WorldConfig):Promise<PlayerState>;
   mutate(id:string,requestId:string,hash:string,fn:(p:PlayerState)=>unknown):Promise<any>;
   world():Promise<WorldConfig>; releases():Promise<Release[]>;
   draft(config:WorldConfig,basedOn:number):Promise<Release>; transition(id:string,status:string):Promise<Release>;
   ghosts(exclude:string):Promise<GhostProfile[]>; health():Promise<void>; close():Promise<void>;
 }
-const fresh=(id:string):PlayerState=>({id,nickname:`旅人${id.slice(0,4)}`,cash:0,stamina:100,status:'ACTIVE',sceneId:'INTERIOR_B_INN',x:12,y:15,appearance:null,inventory:{},cosmetics:[],ledger:[],tradeCounts:{},metNpcs:[]});
+const fresh=(id:string,nickname=`旅人${id.slice(0,4)}`):PlayerState=>({id,nickname,cash:0,stamina:100,status:'ACTIVE',sceneId:'INTERIOR_B_INN',x:12,y:15,appearance:null,inventory:{},cosmetics:[],ledger:[],tradeCounts:{},metNpcs:[]});
 export class MemoryRepository implements Repository {
   players=new Map<string,PlayerState>(); subjects=new Map<string,string>(); requests=new Map<string,{hash:string;result:any}>();
   versions:Release[]=[{id:'initial',version:1,status:'PUBLISHED',config:structuredClone(initialWorld),basedOn:0}];
   async login(subject:string){let id=this.subjects.get(subject);if(!id){id=randomUUID();this.subjects.set(subject,id);this.players.set(id,fresh(id));}return this.player(id);}
   async player(id:string){const p=this.players.get(id);ensure(p,'UNAUTHORIZED','请重新登录',401);return structuredClone(p);}
+  async restartGame(id:string,requestId:string){const key=`${id}:${requestId}`,old=this.requests.get(key);if(old){ensure(old.hash==='RESTART_GAME','REQUEST_CONFLICT','请求编号已被其他操作使用',409);return structuredClone(old.result.player);}const p=await this.player(id);ensure(p.appearance,'CHARACTER_REQUIRED','尚未创建角色',409);const next=fresh(id,p.nickname);this.players.set(id,next);this.requests.set(key,{hash:'RESTART_GAME',result:{player:structuredClone(next),backup:p}});return structuredClone(next);}
   async repairPosition(id:string,world:WorldConfig){const p=this.players.get(id);ensure(p,'UNAUTHORIZED','请重新登录',401);if(!canStand(world,p.sceneId,p.x,p.y)){
     const before={sceneId:p.sceneId,x:p.x,y:p.y,hits:positionBlockers(world,p.sceneId,p.x,p.y)};
     const safe=recoverSafePosition(world,p.sceneId,p.x,p.y);p.x=safe.x;p.y=safe.y;
@@ -46,6 +48,21 @@ export class PostgresRepository implements Repository {
   constructor(public db:PrismaClient){}
   async login(subject:string){const row=await this.db.player.upsert({where:{subjectHash:subject},update:{lastLoginAt:new Date()},create:{subjectHash:subject,nickname:`旅人${randomUUID().slice(0,4)}`},include});return decode(row);}
   async player(id:string){const row=await this.db.player.findUnique({where:{id},include});ensure(row,'UNAUTHORIZED','请重新登录',401);return decode(row);}
+  async restartGame(id:string,requestId:string){return this.db.$transaction(async tx=>{
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${id}))::text`;
+    const old=await tx.idempotencyRequest.findUnique({where:{playerId_requestId:{playerId:id,requestId}}});
+    if(old){ensure(old.hash==='RESTART_GAME','REQUEST_CONFLICT','请求编号已被其他操作使用',409);return (old.result as any).player as PlayerState;}
+    const row=await tx.player.findUnique({where:{id},include});ensure(row,'UNAUTHORIZED','请重新登录',401);ensure(row.appearance,'CHARACTER_REQUIRED','尚未创建角色',409);
+    const next=fresh(id,row.nickname),backup={player:decode(row),ledger:(await tx.playerLedger.findMany({where:{playerId:id}})).map(l=>({...l,amount:String(l.amount),before:String(l.before),after:String(l.after),createdAt:l.createdAt.toISOString()}))};
+    await tx.idempotencyRequest.create({data:{playerId:id,requestId,hash:'RESTART_GAME',result:json({player:next,backup})}});
+    await tx.playerAppearance.delete({where:{playerId:id}});
+    await tx.inventory.deleteMany({where:{playerId:id}});
+    await tx.playerCosmetic.deleteMany({where:{playerId:id}});
+    await tx.playerLedger.deleteMany({where:{playerId:id}});
+    await tx.ghostSnapshot.deleteMany({where:{playerId:id}});
+    await tx.player.update({where:{id},data:{cash:0n,stamina:next.stamina,sceneId:next.sceneId,x:next.x,y:next.y,tradeCounts:json({}),metNpcs:json([])}});
+    return next;
+  },{timeout:15000});}
   async repairPosition(id:string,world:WorldConfig){return this.db.$transaction(async tx=>{
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${id}))::text`;
     const row=await tx.player.findUnique({where:{id},include});ensure(row,'UNAUTHORIZED','请重新登录',401);

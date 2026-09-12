@@ -5,6 +5,7 @@ import { createWeChatPlatform, safeInsets, allowWechatDebug } from './wechat-pla
 import { loadWechatAssets } from './assets';
 import { mobileLayout } from './layout';
 import { baishiCompatibility } from './compatibility';
+import { mobileTypography } from './typography';
 declare const wx: any;
 
 declare const __WECHAT_API_BASE_URL__: string;
@@ -89,6 +90,15 @@ class BaishiWechatScene extends Phaser.Scene {
   private genderToggle!: Phaser.GameObjects.Text;
   private creationChoices: Phaser.GameObjects.Text[] = [];
   private creationStep = 0;
+  private homeMode = true;
+  private confirmingRestart = false;
+  private homeBackdrop!: Phaser.GameObjects.Rectangle;
+  private homeTitle!: Phaser.GameObjects.Text;
+  private homeStart!: Phaser.GameObjects.Text;
+  private homeContinue!: Phaser.GameObjects.Text;
+  private homeRestart!: Phaser.GameObjects.Text;
+  private restartCancel!: Phaser.GameObjects.Text;
+  private restartAccept!: Phaser.GameObjects.Text;
   private stickPointer: number | null = null;
   /* Native package images bypass the browser XHR/Blob loader. */
   async create() {
@@ -129,12 +139,12 @@ class BaishiWechatScene extends Phaser.Scene {
     for (const asset of baishiFormalArtRegistry.portraits) this.portraits.set(asset.speaker, this.add.image(WIDTH - insets.right - 180, HEIGHT - insets.bottom - 24, asset.assetKey).setOrigin(asset.originX, asset.originY).setDisplaySize(asset.preferredWidth, asset.preferredHeight).setDepth(PORTRAIT_DEPTH).setVisible(false));
     this.playerPortraits.set('MALE', this.add.image(insets.left + 180, HEIGHT - insets.bottom - 24, 'portrait-player-male').setOrigin(.5, 1).setDisplaySize(264, 264).setDepth(PORTRAIT_DEPTH).setVisible(false));
     this.playerPortraits.set('FEMALE', this.add.image(insets.left + 180, HEIGHT - insets.bottom - 24, 'portrait-player-female').setOrigin(.5, 1).setDisplaySize(264, 264).setDepth(PORTRAIT_DEPTH).setVisible(false));
-    this.dialogueName = this.add.text(WIDTH / 2, HEIGHT - insets.bottom - 210, '', {fontFamily:'Microsoft YaHei, Arial', fontSize:'21px', color:'#ffffff', backgroundColor:'#26352d', padding:{left:14,right:14,top:8,bottom:8}}).setOrigin(.5).setDepth(PORTRAIT_DEPTH + 11).setVisible(false);
+    this.dialogueName = this.add.text(WIDTH / 2, HEIGHT - insets.bottom - 226, '', {fontFamily:'Microsoft YaHei, Arial', fontSize:`${mobileTypography.speaker}px`, color:'#ffffff', backgroundColor:'#26352d', padding:{left:14,right:14,top:8,bottom:8}}).setOrigin(.5).setDepth(PORTRAIT_DEPTH + 11).setVisible(false);
     this.hud = this.add.text(insets.left + 18, insets.top + 14, '', { fontFamily: 'Arial', fontSize: '17px', color: '#ffffff', stroke: '#26352d', strokeThickness: 3, lineSpacing: 5 }).setDepth(UI_DEPTH_BASE + 20);
-    this.message = this.add.text(WIDTH / 2, HEIGHT - insets.bottom - 116, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '18px', color: '#ffffff', align: 'center', stroke: '#26352d', strokeThickness: 3, wordWrap: { width: Math.max(420, 560 - insets.left - insets.right) }, lineSpacing: 4 }).setOrigin(.5, 1).setDepth(UI_DEPTH_BASE + 30);
+    this.message = this.add.text(WIDTH / 2, HEIGHT - insets.bottom - 108, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: `${mobileTypography.dialogue}px`, color: '#ffffff', align: 'center', stroke: '#26352d', strokeThickness: 3, wordWrap: { width: Math.min(WIDTH - insets.left - insets.right - 60, 620) }, lineSpacing: 6 }).setOrigin(.5, 1).setDepth(UI_DEPTH_BASE + 30);
     this.frame = this.add.text(WIDTH - insets.right - 12, insets.top + 12, '', { fontFamily: 'Arial', fontSize: '14px', color: '#edf3d7', stroke: '#26352d', strokeThickness: 3 }).setOrigin(1, 0).setDepth(UI_DEPTH_BASE + 20);
     this.questToggle = this.button(WIDTH - insets.right - 62, insets.top + 54, 100, '任务 ▲', () => { this.questCollapsed = !this.questCollapsed; this.syncQuestPanel(); });
-    this.questPanel = this.add.text(WIDTH - insets.right - 12, insets.top + 82, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '15px', color: '#385446', backgroundColor: '#fffef0', padding: { left: 14, right: 14, top: 12, bottom: 12 }, fixedWidth: 330, wordWrap: { width: 302 }, lineSpacing: 5 }).setOrigin(1, 0).setDepth(UI_DEPTH_BASE + 39);
+    this.questPanel = this.add.text(WIDTH - insets.right - 12, insets.top + 82, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: `${mobileTypography.quest}px`, color: '#385446', backgroundColor: '#fffef0', padding: { left: 14, right: 14, top: 12, bottom: 12 }, fixedWidth: 330, wordWrap: { width: 302 }, lineSpacing: 6 }).setOrigin(1, 0).setDepth(UI_DEPTH_BASE + 39);
     this.questPanel.setInteractive().on('pointerdown', () => { this.questIndex++; this.syncQuestPanel(); });
     this.primary = this.button(WIDTH - insets.right - 92, HEIGHT - insets.bottom - 80, 104, '互动', () => void this.run(() => controller.interact()));
     this.shopBackdrop = this.add.rectangle(WIDTH - 468, 224, 388, 70, 0xfff9e9, .96).setOrigin(0).setStrokeStyle(2, 0xa8794f).setDepth(UI_DEPTH_BASE + 37).setVisible(false);
@@ -154,6 +164,14 @@ class BaishiWechatScene extends Phaser.Scene {
     this.safeResetButton.setVisible(false);
     this.genderToggle = this.button(insets.left + 105, HEIGHT - insets.bottom - 75, 150, '上一步', () => { this.creationStep = Math.max(0, this.creationStep - 1); this.syncUi(); });
     this.creationChoices = [0, 1, 2].map(index => this.button(WIDTH - insets.right - 175, HEIGHT / 2 - 70 + index * 68, 280, '', () => this.chooseCreation(index)));
+    this.homeBackdrop = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x223c30, .85).setDepth(UI_DEPTH_BASE + 39).setInteractive().setVisible(false);
+    this.homeTitle = this.add.text(WIDTH / 2, HEIGHT / 2 - 120, '富甲横阳', {fontFamily:'Microsoft YaHei, Arial',fontSize:'27px',color:'#ffffff',align:'center',wordWrap:{width:Math.min(640,WIDTH-insets.left-insets.right-40)}}).setOrigin(.5).setDepth(UI_DEPTH_BASE + 41).setVisible(false);
+    this.homeStart = this.button(WIDTH / 2, HEIGHT / 2, 220, '开始游戏', () => { this.homeMode = false; this.syncUi(); });
+    this.homeContinue = this.button(WIDTH / 2, HEIGHT / 2 - 18, 220, '继续游戏', () => { this.homeMode = false; this.syncUi(); });
+    this.homeRestart = this.button(WIDTH / 2, HEIGHT / 2 + 70, 220, '重新开始', () => { this.confirmingRestart = true; this.syncUi(); });
+    this.restartCancel = this.button(WIDTH / 2 - 135, HEIGHT / 2 + 75, 190, '取消', () => { this.confirmingRestart = false; this.syncUi(); });
+    this.restartAccept = this.button(WIDTH / 2 + 135, HEIGHT / 2 + 75, 220, '确定重新开始', () => void this.run(async () => { await controller.restart(); this.confirmingRestart = false; this.homeMode = false; this.creationStep = 0; }));
+    for (const button of [this.homeStart,this.homeContinue,this.homeRestart,this.restartCancel,this.restartAccept]) button.setVisible(false);
     const capsule = wx.getMenuButtonBoundingClientRect?.();
     const rightTop = Math.max(insets.top + 12, (capsule?.bottom ?? 0) / windowInfo.windowHeight * HEIGHT + 12);
     this.frame.setY(rightTop);
@@ -170,6 +188,7 @@ class BaishiWechatScene extends Phaser.Scene {
         if (!account) { account = 'wechat-preview-' + Date.now().toString(36); platform.writeLocal('fjhy.wechatPreviewAccount', account); }
         await controller.loginDev(account);
       } else await controller.loginWechat(await platform.getLoginCode());
+      this.homeMode = true; this.confirmingRestart = false;
       if (controller.player?.appearance) await this.checkContent();
       this.syncUi();
     } catch (error: any) { this.loginFailed = true; controller.message = `连接测试服务失败：${error.message ?? '未知错误'}`; this.syncUi(); }
@@ -183,7 +202,7 @@ class BaishiWechatScene extends Phaser.Scene {
     }
   }
   private button(x: number, y: number, width: number, text: string, action: () => void) {
-    const button = this.add.text(x, y, text, { fontFamily: 'Arial', fontSize: '20px', color: '#ffffff', backgroundColor: '#39775f', padding: { left: 12, right: 12, top: 20, bottom: 20 }, align: 'center', fixedWidth: width }).setOrigin(.5).setDepth(UI_DEPTH_BASE + 40).setInteractive({ useHandCursor: true });
+    const button = this.add.text(x, y, text, { fontFamily: 'Arial', fontSize: `${mobileTypography.option}px`, color: '#ffffff', backgroundColor: '#39775f', padding: { left: 12, right: 12, top: 20, bottom: 20 }, align: 'center', fixedWidth: width }).setOrigin(.5).setDepth(UI_DEPTH_BASE + 40).setInteractive({ useHandCursor: true });
     button.on('pointerdown', action); return button;
   }
   private setStick(pointer: Phaser.Input.Pointer) {
@@ -232,6 +251,22 @@ class BaishiWechatScene extends Phaser.Scene {
   }
   private syncUi() {
     const player = controller.player; const hasPlayer = !!player?.appearance;
+    const home = !!controller.boot && this.homeMode;
+    this.homeBackdrop.setVisible(home);
+    this.homeTitle.setVisible(home).setText(this.confirmingRestart ? '重新开始将清除当前角色的游戏进度，并重新创建角色。确定继续吗？' : '富甲横阳');
+    this.homeStart.setVisible(home && !hasPlayer && !this.confirmingRestart);
+    this.homeContinue.setVisible(home && hasPlayer && !this.confirmingRestart);
+    this.homeRestart.setVisible(home && hasPlayer && !this.confirmingRestart);
+    this.restartCancel.setVisible(home && this.confirmingRestart);
+    this.restartAccept.setVisible(home && this.confirmingRestart);
+    if (home) {
+      this.stickBase.setVisible(false); this.stick.setVisible(false); this.primary.setVisible(false); this.shopToggle.setVisible(false); this.safeResetButton.setVisible(false); this.genderToggle.setVisible(false);
+      for (const choice of this.creationChoices) choice.setVisible(false);
+      this.questToggle.setVisible(false); this.questPanel.setVisible(false); this.shopBackdrop.setVisible(false); this.shopTitle.setVisible(false); this.shopBalance.setVisible(false); this.shopFeedback.setVisible(false);
+      for (const row of this.shopRows) Object.values(row).forEach(node => node.setVisible(false));
+      this.portraitDim.setVisible(false); this.dialogueName.setVisible(false); this.message.setVisible(false); this.hud.setVisible(false); this.clearStick(); return;
+    }
+    this.message.setVisible(true); this.hud.setVisible(true);
     this.stickBase.setVisible(hasPlayer); this.stick.setVisible(hasPlayer);
     const dialogue = !!controller.dialogue && !!controller.dialogueSpeaker;
     const canShop = !dialogue && !!controller.shopPanel() && !!controller.view?.npcs.some(n => Math.hypot(n.x - controller.x, n.y - controller.y) < 6);
@@ -269,7 +304,7 @@ class BaishiWechatScene extends Phaser.Scene {
   update(_: number, delta: number) {
     if (!this.ready) return;
     this.fpsElapsed += delta; this.fpsFrames++; if (this.fpsElapsed >= 500) { this.fps = Math.round(this.fpsFrames * 1000 / this.fpsElapsed); this.fpsElapsed = 0; this.fpsFrames = 0; }
-    controller.tick(Math.min(delta / 1000, .05), this.contentError || controller.dialogue || this.shopOpen ? 0 : this.move.x, this.contentError || controller.dialogue || this.shopOpen ? 0 : this.move.y);
+    controller.tick(Math.min(delta / 1000, .05), this.homeMode || this.contentError || controller.dialogue || this.shopOpen ? 0 : this.move.x, this.homeMode || this.contentError || controller.dialogue || this.shopOpen ? 0 : this.move.y);
     this.frame.setText(`${this.fps} FPS`);
     this.render();
   }
