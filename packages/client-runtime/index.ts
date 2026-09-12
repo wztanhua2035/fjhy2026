@@ -1,6 +1,7 @@
 import type { Appearance, FormalNpcAppearance, Bootstrap, GhostProfile, PlayerState, QuestRuntime, QuestTrackerItem, SceneView, ShopPanelView } from '../shared-types/index.js';
 import {inEntranceArea,npcCollisionRect,questStepProgress} from '../game-rules/index.js';
 export * from './assets.js';
+export * from './display-scale.js';
 export type Direction='up'|'down'|'left'|'right';
 export interface Painter {rect(x:number,y:number,w:number,h:number,color:string):void;circle(x:number,y:number,r:number,color:string):void;text(text:string,x:number,y:number,size:number,color:string):void}
 export function drawAppearance(p:Painter,input:Appearance|FormalNpcAppearance,colors:Record<string,string>,x:number,y:number,scale=1,direction:Direction='down',frame=0){

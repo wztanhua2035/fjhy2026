@@ -35,7 +35,7 @@ export async function buildApp(repo:Repository,env:Environment,options:{logger?:
   await app.register(staticPlugin,{root:path.resolve('assets/public'),prefix:'/assets/'});
   const game=new GameService(repo,options.now);
   const requestGameContext=(req:{headers:Record<string,unknown>})=>({debugOpenAll:env.mode!=='production'&&env.appEnv==='DEV'&&req.headers['x-debug-open-all']==='1'});
-  app.setErrorHandler((err,_req,reply)=>{
+  app.setErrorHandler((err,req,reply)=>{
     if(err instanceof ZodError)return reply.code(400).send({code:'INVALID_INPUT',message:'输入格式不正确',issues:err.issues.map(i=>({path:i.path,message:i.message}))});
     if(err instanceof GameError)return reply.code(err.status).send({code:err.code,message:err.message});
     const status=(err as any).statusCode??500;
@@ -45,7 +45,10 @@ if(status>=500){
     name:(err as Error).name,
     message:(err as Error).message,
     code:(err as any).code,
-    meta:(err as any).meta
+    meta:(err as any).meta,
+    endpoint:req.routeOptions.url,
+    method:req.method,
+    payload:req.routeOptions.url?.startsWith('/v1/auth/')?undefined:Object.fromEntries(Object.entries((req.body??{}) as Record<string,unknown>).filter(([key])=>['requestId','buildingId','itemId','quantity','npcId','questId'].includes(key)))
   },'Request failed');
 }
 

@@ -72,7 +72,7 @@ model PlayerLedger {
   referenceId String
   requestId String
   createdAt DateTime @default(now())
-  @@unique([playerId,requestId])
+  // One idempotent action may write multiple ledger events; uniqueness belongs to IdempotencyRequest.
   @@index([playerId,createdAt])
   @@map("player_ledger")
 }

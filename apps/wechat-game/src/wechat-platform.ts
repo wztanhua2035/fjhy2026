@@ -19,9 +19,12 @@ export function createWeChatPlatform(apiBase: string, options: { debugOpenAll?: 
       header: wechatRequestHeaders(token, allowWechatDebug(!!options.debugOpenAll, wx.getAccountInfoSync?.().miniProgram?.envVersion)),
       data: body,
       timeout: 10000,
-      success: (result: any) => result.statusCode >= 200 && result.statusCode < 300
-        ? resolve(result.data)
-        : reject(Object.assign(new Error(result.data?.message ?? '请求失败'), { status: result.statusCode })),
+      success: (result: any) => {
+        if (result.statusCode >= 200 && result.statusCode < 300) return resolve(result.data);
+        const payload = path.startsWith('/v1/auth/') ? undefined : Object.fromEntries(Object.entries(body ?? {}).filter(([key]) => ['requestId','buildingId','itemId','quantity','npcId','questId'].includes(key)));
+        console.error('[FJHY API request failed]', { endpoint: path, status: result.statusCode, payload, response: result.data });
+        reject(Object.assign(new Error(result.data?.message ?? '请求失败'), { status: result.statusCode, endpoint: path, code: result.data?.code, responseBody: result.data }));
+      },
       fail: () => reject(new Error('网络连接中断，请检查网络后重试。')),
     });
   });

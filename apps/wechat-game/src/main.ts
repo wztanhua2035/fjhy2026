@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GameController, formatQuestTracker, baishiFormalArtRegistry, baishiV2ArtAssets, GROUND_DEPTH, WORLD_BASE, PORTRAIT_DIM_DEPTH, PORTRAIT_DEPTH, UI_DEPTH_BASE, DEBUG_DEPTH, worldActorDepth, worldBuildingDepth, buildingImagePosition, foregroundImagePosition, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
+import { GameController, formatQuestTracker, formatCyclingQuestTracker, baishiFormalArtRegistry, baishiV2ArtAssets, GROUND_DEPTH, WORLD_BASE, PORTRAIT_DIM_DEPTH, PORTRAIT_DEPTH, UI_DEPTH_BASE, DEBUG_DEPTH, worldActorDepth, worldBuildingDepth, buildingImagePosition, foregroundImagePosition, OUTDOOR_CAMERA_ZOOM, actorVisualScale, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
 import { availableStarterLookOptions } from '../../../packages/game-config/appearance-v1.js';
 import { createWeChatPlatform, safeInsets, allowWechatDebug } from './wechat-platform';
 import { loadWechatAssets } from './assets';
@@ -45,6 +45,7 @@ function installWeChatTouchMoveBridge() {
 
 function color(value: string) { const hex = value.replace('#', ''); const rgb = hex.slice(0, 6).padEnd(6, '0'); return { value: parseInt(rgb, 16), alpha: hex.length === 8 ? parseInt(hex.slice(6), 16) / 255 : 1 }; }
 class BaishiWechatScene extends Phaser.Scene {
+  private worldOverlayCamera!: Phaser.Cameras.Scene2D.Camera;
   private graphics!: Phaser.GameObjects.Graphics;
   private debugGraphics!: Phaser.GameObjects.Graphics;
   private ground?: Phaser.GameObjects.Image;
@@ -178,6 +179,11 @@ class BaishiWechatScene extends Phaser.Scene {
     this.questToggle.setY(rightTop + 42);
     this.questPanel.setY(rightTop + 72);
     controller.onChange = () => this.syncUi();
+    const world = [this.graphics, this.debugGraphics, this.ground, this.playerSprite, this.playerName, ...this.buildings.values(), ...this.foregrounds.values(), ...this.actors.values(), ...this.actorNames.values()];
+    const ui = this.children.list.filter(child => !world.includes(child as typeof world[number]));
+    this.cameras.main.ignore(ui);
+    this.worldOverlayCamera = this.cameras.add(0, 0, WIDTH, HEIGHT);
+    this.worldOverlayCamera.ignore(world);
     void this.loginPreview();
   }
   private async loginPreview() {
@@ -297,9 +303,9 @@ class BaishiWechatScene extends Phaser.Scene {
     this.questIndex %= Math.max(tasks.length, 1);
     const task = tasks[this.questIndex];
     this.questToggle?.setText(`任务 ${this.questCollapsed ? '▼' : '▲'}`);
-    this.questPanel?.setText(task ? `${tasks.length > 1 ? (this.questIndex + 1) + '/' + tasks.length + ' · 点击切换任务\\n' : ''}${formatQuestTracker(task)}` : '暂无进行中的任务').setVisible(!!controller.player?.appearance && !this.questCollapsed && !this.shopOpen && !controller.dialogue);
+    this.questPanel?.setText(task ? formatCyclingQuestTracker(formatQuestTracker(task), this.questIndex, tasks.length) : '暂无进行中的任务').setVisible(!!controller.player?.appearance && !this.questCollapsed && !this.shopOpen && !controller.dialogue);
   }
-  private ensureShopRows(count: number) { while (this.shopRows.length < count) { const icon = this.add.text(WIDTH - 448, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '18px', color: '#6a472c', backgroundColor: '#f1d58d', fixedWidth: 34, fixedHeight: 34, align: 'center', padding: { top: 6 } }).setDepth(UI_DEPTH_BASE + 39); const title = this.add.text(WIDTH - 405, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '15px', color: '#4c392b' }).setDepth(UI_DEPTH_BASE + 39); const detail = this.add.text(WIDTH - 405, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '14px', color: '#806f5c' }).setDepth(UI_DEPTH_BASE + 39); const buy = this.button(WIDTH - 186, 0, 76, '买入', () => {}); const sell = this.button(WIDTH - 110, 0, 76, '出售', () => {}); this.shopRows.push({ icon, title, detail, buy, sell }); } }
+  private ensureShopRows(count: number) { while (this.shopRows.length < count) { const icon = this.add.text(WIDTH - 448, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '18px', color: '#6a472c', backgroundColor: '#f1d58d', fixedWidth: 34, fixedHeight: 34, align: 'center', padding: { top: 6 } }).setDepth(UI_DEPTH_BASE + 39); const title = this.add.text(WIDTH - 405, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '15px', color: '#4c392b' }).setDepth(UI_DEPTH_BASE + 39); const detail = this.add.text(WIDTH - 405, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '14px', color: '#806f5c' }).setDepth(UI_DEPTH_BASE + 39); const buy = this.button(WIDTH - 186, 0, 76, '买入', () => {}); const sell = this.button(WIDTH - 110, 0, 76, '出售', () => {}); this.cameras.main.ignore([icon, title, detail, buy, sell]); this.shopRows.push({ icon, title, detail, buy, sell }); } }
   private syncShopPanel() { const shop = controller.shopPanel(), nearClerk = !!controller.view?.npcs.some(n => Math.hypot(n.x - controller.x, n.y - controller.y) < 6), visible = this.shopOpen && !controller.dialogue && !!shop && nearClerk; this.shopBackdrop.setVisible(visible); this.shopTitle.setVisible(visible); this.shopBalance.setVisible(visible); this.shopFeedback.setVisible(visible); for (const row of this.shopRows) Object.values(row).forEach(node => node.setVisible(false)); if (!shop || !visible) return; const height = 62 + shop.items.length * 64 + 34; this.shopBackdrop.setSize(388, height); this.shopTitle.setText(`  ${shop.title}`); this.shopBalance.setText(`铜钱 ${shop.balance} 文`); this.shopFeedback.setPosition(WIDTH - 450, 224 + height - 28).setText(controller.message || ''); this.ensureShopRows(shop.items.length); shop.items.forEach((item, index) => { const row = this.shopRows[index], y = 286 + index * 64; row.icon.setPosition(WIDTH - 448, y).setText(item.icon).setVisible(true); row.title.setPosition(WIDTH - 405, y).setText(item.name).setVisible(true); row.detail.setPosition(WIDTH - 405, y + 24).setText(`背包持有 ×${item.owned}`).setVisible(true); row.buy.setPosition(WIDTH - 186, y + 18).setText(`买入 ${item.buyPrice}`).setVisible(true).setInteractive(); row.sell.setPosition(WIDTH - 110, y + 18).setText(`出售 ${item.sellPrice}`).setVisible(true).setInteractive(); row.buy.removeAllListeners('pointerdown').on('pointerdown', () => void this.run(() => controller.trade('buy', item.id))); row.sell.removeAllListeners('pointerdown').on('pointerdown', () => void this.run(() => controller.trade('sell', item.id))); }); }
   update(_: number, delta: number) {
     if (!this.ready) return;
@@ -309,7 +315,7 @@ class BaishiWechatScene extends Phaser.Scene {
     this.render();
   }
   private renderFormalWorld(ox: number, oy: number) {
-    const view = controller.view, street = view?.scene.id === 'STREET_BAISHI_01';
+    const view = controller.view, street = view?.scene.id === 'STREET_BAISHI_01', actorScale = actorVisualScale(view?.scene.id ?? 'STREET_BAISHI_01');
     for (const [buildingId, image] of this.buildings) {
       const asset = baishiFormalArtRegistry.buildings.find(candidate => candidate.buildingId === buildingId)!;
       const position = buildingImagePosition(asset, TILE);
@@ -327,23 +333,23 @@ class BaishiWechatScene extends Phaser.Scene {
       const name = this.actorNames.get(npcId)!; name.setVisible(visible);
       if (npc) {
         const offset = asset.frameOffsets?.down?.[0] ?? { x: 0, y: 0 }, depth = worldActorDepth(npc.y);
-        sprite.setFrame(asset.directionRows.down * asset.columns).setPosition(ox + npc.x * TILE + offset.x, oy + npc.y * TILE + offset.y).setDepth(depth);
-        name.setText(npc.name).setPosition(ox + npc.x * TILE, oy + npc.y * TILE - 48).setDepth(depth + 2);
+        sprite.setFrame(asset.directionRows.down * asset.columns).setDisplaySize(asset.frameWidth * asset.renderScale * actorScale, asset.frameHeight * asset.renderScale * actorScale).setPosition(ox + npc.x * TILE + offset.x, oy + npc.y * TILE + offset.y).setDepth(depth);
+        name.setText(npc.name).setPosition(ox + npc.x * TILE, oy + npc.y * TILE - asset.frameHeight * asset.renderScale * actorScale + 8).setDepth(depth + 2);
       }
     }
     const appearance = controller.player?.appearance, playerAsset = appearance?.gender === 'MALE' ? baishiV2ArtAssets.playerMale : baishiV2ArtAssets.playerFemale;
     const playerKey = appearance?.gender === 'MALE' ? 'formal-player-male' : 'formal-player-female', row = playerAsset.directionRows[controller.direction], frame = controller.moving ? Math.floor((controller.walkTime * 8) % playerAsset.framesPerDirection) : 0;
     const offset = playerAsset.frameOffsets?.[controller.direction]?.[frame] ?? { x: 0, y: 0 }, playerDepth = worldActorDepth(controller.y);
     const playerReady = this.textures.exists(playerKey);
-    this.playerSprite.setTexture(playerKey).setOrigin(playerAsset.footAnchorX / playerAsset.frameWidth, playerAsset.footAnchorY / playerAsset.frameHeight).setDisplaySize(playerAsset.frameWidth * playerAsset.renderScale, playerAsset.frameHeight * playerAsset.renderScale).setFrame(row * playerAsset.columns + frame).setPosition(ox + controller.x * TILE + offset.x, oy + controller.y * TILE + offset.y).setDepth(playerDepth).setVisible(!!appearance && playerReady);
-    this.playerName.setPosition(ox + controller.x * TILE, oy + controller.y * TILE - 52).setDepth(playerDepth + 2).setVisible(!!appearance && playerReady);
+    this.playerSprite.setTexture(playerKey).setOrigin(playerAsset.footAnchorX / playerAsset.frameWidth, playerAsset.footAnchorY / playerAsset.frameHeight).setDisplaySize(playerAsset.frameWidth * playerAsset.renderScale * actorScale, playerAsset.frameHeight * playerAsset.renderScale * actorScale).setFrame(row * playerAsset.columns + frame).setPosition(ox + controller.x * TILE + offset.x, oy + controller.y * TILE + offset.y).setDepth(playerDepth).setVisible(!!appearance && playerReady);
+    this.playerName.setPosition(ox + controller.x * TILE, oy + controller.y * TILE - playerAsset.frameHeight * playerAsset.renderScale * actorScale + 8).setDepth(playerDepth + 2).setVisible(!!appearance && playerReady);
   }
   private render() {
-    const view = controller.view; this.graphics.clear(); this.debugGraphics.clear(); this.labelIndex = 0;
+    const view = controller.view; this.cameras.main.setZoom(view?.scene.id === 'STREET_BAISHI_01' ? OUTDOOR_CAMERA_ZOOM : 1); this.graphics.clear(); this.debugGraphics.clear(); this.labelIndex = 0;
     const painter: Painter = {
       rect: (x, y, w, h, fill) => { const c = color(fill); this.graphics.fillStyle(c.value, c.alpha); this.graphics.fillRect(x, y, w, h); },
       circle: (x, y, r, fill) => { const c = color(fill); this.graphics.fillStyle(c.value, c.alpha); this.graphics.fillCircle(x, y, r); },
-      text: (value, x, y, size, fill) => { let label = this.labels[this.labelIndex++]; if (!label) { label = this.add.text(0, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: size, color: '#ffffff', stroke: '#23352b', strokeThickness: 1 }).setOrigin(.5).setDepth(WORLD_BASE - 1); this.labels.push(label); } label.setText(value).setPosition(x, y).setFontSize(size).setColor(fill).setVisible(true); },
+      text: (value, x, y, size, fill) => { let label = this.labels[this.labelIndex++]; if (!label) { label = this.add.text(0, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: size, color: '#ffffff', stroke: '#23352b', strokeThickness: 1 }).setOrigin(.5).setDepth(WORLD_BASE - 1); this.worldOverlayCamera.ignore(label); this.labels.push(label); } label.setText(value).setPosition(x, y).setFontSize(size).setColor(fill).setVisible(true); },
     };
     if (controller.boot && !controller.player?.appearance) { this.ground?.setVisible(false); this.nightOverlay.setVisible(false); for (const image of [...this.buildings.values(), ...this.foregrounds.values(), ...this.actors.values(), ...this.actorNames.values()]) image.setVisible(false); this.playerSprite.setVisible(false); this.playerName.setVisible(false); const asset = draft.gender === 'MALE' ? baishiV2ArtAssets.playerMale : baishiV2ArtAssets.playerFemale; this.playerSprite.setTexture(asset.assetKey, asset.directionRows.down * asset.columns).setPosition(WIDTH * .35, HEIGHT / 2 + 35).setDisplaySize(128, 128).setDepth(WORLD_BASE).setVisible(true); }
     else if (view) {
