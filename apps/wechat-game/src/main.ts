@@ -10,6 +10,7 @@ declare const wx: any;
 declare const __WECHAT_API_BASE_URL__: string;
 declare const __WECHAT_DEV_OPEN_ALL__: boolean;
 declare const __WECHAT_DEV_COLLISION__: boolean;
+declare const __WECHAT_DEV_SAFE_RESET__: boolean;
 declare const __WECHAT_DEV_LOGIN__: boolean;
 const windowInfo = wx.getWindowInfo?.() ?? wx.getSystemInfoSync();
 const layout = mobileLayout(windowInfo, wx.getMenuButtonBoundingClientRect?.());
@@ -85,6 +86,7 @@ class BaishiWechatScene extends Phaser.Scene {
   private contentError = '';
   private shopOpen = false;
   private shopToggle!: Phaser.GameObjects.Text;
+  private safeResetButton!: Phaser.GameObjects.Text;
   private genderToggle!: Phaser.GameObjects.Text;
   private stickPointer: number | null = null;
   /* Native package images bypass the browser XHR/Blob loader. */
@@ -147,6 +149,8 @@ class BaishiWechatScene extends Phaser.Scene {
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => { if (p.id === this.stickPointer) this.clearStick(); });
     platform.onLifecycle(state => { if (state === 'hide') this.clearStick(); });
     this.shopToggle = this.button(WIDTH - insets.right - 92, HEIGHT - insets.bottom - 150, 112, '交易', () => { this.shopOpen = !this.shopOpen; this.clearStick(); this.syncUi(); });
+    this.safeResetButton = this.button(insets.left + 100, insets.top + 108, 176, '恢复到安全点', () => void this.run(() => controller.write('/v1/player/debug-safe-reset', {})));
+    this.safeResetButton.setVisible(false);
     this.genderToggle = this.button(WIDTH / 2, HEIGHT / 2 + 100, 160, '切换男/女', () => { draft.gender = draft.gender === 'MALE' ? 'FEMALE' : 'MALE'; this.syncUi(); });
     const capsule = wx.getMenuButtonBoundingClientRect?.();
     const rightTop = Math.max(insets.top + 12, (capsule?.bottom ?? 0) / windowInfo.windowHeight * HEIGHT + 12);
@@ -199,6 +203,7 @@ class BaishiWechatScene extends Phaser.Scene {
     if (!canShop || controller.offline || controller.pending) this.shopOpen = false;
     const isShop = canShop && this.shopOpen;
     this.shopToggle.setVisible(canShop).setText(this.shopOpen ? '收起交易' : '交易');
+    this.safeResetButton.setVisible(hasPlayer && allowWechatDebug(__WECHAT_DEV_SAFE_RESET__, wx.getAccountInfoSync?.().miniProgram?.envVersion));
     if (this.shopOpen) this.shopToggle.setPosition(WIDTH - 530, 248); else this.shopToggle.setPosition(WIDTH - safeInsets(WIDTH, HEIGHT).right - 92, HEIGHT - safeInsets(WIDTH, HEIGHT).bottom - 150);
     if (dialogue || isShop) this.clearStick();
     if (controller.boot && !hasPlayer) { this.message.setText('选择一个初始形象，然后开始白石街测试。'); this.primary.setText('开始'); this.primary.setVisible(true); this.primary.removeAllListeners('pointerdown').on('pointerdown', () => void this.run(() => this.createPreviewPlayer())); }

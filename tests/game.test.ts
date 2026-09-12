@@ -6,7 +6,7 @@ import {buildApp} from '../apps/server/src/app.js';
 import {GameService} from '../apps/server/src/service.js';
 import {validateWorld} from '../apps/server/src/config.js';
 import {initialWorld,baishiBuildingObjectCollision,baishiStreetObjectCollision} from '../packages/game-config/index.js';
-import {canStand,inEntranceArea,plotEntrances} from '../packages/game-rules/index.js';
+import {canStand,inEntranceArea,plotEntrances,recoverSafePosition} from '../packages/game-rules/index.js';
 import {isOpen,phaseAt,sceneView} from '../packages/game-rules/index.js';
 import {baishiLayerPlacements,baishiBuildingLayerBindings} from '../packages/game-config/baishi-layers.js';
 const env={mode:'development',appEnv:'DEV',port:8080,jwtSecret:'test-jwt-secret-thirty-two-characters-long',subjectSecret:'test-subject-secret-thirty-two-characters',adminToken:'test-admin-token-thirty-two-characters-long',allowDevAuth:true,appId:'',appSecret:'',adminOrigin:'http://localhost:5173',assetBase:'http://localhost:8080/assets'};
@@ -135,7 +135,7 @@ test('杂货铺入口与局部碰撞的实际余量之间保留安全间隔',()=
   for(const x of [area.x+.05,entrance.position.x,area.x+area.width-.05])assert.equal(blockedByLocal(x,19.5),false,`入口横向测试点不应被局部碰撞阻挡：${x}`);
 });
 
-test('服务端 move 使用同一场景碰撞并拒绝春衫三块红框中心点',async()=>{const {repo,p,service}=await fixture();const rects=baishiBuildingObjectCollision.B_CLOTH.slice(0,3);for(const rect of rects){const x=rect.x+rect.width/2,y=rect.y+rect.height/2,saved=repo.players.get(p.id)!;saved.sceneId='STREET_BAISHI_01';saved.x=x;saved.y=y;await assert.rejects(()=>service.action(p.id,'move',{requestId:randomUUID(),x,y}),/前方无法通行/);}});
+test('服务端 move 从合法起点拒绝春衫三块红框中心点',async()=>{const {repo,p,service}=await fixture();const rects=baishiBuildingObjectCollision.B_CLOTH.slice(0,3);for(const rect of rects){const x=rect.x+rect.width/2,y=rect.y+rect.height/2,saved=repo.players.get(p.id)!;const safe=recoverSafePosition(initialWorld,'STREET_BAISHI_01',x,y);saved.sceneId='STREET_BAISHI_01';saved.x=safe.x;saved.y=safe.y;await assert.rejects(()=>service.action(p.id,'move',{requestId:randomUUID(),x,y}),/前方无法通行/);}});
 
 test('五栋正式建筑入口中心与门前主街仍可站立',()=>{
   const sceneId='STREET_BAISHI_01';

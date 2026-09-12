@@ -41,7 +41,7 @@ export class GameController {
   async loginDev(account:string){const data=await this.transport('/v1/auth/dev',{account});this.token=data.token;await this.refresh();}
   async loginWechat(code:string){const data=await this.transport('/v1/auth/wechat',{code});this.token=data.token;await this.refresh();}
   async refresh(){this.boot=await this.transport('/v1/bootstrap',undefined,this.token);const taskData=await this.transport('/v1/quests',undefined,this.token);this.quests=taskData.quests??[];this.x=this.player!.x;this.y=this.player!.y;if(this.player!.appearance)await this.loadScene();this.onChange();}
-  async loadScene(){this.view=await this.transport(`/v1/world/scenes/${this.player!.sceneId}`,undefined,this.token);this.ghosts=[];this.transport(`/v1/scenes/${this.player!.sceneId}/ghosts`,undefined,this.token).then(data=>{this.ghosts=data.ghosts;this.onChange();}).catch(()=>{});}
+  async loadScene(){this.view=await this.transport(`/v1/world/scenes/${this.player!.sceneId}`,undefined,this.token);const position=this.view?.playerPosition;if(position&&position.sceneId===this.player!.sceneId){this.boot!.player.x=position.x;this.boot!.player.y=position.y;this.x=position.x;this.y=position.y;}this.ghosts=[];this.transport(`/v1/scenes/${this.player!.sceneId}/ghosts`,undefined,this.token).then(data=>{this.ghosts=data.ghosts;this.onChange();}).catch(()=>{});}
   async write(path:string,body:any){
     if(this.busy)throw new Error('操作正在确认，请稍候');if(this.pending)throw new Error('上次操作尚未确认，请先重试');
     if(this.offline)throw new Error('离线期间暂停交易，请先重新连接');
@@ -73,7 +73,7 @@ export class GameController {
     if(!this.player||this.x===this.player.x&&this.y===this.player.y)return;
     const sentX=this.x,sentY=this.y;
     const request=this.transport('/v1/player/move',{x:sentX,y:sentY,requestId:uuid()},this.token).then((result:any)=>{
-      if(result.player){this.boot!.player=result.player;this.correctionX+=result.player.x-sentX;this.correctionY+=result.player.y-sentY;this.offline=false;}
+      if(result.player){this.boot!.player=result.player;if(result.positionRestored){this.x=result.player.x;this.y=result.player.y;this.correctionX=0;this.correctionY=0;}else{this.correctionX+=result.player.x-sentX;this.correctionY+=result.player.y-sentY;}this.offline=false;}
       return result;
     }).catch((error:any)=>{if(!error.status)this.offline=true;throw error;}).finally(()=>{this.syncInFlight=null;this.onChange();});
     this.syncInFlight=request;

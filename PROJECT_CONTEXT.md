@@ -1,5 +1,17 @@
 # 富甲横阳长期开发交接记录
 
+## 2026-09-12 非法旧存档坐标恢复（待部署与真机复核）
+
+- 地图、Plot 或局部碰撞更新后，旧存档脚点可能不再合法。共享 `recoverSafePosition` 按 `canStand` 搜索最近合法半 tile 点，附近无解时回退到当前场景安全 spawn。入口和 portal 优先围绕其目标点恢复；不改白石街现有碰撞。
+- 服务端 bootstrap/scene load 通过 Repository 持久化修正；直接从非法旧点发来的 move 返回修正后的 player，Web/微信共享 GameController 使用返回坐标。服务端日志 `PLAYER_POSITION_RESTORED` 记录原坐标、碰撞命中和恢复坐标。当前真机账号原始坐标未获在线存档授权，仍待部署后日志核对。
+- 仅 DEV API 提供 `/v1/player/debug-safe-reset`；微信 develop 构建可用 `WECHAT_GAME_DEBUG_SAFE_RESET=true` 显示按钮，STAGING/production 不开放。详见 [微信真机清单](docs/WECHAT_REAL_DEVICE_CHECKLIST.md)。
+
+## 2026-09-12 非法旧存档坐标恢复（待部署与真机复核）
+
+- 地图、Plot 或局部碰撞更新后，旧存档脚点可能不再合法。共享 `recoverSafePosition` 按 `canStand` 搜索最近合法半 tile 点，附近无解时回退到当前场景安全 spawn。入口和 portal 优先围绕其目标点恢复；不改白石街现有碰撞。
+- 服务端 bootstrap/scene load 通过 Repository 持久化修正；直接从非法旧点发来的 move 返回修正后的 player，Web/微信共享 GameController 使用返回坐标。服务端日志 `PLAYER_POSITION_RESTORED` 记录原坐标、碰撞命中和恢复坐标。当前真机账号原始坐标未获在线存档授权，仍待部署后日志核对。
+- 仅 DEV API 提供 `/v1/player/debug-safe-reset`；微信 develop 构建可用 `WECHAT_GAME_DEBUG_SAFE_RESET=true` 显示按钮，STAGING/production 不开放。详见 [微信真机清单](docs/WECHAT_REAL_DEVICE_CHECKLIST.md)。
+
 ## 2026-09-12 微信白石街追平修正（待线上配置同步与用户真机验收）
 
 - 实际微信入口为 `apps/wechat-game`，输出 `dist/wechat-game`，旧 `apps/client-wechat` Cocos 原型保留但不作为本轮导入目录。

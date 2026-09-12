@@ -47,7 +47,7 @@ export interface PlayerState {
 }
 export interface GhostProfile { playerId: string; nickname: string; appearance: Appearance; title: string; updatedAt: string }
 export interface MailboxPayload { items: {itemId: string; quantity: number}[]; cash: number }
-export interface SceneView { scene: SceneConfig; plots: PlotConfig[]; buildings: BuildingConfig[]; items: ItemConfig[]; npcs: NPCConfig[]; phase: string }
+export interface SceneView { scene: SceneConfig; plots: PlotConfig[]; buildings: BuildingConfig[]; items: ItemConfig[]; npcs: NPCConfig[]; phase: string; playerPosition?: { sceneId: string; x: number; y: number } }
 export interface ShopItemView { id: string; name: string; icon: string; owned: number; buyPrice: number; sellPrice: number; dailyLimit: number }
 export interface ShopPanelView { buildingId: string; title: string; balance: number; items: ShopItemView[] }
 export interface Bootstrap { player: PlayerState; serverTime: string; worldVersion: number; configVersion: number; assetVersion: number; assetManifest: string; colors: Record<string,string>; appearances: AppearanceDefinition[]; features: Record<string,boolean> }

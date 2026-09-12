@@ -2,10 +2,11 @@ import { randomUUID } from 'node:crypto';
 import type { PrismaClient, Prisma } from '@prisma/client';
 import type { PlayerState, WorldConfig, GhostProfile } from '../../../packages/shared-types/index.js';
 import { initialWorld } from '../../../packages/game-config/index.js';
-import { ensure } from '../../../packages/game-rules/index.js';
+import { ensure, canStand, positionBlockers, recoverSafePosition } from '../../../packages/game-rules/index.js';
 export interface Release { id:string;version:number;status:string;config:WorldConfig;basedOn:number }
 export interface Repository {
   login(subject:string):Promise<PlayerState>; player(id:string):Promise<PlayerState>;
+  repairPosition(id:string,world:WorldConfig):Promise<PlayerState>;
   mutate(id:string,requestId:string,hash:string,fn:(p:PlayerState)=>unknown):Promise<any>;
   world():Promise<WorldConfig>; releases():Promise<Release[]>;
   draft(config:WorldConfig,basedOn:number):Promise<Release>; transition(id:string,status:string):Promise<Release>;
@@ -17,6 +18,11 @@ export class MemoryRepository implements Repository {
   versions:Release[]=[{id:'initial',version:1,status:'PUBLISHED',config:structuredClone(initialWorld),basedOn:0}];
   async login(subject:string){let id=this.subjects.get(subject);if(!id){id=randomUUID();this.subjects.set(subject,id);this.players.set(id,fresh(id));}return this.player(id);}
   async player(id:string){const p=this.players.get(id);ensure(p,'UNAUTHORIZED','请重新登录',401);return structuredClone(p);}
+  async repairPosition(id:string,world:WorldConfig){const p=this.players.get(id);ensure(p,'UNAUTHORIZED','请重新登录',401);if(!canStand(world,p.sceneId,p.x,p.y)){
+    const before={sceneId:p.sceneId,x:p.x,y:p.y,hits:positionBlockers(world,p.sceneId,p.x,p.y)};
+    const safe=recoverSafePosition(world,p.sceneId,p.x,p.y);p.x=safe.x;p.y=safe.y;
+    console.info('PLAYER_POSITION_RESTORED',{playerId:id,before,after:safe});
+  }return structuredClone(p);}
   async mutate(id:string,requestId:string,hash:string,fn:(p:PlayerState)=>unknown){
     const key=`${id}:${requestId}`,old=this.requests.get(key);if(old){ensure(old.hash===hash,'REQUEST_CONFLICT','请求编号已被其他操作使用',409);return structuredClone(old.result);}
     const original=this.players.get(id);ensure(original,'UNAUTHORIZED','请重新登录',401);const p=structuredClone(original);
@@ -40,6 +46,16 @@ export class PostgresRepository implements Repository {
   constructor(public db:PrismaClient){}
   async login(subject:string){const row=await this.db.player.upsert({where:{subjectHash:subject},update:{lastLoginAt:new Date()},create:{subjectHash:subject,nickname:`旅人${randomUUID().slice(0,4)}`},include});return decode(row);}
   async player(id:string){const row=await this.db.player.findUnique({where:{id},include});ensure(row,'UNAUTHORIZED','请重新登录',401);return decode(row);}
+  async repairPosition(id:string,world:WorldConfig){return this.db.$transaction(async tx=>{
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${id}))::text`;
+    const row=await tx.player.findUnique({where:{id},include});ensure(row,'UNAUTHORIZED','请重新登录',401);
+    const p=decode(row);if(canStand(world,p.sceneId,p.x,p.y))return p;
+    const before={sceneId:p.sceneId,x:p.x,y:p.y,hits:positionBlockers(world,p.sceneId,p.x,p.y)};
+    const safe=recoverSafePosition(world,p.sceneId,p.x,p.y);
+    await tx.player.update({where:{id},data:{x:safe.x,y:safe.y}});
+    console.info('PLAYER_POSITION_RESTORED',{playerId:id,before,after:safe});
+    return {...p,x:safe.x,y:safe.y};
+  },{timeout:15000});}
   async mutate(id:string,requestId:string,hash:string,fn:(p:PlayerState)=>unknown){
     return this.db.$transaction(async tx=>{
       // One actor's transactions serialize across all API replicas. State and request record commit together.

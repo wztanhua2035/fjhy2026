@@ -1,5 +1,11 @@
 # 微信小游戏真机验收清单（白石街最小体验版）
 
+## 旧坐标卡住时
+
+新版本在登录和读取场景时会由服务端检查旧存档脚点，并把非法位置持久化迁移到当前场景最近合法点。服务端运行日志可搜索 `PLAYER_POSITION_RESTORED`，其中 `before` 是真实旧坐标和碰撞索引/矩形，`after` 是实际恢复坐标。该日志是核对真机账号根因的依据；本地模拟测试坐标不能当作用户存档事实。微信与 Web 都使用服务端返回的位置。
+
+仅本地 DEV 服务端可调用手动安全复位。微信开发版如需按钮，构建前设置 `WECHAT_GAME_DEBUG_SAFE_RESET=true`，`envVersion=develop` 时显示“恢复到安全点”；服务端需 `APP_ENV=DEV` 且非 production。STAGING 和 production 不开放该 API，不需通过复位按钮解决普通玩家的旧存档问题。
+
 ## 导入前
 
 1. 在项目根目录运行 `npm.cmd run build:wechat-game`。

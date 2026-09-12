@@ -29,6 +29,46 @@ export function canStand(world:WorldConfig,sceneId:string,x:number,y:number){
   const s=world.scenes.find(s=>s.id===sceneId);if(!s||x<1||y<1||x>s.width-1||y>s.height-1)return false;
   const staticBlocks=[...s.collision,...world.plots.filter(p=>p.sceneId===sceneId&&p.buildingId)];const npcBlocks=world.npcs.filter(n=>n.enabled&&n.sceneId===sceneId).map(npcCollisionRect);return !staticBlocks.some(r=>x>r.x-.18&&x<r.x+r.width+.18&&y>r.y-.18&&y<r.y+r.height+.18)&&!npcBlocks.some(r=>x>r.x&&x<r.x+r.width&&y>r.y&&y<r.y+r.height);
 }
+export function positionBlockers(world:WorldConfig,sceneId:string,x:number,y:number){
+  const scene=world.scenes.find(s=>s.id===sceneId);
+  if(!scene)return ['SCENE_NOT_FOUND'];
+  const hits:string[]=[];
+  if(!Number.isFinite(x)||!Number.isFinite(y)||x<1||y<1||x>scene.width-1||y>scene.height-1)hits.push('OUT_OF_BOUNDS');
+  for(const [index,r] of scene.collision.entries())if(x>r.x-.18&&x<r.x+r.width+.18&&y>r.y-.18&&y<r.y+r.height+.18)hits.push(`scene.collision[${index}](${r.x},${r.y},${r.width},${r.height})`);
+  for(const plot of world.plots.filter(p=>p.sceneId===sceneId&&p.buildingId))if(x>plot.x-.18&&x<plot.x+plot.width+.18&&y>plot.y-.18&&y<plot.y+plot.height+.18)hits.push(`plot:${plot.id}`);
+  for(const npc of world.npcs.filter(n=>n.enabled&&n.sceneId===sceneId)){const r=npcCollisionRect(npc);if(x>r.x&&x<r.x+r.width&&y>r.y&&y<r.y+r.height)hits.push(`npc:${npc.id}`);}
+  return hits;
+}
+
+/** Resolve old save positions against the currently published scene collision. */
+export function recoverSafePosition(world:WorldConfig,sceneId:string,x:number,y:number){
+  if(canStand(world,sceneId,x,y))return {x,y,source:'saved' as const};
+  const scene=world.scenes.find(s=>s.id===sceneId);ensure(scene,'SCENE_NOT_FOUND','场景不存在',404);
+  const search=(cx:number,cy:number,maxRadius:number)=>{
+    if(!Number.isFinite(cx)||!Number.isFinite(cy))return null;
+    for(let radius=.5;radius<=maxRadius;radius+=.5){
+      const candidates:{x:number;y:number;distance:number}[]=[];
+      const offsets:{dx:number;dy:number}[]=[];
+      for(let delta=-radius;delta<=radius;delta+=.5){
+        offsets.push({dx:delta,dy:-radius},{dx:delta,dy:radius});
+        if(delta!==-radius&&delta!==radius)offsets.push({dx:-radius,dy:delta},{dx:radius,dy:delta});
+      }
+      for(const {dx,dy} of offsets){
+        const px=Math.round((cx+dx)*2)/2,py=Math.round((cy+dy)*2)/2;
+        if(canStand(world,sceneId,px,py))candidates.push({x:px,y:py,distance:Math.hypot(px-cx,py-cy)});
+      }
+      candidates.sort((a,b)=>a.distance-b.distance||a.y-b.y||a.x-b.x);
+      if(candidates[0])return candidates[0];
+    }
+    return null;
+  };
+  const nearby=search(x,y,8);
+  if(nearby)return {x:nearby.x,y:nearby.y,source:'nearby' as const};
+  if(canStand(world,sceneId,scene.spawnX,scene.spawnY))return {x:scene.spawnX,y:scene.spawnY,source:'spawn' as const};
+  const fallback=search(scene.spawnX,scene.spawnY,Math.max(scene.width,scene.height));
+  ensure(fallback,'NO_SAFE_POSITION','场景没有可站立位置',503);
+  return {x:fallback.x,y:fallback.y,source:'spawn' as const};
+}
 export function publicPlayer(p:PlayerState){return {...p,tradeCounts:{},ledger:p.ledger.slice(-20)};}
 export function questStepLedgerType(type:QuestStepConfig['type']){return type==='BUY'?'SHOP_BUY':type==='SELL'?'SHOP_SELL':type==='ACQUIRE'?'QUEST_ITEM_ACQUIRED':type==='DELIVER'?'QUEST_ITEM_DELIVERED':'QUEST_REPORTED';}
 export function questStepReference(questId:string,step:QuestStepConfig){return step.type==='BUY'||step.type==='SELL'?step.target:`${questId}:${step.target}`;}

@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { Repository } from './repository.js';
 import type { PlayerState, WorldConfig } from '../../../packages/shared-types/index.js';
-import { ensure, canStand, isOpen, starterAppearance, publicPlayer, sceneView, plotEntrances, inEntranceArea, questStepProgress, questStepLedgerType, questStepReference } from '../../../packages/game-rules/index.js';
+import { ensure, canStand, recoverSafePosition, positionBlockers, isOpen, starterAppearance, publicPlayer, sceneView, plotEntrances, inEntranceArea, questStepProgress, questStepLedgerType, questStepReference } from '../../../packages/game-rules/index.js';
 export interface RequestGameContext { debugOpenAll?: boolean }
 function money(p:PlayerState,amount:number,type:string,referenceId:string,requestId:string){
   ensure(Number.isSafeInteger(p.cash+amount)&&p.cash+amount>=0&&p.cash+amount<=1e12,'INSUFFICIENT_CASH','铜钱不足或超出余额上限');
@@ -24,6 +24,12 @@ export class GameService {
           money(p,120,'SYSTEM_GRANT','NEW_PLAYER',body.requestId);break;
         }
         case 'move':{
+          if(!canStand(world,p.sceneId,p.x,p.y)){
+            const before={sceneId:p.sceneId,x:p.x,y:p.y,hits:positionBlockers(world,p.sceneId,p.x,p.y)};
+            const safe=recoverSafePosition(world,p.sceneId,p.x,p.y);p.x=safe.x;p.y=safe.y;
+            console.info('PLAYER_POSITION_RESTORED',{playerId,x:before.x,y:before.y,sceneId:before.sceneId,hits:before.hits,after:safe});
+            return {player:publicPlayer(p),positionRestored:true};
+          }
           ensure(Math.hypot(p.x-body.x,p.y-body.y)<=8,'MOVE_TOO_FAR','移动过远，请同步位置');
           const steps=32;for(let i=1;i<=steps;i++)ensure(canStand(world,p.sceneId,p.x+(body.x-p.x)*i/steps,p.y+(body.y-p.y)*i/steps),'COLLISION','前方无法通行');
           p.x=body.x;p.y=body.y;break;
@@ -32,11 +38,15 @@ export class GameService {
           const plot=world.plots.find(t=>t.id===body.plotId&&t.sceneId===p.sceneId),b=world.buildings.find(b=>b.id===plot?.buildingId&&b.enabled);
           ensure(plot&&b,'NO_ENTRANCE','这里暂时没有可进入的建筑');const entrance=plotEntrances(plot).find(e=>e.id===body.entranceId)??plotEntrances(plot)[0];
           ensure(entrance&&entrance.targetScene===b.interiorSceneId,'NO_ENTRANCE','入口没有有效的室内目标');ensure(inEntranceArea(entrance,p.x,p.y),'TOO_FAR','请走到门口');ensure(isOpen(b.openingHours,this.now(),context.debugOpenAll),'CLOSED','店铺已打烊');
-          p.sceneId=entrance.targetScene;p.x=entrance.targetSpawnPoint.x;p.y=entrance.targetSpawnPoint.y;break;
+          p.sceneId=entrance.targetScene;const safe=recoverSafePosition(world,p.sceneId,entrance.targetSpawnPoint.x,entrance.targetSpawnPoint.y);p.x=safe.x;p.y=safe.y;break;
         }
         case 'portal':{
           const portal=sceneView(world,p.sceneId,this.now()).scene.portals.find(t=>t.id===body.portalId);ensure(portal,'NO_PORTAL','出口不存在');ensure(Math.hypot(p.x-portal.x,p.y-portal.y)<4,'TOO_FAR','请走到出口');
-          p.sceneId=portal.toSceneId;p.x=portal.spawnX;p.y=portal.spawnY;break;
+          p.sceneId=portal.toSceneId;const safe=recoverSafePosition(world,p.sceneId,portal.spawnX,portal.spawnY);p.x=safe.x;p.y=safe.y;break;
+        }
+        case 'safeReset':{
+          const scene=world.scenes.find(s=>s.id===p.sceneId);ensure(scene,'SCENE_NOT_FOUND','场景不存在',404);
+          const safe=recoverSafePosition(world,p.sceneId,scene.spawnX,scene.spawnY);p.x=safe.x;p.y=safe.y;break;
         }
         case 'buy':case 'sell':{
           const shop=this.shop(world,p,body.buildingId,context),stock=shop.stock[body.itemId],item=world.items.find(i=>i.id===body.itemId);ensure(stock&&item,'NOT_SOLD','该店不经营此商品');ensure(!item.questOnly,'QUEST_ITEM','任务物品不可买卖');
