@@ -31,12 +31,14 @@ test('six interiors share twelve resolvable remote resources and support an alte
   }
 });
 
-test('COS workflow only scopes assets/remote, skips safely without secrets, and publishes the manifest last', async () => {
+test('COS workflow only scopes assets/remote, skips safely without secrets, and keeps the manifest behind CDN verification', async () => {
   const workflow = await readFile('.github/workflows/cos-asset-publish.yml', 'utf8');
   const publisher = await readFile('tools/cos_publish_assets.py', 'utf8');
   assert.match(workflow, /assets\/remote/); assert.match(workflow, /COS publish skipped: secrets not configured/);
   assert.doesNotMatch(workflow, /DeleteObject|coscmd rm| rm /); assert.match(publisher, /assets = \[item for item in changed if item != manifest\]/);
-  assert.ok(publisher.indexOf('for item in assets:') < publisher.indexOf('if args.publish_manifest:'));
+  assert.match(publisher, /SIMPLE_UPLOAD_LIMIT_BYTES = 32 \* 1024 \* 1024/);
+  assert.match(publisher, /client\.put_object/);
+  assert.ok(publisher.indexOf('for item in assets:\n        verify_cdn_fn') < publisher.indexOf('if not publish_manifest:'));
 });
 
 test('wechat cache reuses a matching version and re-downloads a newer version', async () => {

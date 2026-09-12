@@ -8,6 +8,12 @@ import sys
 import time
 import urllib.request
 from pathlib import Path
+from typing import Callable
+
+SIMPLE_UPLOAD_LIMIT_BYTES = 32 * 1024 * 1024
+SIMPLE_PUT_RETRIES = 3
+MULTIPART_PART_SIZE_BYTES = 8 * 1024 * 1024
+CDN_VERIFY_RETRIES = 5
 
 
 def required(name: str) -> str:
@@ -26,6 +32,96 @@ def key_for(root: Path, item: Path) -> str:
     return relative
 
 
+def upload_strategy(size: int) -> str:
+    return "simple-put" if size <= SIMPLE_UPLOAD_LIMIT_BYTES else "multipart"
+
+
+def error_details(error: Exception) -> str:
+    """Return COS diagnostics without serializing exception text or environment values."""
+    fields = [f"error={type(error).__name__}"]
+    for label, method_name in (("code", "get_error_code"), ("request_id", "get_request_id")):
+        method = getattr(error, method_name, None)
+        if callable(method):
+            value = method()
+            if value:
+                fields.append(f"{label}={value}")
+    return " ".join(fields)
+
+
+def upload_object(client: object, bucket: str, key: str, item: Path, *, sleep: Callable[[float], None] = time.sleep) -> None:
+    size = item.stat().st_size
+    strategy = upload_strategy(size)
+    if strategy == "simple-put":
+        last_error: Exception | None = None
+        for attempt in range(1, SIMPLE_PUT_RETRIES + 1):
+            print(f"upload {key} method=simple-put size={size} attempt={attempt}")
+            try:
+                with item.open("rb") as body:
+                    client.put_object(Bucket=bucket, Key=key, Body=body, EnableMD5=True)
+                return
+            except Exception as error:
+                last_error = error
+                print(f"upload retry {key} method=simple-put size={size} {error_details(error)}", file=sys.stderr)
+                if attempt < SIMPLE_PUT_RETRIES:
+                    sleep(1 if attempt == 1 else 3)
+        raise RuntimeError(f"simple-put failed after {SIMPLE_PUT_RETRIES} attempts: {key}") from last_error
+
+    last_error = None
+    for attempt in range(1, SIMPLE_PUT_RETRIES + 1):
+        print(f"upload {key} method=multipart size={size} part_size={MULTIPART_PART_SIZE_BYTES} attempt={attempt}")
+        try:
+            client.upload_file(Bucket=bucket, Key=key, LocalFilePath=str(item), PartSize=MULTIPART_PART_SIZE_BYTES, EnableMD5=True)
+            return
+        except Exception as error:
+            last_error = error
+            print(f"upload retry {key} method=multipart size={size} {error_details(error)}", file=sys.stderr)
+            if attempt < SIMPLE_PUT_RETRIES:
+                sleep(1 if attempt == 1 else 3)
+    raise RuntimeError(f"multipart upload failed after {SIMPLE_PUT_RETRIES} attempts: {key}") from last_error
+
+
+def verify_cos_size(client: object, bucket: str, key: str, item: Path) -> None:
+    head = client.head_object(Bucket=bucket, Key=key)
+    if int(head.get("ContentLength", 0)) != item.stat().st_size:
+        raise RuntimeError(f"COS size mismatch after upload: {key}")
+    print(f"cos verified {key} size={item.stat().st_size}")
+
+
+def verify_cdn(key: str, cdn_base_url: str, *, sleep: Callable[[float], None] = time.sleep) -> None:
+    url = cdn_base_url.rstrip("/") + "/" + key
+    last_error: Exception | None = None
+    for attempt in range(1, CDN_VERIFY_RETRIES + 1):
+        try:
+            request = urllib.request.Request(url, method="HEAD")
+            with urllib.request.urlopen(request, timeout=20) as response:
+                length = int(response.headers.get("Content-Length", "0"))
+                if response.status == 200 and length > 0:
+                    print(f"cdn verified {key} size={length}")
+                    return
+                last_error = RuntimeError(f"unexpected CDN response status={response.status} content_length={length}")
+        except Exception as error:
+            last_error = error
+        if attempt < CDN_VERIFY_RETRIES:
+            sleep(3 * attempt)
+    raise RuntimeError(f"CDN verification failed for {key}: {type(last_error).__name__}") from last_error
+
+
+def publish_resources(client: object, bucket: str, root: Path, assets: list[Path], manifest: Path, *, publish_manifest: bool, cdn_base_url: str, verify_cdn_fn: Callable[[str, str], None] = verify_cdn) -> None:
+    # The manifest advances only after every changed resource is available through COS and CDN.
+    for item in assets:
+        upload_object(client, bucket, key_for(root, item), item)
+    for item in assets:
+        verify_cos_size(client, bucket, key_for(root, item), item)
+    for item in assets:
+        verify_cdn_fn(key_for(root, item), cdn_base_url)
+    if not publish_manifest:
+        return
+    upload_object(client, bucket, key_for(root, manifest), manifest)
+    verify_cos_size(client, bucket, key_for(root, manifest), manifest)
+    verify_cdn_fn(key_for(root, manifest), cdn_base_url)
+    print("published manifests/remote-asset-manifest-v1.json")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", required=True)
@@ -33,54 +129,17 @@ def main() -> int:
     parser.add_argument("--publish-manifest", action="store_true")
     parser.add_argument("--cdn-base-url", required=True)
     args = parser.parse_args()
-
     root = Path(args.root).resolve()
     changed = [Path(line.strip()).resolve() for line in Path(args.changed_file_list).read_text(encoding="utf-8").splitlines() if line.strip()]
     for item in changed:
         if not item.is_file() or root not in item.parents:
             raise RuntimeError(f"Refusing to upload a file outside assets/remote: {item}")
-
     from qcloud_cos import CosConfig, CosS3Client
     config = CosConfig(Region=required("TENCENT_COS_REGION"), SecretId=required("TENCENT_CLOUD_SECRET_ID"), SecretKey=required("TENCENT_CLOUD_SECRET_KEY"), Token=None, Scheme="https")
-    bucket = required("TENCENT_COS_BUCKET")
     client = CosS3Client(config)
     manifest = root / "manifests/remote-asset-manifest-v1.json"
     assets = [item for item in changed if item != manifest]
-
-    # Resource objects are always complete and HEAD-checked before the manifest advances.
-    for item in assets:
-        key = key_for(root, item)
-        client.upload_file(Bucket=bucket, Key=key, LocalFilePath=str(item), EnableMD5=True)
-        head = client.head_object(Bucket=bucket, Key=key)
-        if int(head.get("ContentLength", 0)) != item.stat().st_size:
-            raise RuntimeError(f"COS size mismatch after upload: {key}")
-        print(f"uploaded {key}")
-
-    if args.publish_manifest:
-        client.upload_file(Bucket=bucket, Key=key_for(root, manifest), LocalFilePath=str(manifest), EnableMD5=True)
-        head = client.head_object(Bucket=bucket, Key=key_for(root, manifest))
-        if int(head.get("ContentLength", 0)) != manifest.stat().st_size:
-            raise RuntimeError("COS size mismatch after manifest upload")
-        print("published manifests/remote-asset-manifest-v1.json")
-
-    # CDN propagation is outside COS's control; bounded retries make the result observable.
-    for item in assets + ([manifest] if args.publish_manifest else []):
-        key = key_for(root, item)
-        url = args.cdn_base_url.rstrip("/") + "/" + key
-        for attempt in range(5):
-            try:
-                request = urllib.request.Request(url, method="HEAD")
-                with urllib.request.urlopen(request, timeout=20) as response:
-                    length = int(response.headers.get("Content-Length", "0"))
-                    if response.status == 200 and length > 0:
-                        print(f"cdn verified {key}")
-                        break
-            except Exception as error:
-                if attempt == 4:
-                    raise RuntimeError(f"CDN verification failed for {key}: {error}") from error
-                time.sleep(3 * (attempt + 1))
-        else:
-            raise RuntimeError(f"CDN verification failed for {key}")
+    publish_resources(client, required("TENCENT_COS_BUCKET"), root, assets, manifest, publish_manifest=args.publish_manifest, cdn_base_url=args.cdn_base_url)
     return 0
 
 
