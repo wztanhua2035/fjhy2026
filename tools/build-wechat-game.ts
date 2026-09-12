@@ -18,6 +18,15 @@ await mkdir(path.join(outputRoot, 'libs'), { recursive: true });
 await cp(path.resolve('apps/wechat-game/libs/weapp-adapter.js'), path.join(outputRoot, 'libs/weapp-adapter.js'));
 await cp(path.resolve('apps/wechat-game/libs/WEAPP_ADAPTER_LICENSE'), path.join(outputRoot, 'libs/WEAPP_ADAPTER_LICENSE'));
 const packageRoots = [...new Set(['baishi-ground', 'baishi-world', 'baishi-portraits', ...wechatAssets.map(asset => asset.path.split('/')[0]).filter(root => root.startsWith('baishi-interior-'))])];
+const gameConfig = JSON.parse(await readFile(path.join(outputRoot, 'game.json'), 'utf8')) as { subpackages: { name: string; root: string }[] };
+const startup = await readFile(path.join(outputRoot, 'game.js'), 'utf8');
+const startupPackages = [...startup.matchAll(/'((?:baishi-ground|baishi-world|baishi-portraits|baishi-interior-[a-z]+))'/g)].map(match => match[1]);
+if (new Set(startupPackages).size !== startupPackages.length || startupPackages.length !== packageRoots.length || packageRoots.some(root => !startupPackages.includes(root))) {
+  throw new Error('WeChat startup subpackage list does not match packaged asset roots');
+}
+if (gameConfig.subpackages.length !== packageRoots.length || packageRoots.some(root => !gameConfig.subpackages.some(item => item.name === root && item.root === root))) {
+  throw new Error('WeChat game.json subpackage names/roots do not match packaged asset roots');
+}
 for (const root of packageRoots) {
   await mkdir(path.join(outputRoot, root), { recursive: true });
   // 微信小游戏要求每个分包根目录提供 game.js；资源分包无需额外业务逻辑。
@@ -32,6 +41,15 @@ for (const asset of wechatAssets) {
   if (!original.equals(packaged)) throw new Error(`Packaged asset mismatch: ${asset.path}`);
   const width = packaged.readUInt32BE(16), height = packaged.readUInt32BE(20);
   resourceReport.push({ key: asset.key, path: asset.path, bytes: packaged.length, width, height, decodedBytes: width * height * 4, sha256: createHash('sha256').update(packaged).digest('hex') });
+}
+for (const asset of wechatAssets) {
+  let current = outputRoot;
+  for (const segment of asset.path.split('/')) {
+    const entries = await readdir(current);
+    if (!entries.includes(segment)) throw new Error(`Packaged asset missing or case mismatch: ${asset.path}`);
+    current = path.join(current, segment);
+  }
+  if (!(await stat(current)).isFile()) throw new Error(`Packaged asset is not a file: ${asset.path}`);
 }
 await writeFile(path.join(outputRoot, 'asset-manifest.json'), JSON.stringify(wechatAssets, null, 2));
 await writeFile(path.join(outputRoot, 'asset-check-report.json'), JSON.stringify(resourceReport, null, 2));

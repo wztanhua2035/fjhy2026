@@ -21,6 +21,9 @@ export const wechatAssets: WechatAsset[] = [
 export async function loadWechatAssets(textures: { exists(key: string): boolean; addImage(key: string, image: any): unknown; addSpriteSheet(key: string, image: any, config: any): unknown }, createImage: () => any, progress: (done: number, total: number) => void = () => {}) {
   let done = 0;
   const failures: string[] = [];
+  const wxRuntime = (globalThis as any).wx;
+  const envVersion = wxRuntime?.getAccountInfoSync?.()?.miniProgram?.envVersion;
+  const diagnostic = envVersion === 'develop' || envVersion === 'trial';
   for (const asset of wechatAssets) {
     if (!textures.exists(asset.key)) {
       try {
@@ -28,7 +31,8 @@ export async function loadWechatAssets(textures: { exists(key: string): boolean;
           const image = createImage();
           const timer = setTimeout(() => reject(new Error('image timeout')), 15000);
           image.onload = () => { clearTimeout(timer); resolve(image); };
-          image.onerror = () => { clearTimeout(timer); reject(new Error(asset.path)); };
+          image.onerror = (error: any) => { clearTimeout(timer); if (diagnostic) console.error('[FJHY asset] image failure', { packageName: asset.path.split('/')[0], packageRoot: asset.path.split('/')[0], requestedPath: asset.path, imageSrc: image.src, errMsg: error?.errMsg }); reject(new Error(asset.path)); };
+          if (diagnostic) console.info('[FJHY asset] image request', { packageName: asset.path.split('/')[0], packageRoot: asset.path.split('/')[0], requestedPath: asset.path, imageSrc: asset.path });
           image.src = asset.path;
         });
         if (asset.frameWidth) textures.addSpriteSheet(asset.key, image, { frameWidth: asset.frameWidth, frameHeight: asset.frameHeight });

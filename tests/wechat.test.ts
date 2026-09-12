@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { loadWechatAssets, wechatAssets } from '../apps/wechat-game/src/assets.js';
 import { mobileLayout } from '../apps/wechat-game/src/layout.js';
 import { MemoryRepository } from '../apps/server/src/repository.js';
@@ -70,6 +71,16 @@ test('微信原生图片完整注册正式资源、spritesheet，并缓存跨场
   assert.equal(paths.filter(path => path.startsWith('baishi-interior-')).length, 12);
   await loadWechatAssets(textures, createImage);
   assert.equal(paths.length, wechatAssets.length, '切换场景不得再次加载');
+});
+
+test('启动时预加载所有声明的室内分包，再启动图片加载器', async () => {
+  const startup = await readFile('apps/wechat-game/game.js', 'utf8');
+  const config = JSON.parse(await readFile('apps/wechat-game/game.json', 'utf8')) as { subpackages: { name: string; root: string }[] };
+  const names = [...startup.matchAll(/'((?:baishi-ground|baishi-world|baishi-portraits|baishi-interior-[a-z]+))'/g)].map(match => match[1]);
+  assert.deepEqual(new Set(names), new Set(config.subpackages.map(item => item.name)));
+  for (const asset of wechatAssets) assert.ok(config.subpackages.some(item => item.name === asset.path.split('/')[0] && item.root === item.name));
+  assert.match(startup, /Promise\.all\(packageNames\.map/);
+  assert.match(startup, /\.then\(\(\) => require\('\.\/game\.bundle\.js'\)\)/);
 });
 
 test('图片失败显示具体文件，允许仅重试缺失资源', async () => {
