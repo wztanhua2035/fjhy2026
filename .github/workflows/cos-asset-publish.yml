@@ -53,14 +53,25 @@ jobs:
           done < changed-assets.txt
           mv changed-assets-filtered.txt changed-assets.txt
           if [ -s changed-assets.txt ]; then echo "has_changes=true" >> "$GITHUB_OUTPUT"; else echo "has_changes=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Check COS secret configuration
+        id: secrets
+        shell: bash
+        run: |
+          if [ -n "$TENCENT_CLOUD_SECRET_ID" ] && [ -n "$TENCENT_CLOUD_SECRET_KEY" ] && [ -n "$TENCENT_COS_BUCKET" ] && [ -n "$TENCENT_COS_REGION" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Skip when COS secrets are not configured
-        if: steps.changed.outputs.has_changes == 'true' && (env.TENCENT_CLOUD_SECRET_ID == '' || env.TENCENT_CLOUD_SECRET_KEY == '' || env.TENCENT_COS_BUCKET == '' || env.TENCENT_COS_REGION == '')
-        run: echo 'COS publish skipped: secrets not configured'
+        if: steps.changed.outputs.has_changes == 'true' && steps.secrets.outputs.configured != 'true'
+        run: |
+          echo 'COS publish skipped: secrets not configured'
       - name: Publish changed resources, verify COS/CDN, then publish manifest
-        if: steps.changed.outputs.has_changes == 'true' && env.TENCENT_CLOUD_SECRET_ID != '' && env.TENCENT_CLOUD_SECRET_KEY != '' && env.TENCENT_COS_BUCKET != '' && env.TENCENT_COS_REGION != ''
+        if: steps.changed.outputs.has_changes == 'true' && steps.secrets.outputs.configured == 'true'
         run: |
           python -m pip install --disable-pip-version-check cos-python-sdk-v5
           python tools/cos_publish_assets.py --root "$ASSET_ROOT" --changed-file-list changed-assets.txt --publish-manifest --cdn-base-url "$CDN_BASE_URL"
       - name: No remote asset changes
         if: steps.changed.outputs.has_changes != 'true'
-        run: echo 'COS publish skipped: no assets/remote changes'
+        run: |
+          echo 'COS publish skipped: no assets/remote changes'
