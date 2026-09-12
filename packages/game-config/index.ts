@@ -40,7 +40,7 @@ export const baishiStreetObjectCollision = Object.values(baishiBuildingObjectCol
 const buildings: BuildingConfig[] = [
   ['B_INN', '横阳客栈', 'INN'], ['B_GROCERY', '街坊杂货铺', 'SHOP'], ['B_TRADE', '白石商行', 'SHOP'],
   ['B_SALON', '青丝美发室', 'SALON'], ['B_CLOTH', '春衫衣坊', 'CLOTH']
-].map(([id,name,buildingType],i):BuildingConfig=>({id,name,buildingType,assetKey:`buildings/${id}`,interiorSceneId:`INTERIOR_${id}`,
+].map(([id,name,buildingType],i):BuildingConfig=>({id,name,displayName:name,description:{B_INN:'白石街上的温暖落脚处',B_GROCERY:'街坊日常所需的小店',B_TRADE:'收购与交易的商行',B_SALON:'传统街景里的现代美发室',B_CLOTH:'陈列完整穿搭的精品衣坊'}[id],signMode:'custom_image',signResourceId:({B_INN:'SIGN_BAISHI_INN_V1',B_GROCERY:'SIGN_BAISHI_GROCERY_V1',B_TRADE:'SIGN_BAISHI_TRADE_V1',B_SALON:'SIGN_BAISHI_SALON_V1',B_CLOTH:'SIGN_BAISHI_CLOTH_V1'} as Record<string,string>)[id],signTemplateId:id==='B_TRADE'?'horizontal-lacquer':'horizontal-wood',signMeta:{layout:'horizontal',maxChars:8},buildingType,assetKey:`buildings/${id}`,interiorSceneId:`INTERIOR_${id}`,
   openingHours: i<3 ? ['00:00','00:00'] : ['08:00','20:30'], enabled:true,buyable:false,baseValue:0,
   stock: i===1 ? {RICE_01:{buy:12,sell:8,dailyLimit:30},SNACK_01:{buy:8,sell:5,dailyLimit:20}} : i===2 ? {RICE_01:{buy:18,sell:16,dailyLimit:30},SNACK_01:{buy:10,sell:7,dailyLimit:20}} : {}
 }));

@@ -60,6 +60,31 @@
       "path": "world/baishi/interiors/guest-room/foreground_v2.png",
       "version": 2,
       "type": "scene-foreground"
+    },
+    "SIGN_BAISHI_INN_V1": {
+      "path": "signs/baishi/inn/sign_v1.png",
+      "version": 1,
+      "type": "shop-sign"
+    },
+    "SIGN_BAISHI_GROCERY_V1": {
+      "path": "signs/baishi/grocery/sign_v1.png",
+      "version": 1,
+      "type": "shop-sign"
+    },
+    "SIGN_BAISHI_TRADE_V1": {
+      "path": "signs/baishi/trade/sign_v1.png",
+      "version": 1,
+      "type": "shop-sign"
+    },
+    "SIGN_BAISHI_SALON_V1": {
+      "path": "signs/baishi/salon/sign_v1.png",
+      "version": 1,
+      "type": "shop-sign"
+    },
+    "SIGN_BAISHI_CLOTH_V1": {
+      "path": "signs/baishi/cloth/sign_v1.png",
+      "version": 1,
+      "type": "shop-sign"
     }
   }
 }

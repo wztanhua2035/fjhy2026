@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
-import { GameController, formatQuestTracker, formatCyclingQuestTracker, baishiFormalArtRegistry, baishiInteriorArtRegistry, baishiV2ArtAssets, GROUND_DEPTH, WORLD_BASE, PORTRAIT_DIM_DEPTH, PORTRAIT_DEPTH, UI_DEPTH_BASE, DEBUG_DEPTH, worldActorDepth, worldBuildingDepth, buildingImagePosition, foregroundImagePosition, OUTDOOR_CAMERA_ZOOM, actorVisualScale, DIALOGUE_PORTRAIT_SCALE, DIALOGUE_ACTIVE_PORTRAIT_SCALE, DIALOGUE_INACTIVE_ALPHA, JOYSTICK_VISUAL_SCALE, JOYSTICK_HIT_SCALE, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
+import { GameController, formatQuestTracker, formatCyclingQuestTracker, baishiFormalArtRegistry, baishiInteriorArtRegistry, baishiV2ArtAssets, GROUND_DEPTH, WORLD_BASE, PORTRAIT_DIM_DEPTH, PORTRAIT_DEPTH, UI_DEPTH_BASE, DEBUG_DEPTH, worldActorDepth, worldBuildingDepth, buildingImagePosition, foregroundImagePosition, OUTDOOR_CAMERA_ZOOM, actorVisualScale, DIALOGUE_PORTRAIT_SCALE, DIALOGUE_ACTIVE_PORTRAIT_SCALE, DIALOGUE_INACTIVE_ALPHA, JOYSTICK_VISUAL_SCALE, JOYSTICK_HIT_SCALE, baishiShopSignPlacements, buildingDisplayName, shouldUseCustomSign, signTemplateTextStyle, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
 import { availableStarterLookOptions } from '../../../packages/game-config/appearance-v1.js';
 import { createWeChatPlatform, safeInsets, allowWechatDebug } from './wechat-platform';
-import { loadWechatAssets } from './assets';
-import { WechatInteriorAssetLoader } from './remote-interior-assets';
+import { loadWechatAssets, loadWechatImage } from './assets';
+import { WechatInteriorAssetLoader, WechatRemoteAssetCache } from './remote-interior-assets';
 import { mobileLayout } from './layout';
 import { baishiCompatibility } from './compatibility';
 import { mobileTypography } from './typography';
@@ -56,8 +56,11 @@ class BaishiWechatScene extends Phaser.Scene {
   private foregrounds = new Map<string, Phaser.GameObjects.Image>();
   private interiorBackgrounds = new Map<string, Phaser.GameObjects.Image>();
   private interiorForegrounds = new Map<string, Phaser.GameObjects.Image>();
+  private shopSigns = new Map<string, Phaser.GameObjects.Image>();
+  private shopSignTemplates = new Map<string, Phaser.GameObjects.Text>();
   private pendingInteriorArt = new Set<string>();
   private readonly interiorAssetLoader = new WechatInteriorAssetLoader(wx, __WECHAT_ASSET_BASE_URL__);
+  private readonly remoteAssetCache = new WechatRemoteAssetCache(wx, __WECHAT_ASSET_BASE_URL__);
   private actors = new Map<string, Phaser.GameObjects.Sprite>();
   private actorNames = new Map<string, Phaser.GameObjects.Text>();
   private playerSprite!: Phaser.GameObjects.Sprite;
@@ -125,6 +128,7 @@ class BaishiWechatScene extends Phaser.Scene {
     }
     loading.destroy();
     this.createWorld();
+    void this.loadShopSigns();
     this.ready = true;
   }
   private createWorld() {
@@ -136,6 +140,7 @@ class BaishiWechatScene extends Phaser.Scene {
       this.buildings.set(asset.buildingId, this.add.image(0, 0, asset.assetKey).setOrigin(0).setDisplaySize(asset.renderWidth, asset.renderHeight).setDepth(WORLD_BASE).setVisible(false));
       if (asset.foreground && asset.foregroundOcclusionFrontY !== undefined) this.foregrounds.set(asset.buildingId, this.add.image(0, 0, asset.foreground.assetKey).setOrigin(0).setDisplaySize(asset.renderWidth, asset.renderHeight).setDepth(WORLD_BASE).setVisible(false));
     }
+    for (const sign of baishiShopSignPlacements) this.shopSignTemplates.set(sign.buildingId, this.add.text(0, 0, '', signTemplateTextStyle('', sign.templateId)).setOrigin(.5).setDepth(WORLD_BASE).setVisible(false));
     for (const asset of baishiFormalArtRegistry.npcs) {
       this.actors.set(asset.npcId, this.add.sprite(0, 0, asset.assetKey, 0).setOrigin(asset.footAnchorX / asset.frameWidth, asset.footAnchorY / asset.frameHeight).setDisplaySize(asset.frameWidth * asset.renderScale, asset.frameHeight * asset.renderScale).setVisible(false));
       this.actorNames.set(asset.npcId, this.add.text(0, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '16px', color: '#445749', stroke: '#f8f3df', strokeThickness: 3 }).setOrigin(.5, 1).setVisible(false));
@@ -188,7 +193,7 @@ class BaishiWechatScene extends Phaser.Scene {
     this.questToggle.setY(rightTop + 42);
     this.questPanel.setY(rightTop + 72);
     controller.onChange = () => this.syncUi();
-    const world = [this.graphics, this.debugGraphics, this.ground, this.playerSprite, this.playerName, ...this.buildings.values(), ...this.foregrounds.values(), ...this.interiorBackgrounds.values(), ...this.interiorForegrounds.values(), ...this.actors.values(), ...this.actorNames.values()];
+    const world = [this.graphics, this.debugGraphics, this.ground, this.playerSprite, this.playerName, ...this.buildings.values(), ...this.foregrounds.values(), ...this.shopSigns.values(), ...this.shopSignTemplates.values(), ...this.interiorBackgrounds.values(), ...this.interiorForegrounds.values(), ...this.actors.values(), ...this.actorNames.values()];
     const ui = this.children.list.filter(child => !world.includes(child as typeof world[number]));
     this.cameras.main.ignore(ui);
     this.worldOverlayCamera = this.cameras.add(0, 0, WIDTH, HEIGHT);
@@ -329,12 +334,30 @@ class BaishiWechatScene extends Phaser.Scene {
     this.frame.setText(`${this.fps} FPS`);
     this.render();
   }
+  private async loadShopSigns() {
+    for (const sign of baishiShopSignPlacements) {
+      const resourceId = ({ B_INN: 'SIGN_BAISHI_INN_V1', B_GROCERY: 'SIGN_BAISHI_GROCERY_V1', B_TRADE: 'SIGN_BAISHI_TRADE_V1', B_SALON: 'SIGN_BAISHI_SALON_V1', B_CLOTH: 'SIGN_BAISHI_CLOTH_V1' } as Record<string, string>)[sign.buildingId];
+      try {
+        await loadWechatImage(this.textures, { key: sign.assetKey, source: '', path: '' }, () => wx.createImage(), await this.remoteAssetCache.localPath(resourceId));
+        const image = this.add.image(0, 0, sign.assetKey).setOrigin(.5).setDepth(WORLD_BASE).setVisible(false);
+        this.shopSigns.set(sign.buildingId, image); this.worldOverlayCamera.ignore(image);
+      } catch (error: any) { console.warn('[FJHY remote asset] shop-sign dynamic-template fallback', { resourceId, errMsg: error?.message }); }
+    }
+  }
   private renderFormalWorld(ox: number, oy: number) {
     const view = controller.view, street = view?.scene.id === 'STREET_BAISHI_01', actorScale = actorVisualScale(view?.scene.id ?? 'STREET_BAISHI_01');
     for (const [buildingId, image] of this.buildings) {
       const asset = baishiFormalArtRegistry.buildings.find(candidate => candidate.buildingId === buildingId)!;
       const position = buildingImagePosition(asset, TILE);
       image.setVisible(!!street && this.textures.exists(asset.assetKey)).setPosition(ox + position.x, oy + position.y).setDepth(worldBuildingDepth(asset.occlusionFrontY!));
+    }
+    for (const sign of baishiShopSignPlacements) {
+      const building = view?.buildings.find(candidate => candidate.id === sign.buildingId);
+      const resourceId = ({ B_INN: 'SIGN_BAISHI_INN_V1', B_GROCERY: 'SIGN_BAISHI_GROCERY_V1', B_TRADE: 'SIGN_BAISHI_TRADE_V1', B_SALON: 'SIGN_BAISHI_SALON_V1', B_CLOTH: 'SIGN_BAISHI_CLOTH_V1' } as Record<string, string>)[sign.buildingId];
+      const image = this.shopSigns.get(sign.buildingId), template = this.shopSignTemplates.get(sign.buildingId);
+      const custom = !!building && shouldUseCustomSign(building, resourceId) && this.textures.exists(sign.assetKey);
+      image?.setVisible(!!street && custom).setPosition(ox + sign.worldX * TILE, oy + sign.worldY * TILE).setDisplaySize(sign.width, sign.height).setDepth(worldBuildingDepth(sign.frontY) + 1);
+      if (template) { const name = building ? buildingDisplayName(building) : ''; template.setText(name).setStyle(signTemplateTextStyle(name, sign.templateId)).setPosition(ox + sign.worldX * TILE, oy + sign.worldY * TILE).setDepth(worldBuildingDepth(sign.frontY) + 1).setVisible(!!street && !!building && !custom); }
     }
     for (const [buildingId, image] of this.foregrounds) {
       const asset = baishiFormalArtRegistry.buildings.find(candidate => candidate.buildingId === buildingId)!;
@@ -379,7 +402,7 @@ class BaishiWechatScene extends Phaser.Scene {
       circle: (x, y, r, fill) => { const c = color(fill); this.graphics.fillStyle(c.value, c.alpha); this.graphics.fillCircle(x, y, r); },
       text: (value, x, y, size, fill) => { let label = this.labels[this.labelIndex++]; if (!label) { label = this.add.text(0, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: size, color: '#ffffff', stroke: '#23352b', strokeThickness: 1 }).setOrigin(.5).setDepth(WORLD_BASE - 1); this.worldOverlayCamera.ignore(label); this.labels.push(label); } label.setText(value).setPosition(x, y).setFontSize(size).setColor(fill).setVisible(true); },
     };
-    if (controller.boot && !controller.player?.appearance) { this.ground?.setVisible(false); this.nightOverlay.setVisible(false); for (const image of [...this.buildings.values(), ...this.foregrounds.values(), ...this.interiorBackgrounds.values(), ...this.interiorForegrounds.values(), ...this.actors.values(), ...this.actorNames.values()]) image.setVisible(false); this.playerSprite.setVisible(false); this.playerName.setVisible(false); const asset = draft.gender === 'MALE' ? baishiV2ArtAssets.playerMale : baishiV2ArtAssets.playerFemale; this.playerSprite.setTexture(asset.assetKey, asset.directionRows.down * asset.columns).setPosition(WIDTH * .35, HEIGHT / 2 + 35).setDisplaySize(128, 128).setDepth(WORLD_BASE).setVisible(true); }
+    if (controller.boot && !controller.player?.appearance) { this.ground?.setVisible(false); this.nightOverlay.setVisible(false); for (const image of [...this.buildings.values(), ...this.foregrounds.values(), ...this.shopSigns.values(), ...this.shopSignTemplates.values(), ...this.interiorBackgrounds.values(), ...this.interiorForegrounds.values(), ...this.actors.values(), ...this.actorNames.values()]) image.setVisible(false); this.playerSprite.setVisible(false); this.playerName.setVisible(false); const asset = draft.gender === 'MALE' ? baishiV2ArtAssets.playerMale : baishiV2ArtAssets.playerFemale; this.playerSprite.setTexture(asset.assetKey, asset.directionRows.down * asset.columns).setPosition(WIDTH * .35, HEIGHT / 2 + 35).setDisplaySize(128, 128).setDepth(WORLD_BASE).setVisible(true); }
     else if (view) {
       const ox = WIDTH / 2 - controller.x * TILE, oy = HEIGHT / 2 - controller.y * TILE, street = view.scene.id === 'STREET_BAISHI_01';
       const groundReady = this.textures.exists(groundKey);
@@ -405,7 +428,7 @@ class BaishiWechatScene extends Phaser.Scene {
         this.debugGraphics.fillStyle(0xffffff, 1); this.debugGraphics.fillCircle(ox + controller.x * TILE, oy + controller.y * TILE, 7);
       }
       const night = view.phase === '深夜' || view.phase === '夜晚'; this.nightOverlay.setVisible(night).setFillStyle(0x233052, view.phase === '深夜' ? .32 : .2);
-    } else { this.ground?.setVisible(false); this.nightOverlay.setVisible(false); for (const image of [...this.buildings.values(), ...this.foregrounds.values(), ...this.interiorBackgrounds.values(), ...this.interiorForegrounds.values(), ...this.actors.values(), ...this.actorNames.values()]) image.setVisible(false); this.playerSprite.setVisible(false); this.playerName.setVisible(false); }
+    } else { this.ground?.setVisible(false); this.nightOverlay.setVisible(false); for (const image of [...this.buildings.values(), ...this.foregrounds.values(), ...this.shopSigns.values(), ...this.shopSignTemplates.values(), ...this.interiorBackgrounds.values(), ...this.interiorForegrounds.values(), ...this.actors.values(), ...this.actorNames.values()]) image.setVisible(false); this.playerSprite.setVisible(false); this.playerName.setVisible(false); }
     for (let i = this.labelIndex; i < this.labels.length; i++) this.labels[i].setVisible(false);
   }
 }

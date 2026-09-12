@@ -5,6 +5,9 @@ import { remoteAssetManifest } from '../packages/client-runtime/remote-assets.js
 const remoteRoot = path.resolve('assets/remote');
 const publicRoot = path.resolve('apps/admin/public');
 for (const resource of Object.values(remoteAssetManifest.resources)) {
+  // Generated remote-only assets (such as transparent shop signs) already live
+  // under assets/remote and deliberately have no packaged fallback copy.
+  if (!resource.fallbackPath) continue;
   const source = path.resolve(publicRoot, resource.fallbackPath.replace(/^\//, ''));
   const target = path.resolve(remoteRoot, resource.path);
   if (!source.startsWith(publicRoot + path.sep) || !target.startsWith(remoteRoot + path.sep)) throw new Error(`Unsafe resource mapping: ${resource.resourceId}`);

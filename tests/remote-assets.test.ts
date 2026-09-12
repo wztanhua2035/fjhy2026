@@ -20,7 +20,8 @@ test('shared manifest resolves stable resource IDs to provider-neutral CDN URLs'
   assert.equal(asset.path, 'world/baishi/interiors/salon/background_v1.png');
   assert.equal(assetUrl(asset, 'https://res-fjhy.wzpy.net/'), 'https://res-fjhy.wzpy.net/world/baishi/interiors/salon/background_v1.png');
   assert.equal(manifestContainsVendorUrls(), false);
-  assert.equal(Object.keys(remoteAssetManifest.resources).length, 12);
+  assert.equal(Object.keys(remoteAssetManifest.resources).length, 17);
+  assert.equal(remoteAsset('SIGN_BAISHI_TRADE_V1').type, 'shop-sign');
 });
 
 test('six interiors share twelve resolvable remote resources and support an alternate base URL', () => {

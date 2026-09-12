@@ -27,3 +27,10 @@ The game client only uses standard HTTPS and has no Tencent COS SDK dependency. 
 The workflow reads `TENCENT_CLOUD_SECRET_ID`, `TENCENT_CLOUD_SECRET_KEY`, `TENCENT_COS_BUCKET`, and `TENCENT_COS_REGION` only from GitHub Actions Secrets. Without all four values it exits successfully with `COS publish skipped: secrets not configured`.
 
 Run `node --import tsx tools/verify-remote-assets.ts <static-root>` to validate that every manifest relative path exists in any ordinary static directory.
+
+## 白石街招牌资源 V1
+
+- 核心建筑的逻辑标识始终使用 `BuildingConfig.id`；玩家可见名称使用可编辑的 `displayName`，未配置时兼容 `name`。
+- 招牌配置使用 `signMode`、`signResourceId`、`signTemplateId` 与 `signMeta`。当前五家核心店优先从共享远程资源 manifest 取得透明 PNG；资源不可用时才使用动态模板。
+- 招牌源文件位于 `assets/remote/signs/baishi/**`，由既有 COS Asset Publish 工作流上传。微信不打包高清招牌，使用 CDN 与本地缓存；失败不会阻断启动。
+- 新版本使用新的 Resource ID 与版本化文件名，不能复用同一个 ID 覆盖旧图。

@@ -19,6 +19,13 @@ export interface BuildingConfig {
   id: string; name: string; buildingType: string; assetKey: string; interiorSceneId: string;
   openingHours: [string, string]; enabled: boolean; buyable: boolean; baseValue: number;
   stock: Record<string, { buy: number; sell: number; dailyLimit: number }>;
+  /** Editable presentation only. Gameplay continues to use the stable building id. */
+  displayName?: string;
+  description?: string;
+  signMode?: 'custom_image' | 'dynamic_template';
+  signResourceId?: string;
+  signTemplateId?: string;
+  signMeta?: Record<string, string | number | boolean>;
 }
 export interface NPCConfig {
   id: string; name: string; nameLocked: boolean; enabled: boolean; sceneId: string;

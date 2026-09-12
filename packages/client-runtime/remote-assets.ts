@@ -1,4 +1,4 @@
-export type RemoteAssetType = 'scene-background' | 'scene-foreground';
+export type RemoteAssetType = 'scene-background' | 'scene-foreground' | 'shop-sign';
 
 /** A portable resource contract: IDs and paths are stable across CDN providers. */
 export interface RemoteAssetManifestEntry {
@@ -16,6 +16,7 @@ export interface RemoteAssetManifest {
 }
 
 const interior = (resourceId: string, path: string, fallbackPath: string, type: RemoteAssetType, version = 1): RemoteAssetManifestEntry => ({ resourceId, path, version, type, fallbackPath });
+const sign = (resourceId: string, path: string): RemoteAssetManifestEntry => ({ resourceId, path, version: 1, type: 'shop-sign', fallbackPath: '' });
 
 export const remoteAssetManifest: RemoteAssetManifest = {
   manifestVersion: 1,
@@ -32,6 +33,11 @@ export const remoteAssetManifest: RemoteAssetManifest = {
     BAISHI_INTERIOR_INN_FG: interior('BAISHI_INTERIOR_INN_FG', 'world/baishi/interiors/inn/foreground_v1.png', '/scene-layers/baishi/interiors/interior_inn_fg_v1.png', 'scene-foreground'),
     BAISHI_INTERIOR_GUEST_ROOM_BG: interior('BAISHI_INTERIOR_GUEST_ROOM_BG', 'world/baishi/interiors/guest-room/background_v2.png', '/scene-layers/baishi/interiors/interior_guest_room_v2.png', 'scene-background', 2),
     BAISHI_INTERIOR_GUEST_ROOM_FG: interior('BAISHI_INTERIOR_GUEST_ROOM_FG', 'world/baishi/interiors/guest-room/foreground_v2.png', '/scene-layers/baishi/interiors/interior_guest_room_fg_v2.png', 'scene-foreground', 2),
+    SIGN_BAISHI_INN_V1: sign('SIGN_BAISHI_INN_V1', 'signs/baishi/inn/sign_v1.png'),
+    SIGN_BAISHI_GROCERY_V1: sign('SIGN_BAISHI_GROCERY_V1', 'signs/baishi/grocery/sign_v1.png'),
+    SIGN_BAISHI_TRADE_V1: sign('SIGN_BAISHI_TRADE_V1', 'signs/baishi/trade/sign_v1.png'),
+    SIGN_BAISHI_SALON_V1: sign('SIGN_BAISHI_SALON_V1', 'signs/baishi/salon/sign_v1.png'),
+    SIGN_BAISHI_CLOTH_V1: sign('SIGN_BAISHI_CLOTH_V1', 'signs/baishi/cloth/sign_v1.png'),
   }
 };
 

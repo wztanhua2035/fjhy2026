@@ -3,6 +3,7 @@ import {inEntranceArea,npcCollisionRect,questStepProgress} from '../game-rules/i
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, innOpeningDialogue } from '../game-config/inn-opening.js';
 export * from './assets.js';
 export * from './remote-assets.js';
+export * from './shop-signs.js';
 export * from './display-scale.js';
 export * from './dialogue-layout.js';
 export type Direction='up'|'down'|'left'|'right';
@@ -131,7 +132,7 @@ export class GameController {
     if(drawCollision)for(const r of v.scene.collision){rect(r.x,r.y,r.width,r.height,'#977b61');}
     if(drawStructures)for(const zone of v.scene.interior?.zones??[])if(zone.label)p.text(zone.label,ox+(zone.x+zone.width/2)*tile,oy+(zone.y-.45)*tile,15,'#54654e');
     if(drawStructures)for(const plot of v.plots){const b=v.buildings.find(b=>b.id===plot.buildingId);
-      if(b){rect(plot.x+.18,plot.y+.2,plot.width,plot.height,'#00000020');rect(plot.x,plot.y,plot.width,plot.height,'#f4e4cb');rect(plot.x-.25,plot.y-.2,plot.width+.5,1.6,['#688f83','#879bb3','#b4826a','#a7879c','#7b9a76'][v.buildings.indexOf(b)%5]);rect(plot.x+.6,plot.y+2,1,1.2,'#8aa8ad');rect(plot.x+plot.width-1.6,plot.y+2,1,1.2,'#8aa8ad');rect(plot.entranceX-.5,plot.y+3.4,1,1.6,'#876957');p.text(b.name,ox+(plot.x+plot.width/2)*tile,oy+(plot.y+2.5)*tile,15,'#4e4a43');}
+      if(b){rect(plot.x+.18,plot.y+.2,plot.width,plot.height,'#00000020');rect(plot.x,plot.y,plot.width,plot.height,'#f4e4cb');rect(plot.x-.25,plot.y-.2,plot.width+.5,1.6,['#688f83','#879bb3','#b4826a','#a7879c','#7b9a76'][v.buildings.indexOf(b)%5]);rect(plot.x+.6,plot.y+2,1,1.2,'#8aa8ad');rect(plot.x+plot.width-1.6,plot.y+2,1,1.2,'#8aa8ad');rect(plot.entranceX-.5,plot.y+3.4,1,1.6,'#876957');if(b.signMode!=='custom_image')p.text(b.displayName??b.name,ox+(plot.x+plot.width/2)*tile,oy+(plot.y+2.5)*tile,15,'#4e4a43');}
       else{rect(plot.x,plot.y,plot.width,plot.height,'#bed0ac');p.text('空置地块 · 待开发',ox+(plot.x+plot.width/2)*tile,oy+(plot.y+2.5)*tile,13,'#62765a');}
     }
     for(const portal of v.scene.portals){rect(portal.x-.7,portal.y-.25,1.4,.5,'#91b7a3');p.text('出口 ↓',ox+portal.x*tile,oy+(portal.y-1)*tile,16,'#486d5d');}
