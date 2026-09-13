@@ -55,11 +55,11 @@ test('门区是连续区域，贴近或越过门锚点不会因为最小距离�
 });
 
 test('NPC 近距离不要求朝向，外围范围才使用朝向辅助',()=>{
-  const outer=canInteractWithNpc('up',{x:8,y:10.4},{x:8,y:9});assert.equal(outer.allowed,true);assert.equal(outer.facingRequired,true);
+  const outer=canInteractWithNpc('up',{x:8,y:11.2},{x:8,y:9});assert.equal(outer.allowed,true);assert.equal(outer.facingRequired,true);
   const close=canInteractWithNpc('down',{x:8,y:9.8},{x:8,y:9});assert.equal(close.allowed,true);assert.equal(close.facingRequired,false);
   assert.equal(canInteractWithNpc('left',{x:8,y:9.8},{x:8,y:9}).allowed,true);
   assert.equal(canInteractWithNpc('right',{x:8,y:9.8},{x:8,y:9}).allowed,true);
-  assert.equal(canInteractWithNpc('left',{x:8,y:10.3},{x:8,y:9}).allowed,false);
+  assert.equal(canInteractWithNpc('left',{x:8,y:11.2},{x:8,y:9}).allowed,false);
 });
 
 test('门使用矩形，家具只允许正面锚点附近互动',()=>{
@@ -100,4 +100,36 @@ test('服务点不会用独立范围抢占 NPC：交谈与后续服务共用 NPC
   controller.view={scene:{id:'INTERIOR_B_TRADE',name:'白石商行',width:24,height:20,collision:[],roads:[],portals:[],buildingId:'B_TRADE',interior:{zones:[{id:'TRADE_SERVICE',kind:'servicePoint',x:11,y:12,width:2,height:1,solid:false}]},tileSize:32,mapAsset:'',spawnX:12,spawnY:15},plots:[],buildings:[],items:[],npcs:[{id:'NPC_TRADE_CLERK',name:'白石商行伙计',x:12,y:9,enabled:true}],phase:'白天'} as any;
   controller.x=12;controller.y=12.5;controller.direction='up';assert.equal(controller.nearby(),null,'远处服务点不能替代 NPC 对话范围');
   controller.y=10;controller.direction='up';assert.equal(controller.nearby()?.id,'npc:NPC_TRADE_CLERK');
+});
+
+
+test('所有 NPC 侧面近身时聊天与服务使用相同门槛',()=>{
+  for(const npc of initialWorld.npcs.filter(n=>n.enabled)){
+    const c=new GameController(async()=>({}));c.view=sceneView(initialWorld,npc.sceneId,new Date());
+    for(const dx of [-1.4,1.4])for(const direction of ['up','down','left','right'] as const){
+      c.x=npc.x+dx;c.y=npc.y;c.direction=direction;
+      assert.equal(canInteractWithNpc(direction,c.footWorldPosition,npc).allowed,true,npc.id);
+      assert.equal(c.canUseNpcServices(),true,npc.id);
+      assert.ok(c.interactionDebug().candidates.some(n=>n.id===`npc:${npc.id}`),npc.id);
+    }
+  }
+});
+
+test('真实杂货铺和商行柜台前合法站点可以聊天与交易，远处不能',()=>{
+  for(const id of ['NPC_GROCERY_CLERK','NPC_TRADE_CLERK']){
+    const npc=initialWorld.npcs.find(n=>n.id===id)!;
+    const c=new GameController(async()=>({}));c.view=sceneView(initialWorld,npc.sceneId,new Date());c.direction='up';
+    for(const dx of [-.3,0,.3]){
+      c.x=npc.x+dx;c.y=11.29;
+      assert.ok(canStand(initialWorld,npc.sceneId,c.x,c.y),`${id}: counter front must be walkable`);
+      assert.equal(c.nearby()?.id,`npc:${id}`);assert.equal(c.canUseNpcServices(),true);
+    }
+    c.y=12;assert.equal(c.canUseNpcServices(),false);assert.notEqual(c.nearby()?.type,'npc');
+  }
+});
+
+test('NPC 精确外缘不会在候选评分时被二次拒绝，圆角外仍拒绝',()=>{
+  const c=new GameController(async()=>({}));c.view=sceneView(initialWorld,'INTERIOR_B_TRADE',new Date());
+  c.x=12;c.y=11.34;c.direction='up';assert.equal(c.nearby()?.id,'npc:NPC_TRADE_CLERK');
+  assert.equal(canInteractWithNpc('up',{x:13.8,y:11.2},{x:12,y:9}).allowed,false);
 });

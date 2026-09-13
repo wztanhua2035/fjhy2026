@@ -2,7 +2,7 @@ import type { Appearance, FormalNpcAppearance, Bootstrap, GhostProfile, PlayerSt
 import {inEntranceArea,npcCollisionRect,questStepProgress,portalInteractionZone} from '../game-rules/index.js';
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, innOpeningDialogue } from '../game-config/inn-opening.js';
 import { furnitureInteractionLabels, serviceInteractionNpcs } from '../game-config/interactions.js';
-import { canInteractWithNpc, interactionDefaults, interactionLabel, scoredInteraction, selectInteraction, type InteractionCandidate, type InteractionRect } from './interaction-targeting.js';
+import { canInteractWithNpc, npcInteractionBody, interactionDefaults, interactionLabel, scoredInteraction, selectInteraction, type InteractionCandidate, type InteractionRect } from './interaction-targeting.js';
 export * from './assets.js';
 export * from './remote-assets.js';
 export * from './shop-signs.js';
@@ -147,7 +147,7 @@ export class GameController {
       for(const portal of view.scene.portals)zones.push({id:`portal:${portal.id}`,type:'portal',anchor:{x:portal.x,y:portal.y},zone:this.portalZone(portal)});
       for(const plot of view.plots)for(const entrance of plot.entrances??[])if(plot.buildingId)zones.push({id:`entrance:${entrance.id}`,type:'entrance',anchor:entrance.position,zone:entrance.interactionArea});
       for(const zone of view.scene.interior?.zones??[]){if(zone.interactionPoint)zones.push({id:`furniture:${zone.id}`,type:'furniture',anchor:zone.interactionPoint,radius:interactionDefaults.furnitureRadius});if(zone.kind==='servicePoint'&&serviceInteractionNpcs[zone.id])zones.push({id:`service:${zone.id}`,type:'service',anchor:{x:zone.x+zone.width/2,y:zone.y+zone.height/2},radius:interactionDefaults.serviceRadius});}
-      for(const npc of view.npcs){const body=npcCollisionRect(npc),r=interactionDefaults.npcRadius;zones.push({id:`npc:${npc.id}`,type:'npc',anchor:{x:npc.x,y:npc.y},radius:r,zone:{x:body.x-r,y:body.y-r,width:body.width+2*r,height:body.height+2*r}});}
+      for(const npc of view.npcs){const body=npcInteractionBody(npc),r=interactionDefaults.npcRadius;zones.push({id:`npc:${npc.id}`,type:'npc',anchor:{x:npc.x,y:npc.y},radius:r,zone:{x:body.x-r,y:body.y-r,width:body.width+2*r,height:body.height+2*r}});}
     }
     return {foot:this.footWorldPosition,candidates,active,zones,npcChecks:(view?.npcs??[]).map(n=>({id:n.id,...canInteractWithNpc(this.direction,this.footWorldPosition,n)}))};
   }

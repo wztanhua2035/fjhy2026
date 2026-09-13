@@ -1,7 +1,7 @@
 import { npcCollisionRect } from '../game-rules/index.js';
 /** Shared interaction targeting rules. World coordinates are always player feet. */
 /** Embedded in the client bundle so the build can reject stale interaction code. */
-export const INTERACTION_TARGETING_BUILD_MARKER = 'interaction-targeting-v3';
+export const INTERACTION_TARGETING_BUILD_MARKER = 'interaction-targeting-v4';
 export type InteractionType='scripted'|'portal'|'entrance'|'npc'|'service'|'furniture';
 export type InteractionDirection='up'|'down'|'left'|'right';
 export interface InteractionRect {x:number;y:number;width:number;height:number}
@@ -11,10 +11,10 @@ export interface InteractionCandidate {
   distance:number; score:number;
 }
 export const interactionDefaults={
-  /** Reach measured from the fixed collision rectangle, not the sprite or centre. */
-  npcRadius:.8,
+  /** Gap between two fixed interaction bodies; independent of rendered size. */
+  npcRadius:.9,
   /** Close to the NPC collision body, joystick direction must not block interaction. */
-  npcCloseRadius:.5,
+  npcCloseRadius:.6,
   furnitureRadius:.8,
   serviceRadius:.9,
   npcFacingConeDegrees:140,
@@ -34,16 +34,23 @@ export function facesInteraction(direction:InteractionDirection,from:{x:number;y
  * collision-body centres, never sprite or portrait centres.
  */
 export function canInteractWithNpc(direction:InteractionDirection,playerFoot:{x:number;y:number},npcFoot:{x:number;y:number}){
-  const body=npcCollisionRect(npcFoot);
+  const body=npcInteractionBody(npcFoot);
   const distance=Math.hypot(Math.max(body.x-playerFoot.x,0,playerFoot.x-body.x-body.width),Math.max(body.y-playerFoot.y,0,playerFoot.y-body.y-body.height));
-  if(distance>interactionDefaults.npcRadius)return {allowed:false,distance,facingRequired:false};
-  const facingRequired=distance>interactionDefaults.npcCloseRadius;
+  if(distance>interactionDefaults.npcRadius+1e-9)return {allowed:false,distance,facingRequired:false};
+  const facingRequired=distance>interactionDefaults.npcCloseRadius+1e-9;
   return {allowed:!facingRequired||facesInteraction(direction,playerFoot,npcFoot),distance,facingRequired};
+}
+/** Minkowski sum of two fixed 1 x 1.44 interaction bodies, both foot-centred.
+ * This only measures proximity; movement collision is unchanged.
+ */
+export function npcInteractionBody(npcFoot:{x:number;y:number}){
+  const npc=npcCollisionRect(npcFoot),player=npcCollisionRect({x:0,y:0});
+  return {x:npc.x-player.width/2,y:npc.y-player.height/2,width:npc.width+player.width,height:npc.height+player.height};
 }
 export function scoredInteraction(input:Omit<InteractionCandidate,'distance'|'score'>&{point:{x:number;y:number};questBonus?:number;validatedDistance?:number}){
   const distance=input.validatedDistance??interactionDistance(input.point,input.anchor);
   const range=input.radius??0;
-  const valid=input.zone?withinInteractionRect(input.point,input.zone):distance<=range;
+  const valid=input.zone?withinInteractionRect(input.point,input.zone):distance<=range+1e-9;
   if(!valid)return null;
   const normalized=range>0?Math.min(1,distance/range):0;
   return {...input,distance,score:priority[input.type]+(input.questBonus??0)-normalized*40} as InteractionCandidate;

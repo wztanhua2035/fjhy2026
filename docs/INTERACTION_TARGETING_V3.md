@@ -1,8 +1,8 @@
-# Interaction Targeting V3
+# Interaction Targeting V4
 
 互动使用玩家脚底世界坐标。人物素材、显示倍率和 footAnchor 不参与距离调整。
 
-- NPC：到 `npcCollisionRect()` 边缘的距离 <= 0.8 tile；其中 <= 0.5 tile 不要求朝向，外围采用 140° 朝向锥。Web 和微信的交易按钮、对话目标均调用同一个判定。
+- NPC：两个固定、脚底居中的互动身体（各 1 × 1.44 tile）之间的间距 <= 0.9 tile；其中 <= 0.6 tile 不要求朝向，外围采用 140° 朝向锥。Web 和微信的交易按钮、对话目标均调用同一个判定。
 - Portal：`Portal.interactionArea` 是连续矩形，客户端与服务端均使用 `portalInteractionZone()`。不要求朝向，不设最小距离。旧场景未配置该字段时使用统一兼容区域。
 - 不能只改本地配置：新字段必须通过 server config schema、发布存储和 scene API。staging 启动时定向同步门区，保留已有 collision 和其他场景数据。
 
@@ -20,4 +20,6 @@
 
 `tests/interaction-targeting.test.ts` 使用真实 SceneConfig 覆盖左右门槛、贴门帘、NPC 四侧及所有朝向，并调用 GameService 验证服务器确实允许相同门口位置。`tests/guest-room.test.ts` 覆盖配置发布及 API 字段保留、开场与往返。
 
-DEV/STAGING 使用现有 collision debug 开关查看互动区。微信输出 `npcChecks`（边缘距离、朝向要求和允许结果），用于区分“渲染看起来很近”与实际互动距离。正式包必须包含 `interaction-targeting-v3` 标记；此标记只验证新代码进入产物，不能代替真机验收。
+DEV/STAGING 使用现有 collision debug 开关查看互动区。微信输出 `npcChecks`（边缘距离、朝向要求和允许结果），用于区分“渲染看起来很近”与实际互动距离。正式包必须包含 `interaction-targeting-v4` 标记；此标记只验证新代码进入产物，不能代替真机验收。
+
+V4 互动身体仅用于接近判定，不改变玩家移动碰撞。回归覆盖所有 NPC 侧面 1.4 tile 接近、杂货铺/商行实际柜台前合法站点 `(12,11.29)`、精确外缘与圆角越界。调试范围与实际判定共用 `npcInteractionBody()`，不再只测试没有柜台阻挡的贴身点。
