@@ -1,4 +1,4 @@
-export type RemoteAssetType = 'scene-background' | 'scene-foreground' | 'shop-sign';
+export type RemoteAssetType = 'scene-background' | 'scene-foreground' | 'shop-sign' | 'scene-map' | 'portrait' | 'icon';
 
 /** A portable resource contract: IDs and paths are stable across CDN providers. */
 export interface RemoteAssetManifestEntry {
@@ -8,6 +8,8 @@ export interface RemoteAssetManifestEntry {
   type: RemoteAssetType;
   /** Transitional packaged source. Remove only after remote delivery is verified on devices. */
   fallbackPath: string;
+  /** Explicit exception to the normal hard size limit, with an audit reason. */
+  sizeBudgetOverride?: { reason: string };
 }
 
 export interface RemoteAssetManifest {
@@ -16,28 +18,28 @@ export interface RemoteAssetManifest {
 }
 
 const interior = (resourceId: string, path: string, fallbackPath: string, type: RemoteAssetType, version = 1): RemoteAssetManifestEntry => ({ resourceId, path, version, type, fallbackPath });
-const sign = (resourceId: string, path: string): RemoteAssetManifestEntry => ({ resourceId, path, version: 1, type: 'shop-sign', fallbackPath: '' });
+const sign = (resourceId: string, path: string): RemoteAssetManifestEntry => ({ resourceId, path, version: 2, type: 'shop-sign', fallbackPath: '' });
 
 export const remoteAssetManifest: RemoteAssetManifest = {
   manifestVersion: 1,
   resources: {
-    BAISHI_INTERIOR_SALON_BG: interior('BAISHI_INTERIOR_SALON_BG', 'world/baishi/interiors/salon/background_v1.png', '/scene-layers/baishi/interiors/interior_salon_v1.png', 'scene-background'),
+    BAISHI_INTERIOR_SALON_BG: interior('BAISHI_INTERIOR_SALON_BG', 'world/baishi/interiors/salon/background_v2.png', '/scene-layers/baishi/interiors/interior_salon_v1.png', 'scene-background', 2),
     BAISHI_INTERIOR_SALON_FG: interior('BAISHI_INTERIOR_SALON_FG', 'world/baishi/interiors/salon/foreground_v1.png', '/scene-layers/baishi/interiors/interior_salon_fg_v1.png', 'scene-foreground'),
-    BAISHI_INTERIOR_GROCERY_BG: interior('BAISHI_INTERIOR_GROCERY_BG', 'world/baishi/interiors/grocery/background_v1.png', '/scene-layers/baishi/interiors/interior_grocery_v1.png', 'scene-background'),
+    BAISHI_INTERIOR_GROCERY_BG: interior('BAISHI_INTERIOR_GROCERY_BG', 'world/baishi/interiors/grocery/background_v2.png', '/scene-layers/baishi/interiors/interior_grocery_v1.png', 'scene-background', 2),
     BAISHI_INTERIOR_GROCERY_FG: interior('BAISHI_INTERIOR_GROCERY_FG', 'world/baishi/interiors/grocery/foreground_v1.png', '/scene-layers/baishi/interiors/interior_grocery_fg_v1.png', 'scene-foreground'),
-    BAISHI_INTERIOR_TRADE_BG: interior('BAISHI_INTERIOR_TRADE_BG', 'world/baishi/interiors/trade/background_v1.png', '/scene-layers/baishi/interiors/interior_trade_v1.png', 'scene-background'),
+    BAISHI_INTERIOR_TRADE_BG: interior('BAISHI_INTERIOR_TRADE_BG', 'world/baishi/interiors/trade/background_v2.png', '/scene-layers/baishi/interiors/interior_trade_v1.png', 'scene-background', 2),
     BAISHI_INTERIOR_TRADE_FG: interior('BAISHI_INTERIOR_TRADE_FG', 'world/baishi/interiors/trade/foreground_v1.png', '/scene-layers/baishi/interiors/interior_trade_fg_v1.png', 'scene-foreground'),
-    BAISHI_INTERIOR_CLOTH_BG: interior('BAISHI_INTERIOR_CLOTH_BG', 'world/baishi/interiors/cloth/background_v1.png', '/scene-layers/baishi/interiors/interior_cloth_v1.png', 'scene-background'),
+    BAISHI_INTERIOR_CLOTH_BG: interior('BAISHI_INTERIOR_CLOTH_BG', 'world/baishi/interiors/cloth/background_v2.png', '/scene-layers/baishi/interiors/interior_cloth_v1.png', 'scene-background', 2),
     BAISHI_INTERIOR_CLOTH_FG: interior('BAISHI_INTERIOR_CLOTH_FG', 'world/baishi/interiors/cloth/foreground_v1.png', '/scene-layers/baishi/interiors/interior_cloth_fg_v1.png', 'scene-foreground'),
-    BAISHI_INTERIOR_INN_BG: interior('BAISHI_INTERIOR_INN_BG', 'world/baishi/interiors/inn/background_v1.png', '/scene-layers/baishi/interiors/interior_inn_v1.png', 'scene-background'),
+    BAISHI_INTERIOR_INN_BG: interior('BAISHI_INTERIOR_INN_BG', 'world/baishi/interiors/inn/background_v2.png', '/scene-layers/baishi/interiors/interior_inn_v1.png', 'scene-background', 2),
     BAISHI_INTERIOR_INN_FG: interior('BAISHI_INTERIOR_INN_FG', 'world/baishi/interiors/inn/foreground_v1.png', '/scene-layers/baishi/interiors/interior_inn_fg_v1.png', 'scene-foreground'),
-    BAISHI_INTERIOR_GUEST_ROOM_BG: interior('BAISHI_INTERIOR_GUEST_ROOM_BG', 'world/baishi/interiors/guest-room/background_v2.png', '/scene-layers/baishi/interiors/interior_guest_room_v2.png', 'scene-background', 2),
+    BAISHI_INTERIOR_GUEST_ROOM_BG: interior('BAISHI_INTERIOR_GUEST_ROOM_BG', 'world/baishi/interiors/guest-room/background_v3.png', '/scene-layers/baishi/interiors/interior_guest_room_v2.png', 'scene-background', 3),
     BAISHI_INTERIOR_GUEST_ROOM_FG: interior('BAISHI_INTERIOR_GUEST_ROOM_FG', 'world/baishi/interiors/guest-room/foreground_v2.png', '/scene-layers/baishi/interiors/interior_guest_room_fg_v2.png', 'scene-foreground', 2),
-    SIGN_BAISHI_INN_V1: sign('SIGN_BAISHI_INN_V1', 'signs/baishi/inn/sign_v1.png'),
-    SIGN_BAISHI_GROCERY_V1: sign('SIGN_BAISHI_GROCERY_V1', 'signs/baishi/grocery/sign_v1.png'),
-    SIGN_BAISHI_TRADE_V1: sign('SIGN_BAISHI_TRADE_V1', 'signs/baishi/trade/sign_v1.png'),
-    SIGN_BAISHI_SALON_V1: sign('SIGN_BAISHI_SALON_V1', 'signs/baishi/salon/sign_v1.png'),
-    SIGN_BAISHI_CLOTH_V1: sign('SIGN_BAISHI_CLOTH_V1', 'signs/baishi/cloth/sign_v1.png'),
+    SIGN_BAISHI_INN_V1: sign('SIGN_BAISHI_INN_V1', 'signs/baishi/inn/sign_v2.png'),
+    SIGN_BAISHI_GROCERY_V1: sign('SIGN_BAISHI_GROCERY_V1', 'signs/baishi/grocery/sign_v2.png'),
+    SIGN_BAISHI_TRADE_V1: sign('SIGN_BAISHI_TRADE_V1', 'signs/baishi/trade/sign_v2.png'),
+    SIGN_BAISHI_SALON_V1: sign('SIGN_BAISHI_SALON_V1', 'signs/baishi/salon/sign_v2.png'),
+    SIGN_BAISHI_CLOTH_V1: sign('SIGN_BAISHI_CLOTH_V1', 'signs/baishi/cloth/sign_v2.png'),
   }
 };
 

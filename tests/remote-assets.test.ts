@@ -17,11 +17,23 @@ function fakeWx(download: (options: any) => void) {
 
 test('shared manifest resolves stable resource IDs to provider-neutral CDN URLs', () => {
   const asset = remoteAsset('BAISHI_INTERIOR_SALON_BG');
-  assert.equal(asset.path, 'world/baishi/interiors/salon/background_v1.png');
-  assert.equal(assetUrl(asset, 'https://res-fjhy.wzpy.net/'), 'https://res-fjhy.wzpy.net/world/baishi/interiors/salon/background_v1.png');
+  assert.equal(asset.path, 'world/baishi/interiors/salon/background_v2.png');
+  assert.equal(asset.version, 2);
+  assert.equal(assetUrl(asset, 'https://res-fjhy.wzpy.net/'), 'https://res-fjhy.wzpy.net/world/baishi/interiors/salon/background_v2.png');
   assert.equal(manifestContainsVendorUrls(), false);
   assert.equal(Object.keys(remoteAssetManifest.resources).length, 17);
   assert.equal(remoteAsset('SIGN_BAISHI_TRADE_V1').type, 'shop-sign');
+  assert.equal(remoteAsset('SIGN_BAISHI_TRADE_V1').version, 2);
+});
+
+test('portable manifest describes the same versioned resources with release metadata', async () => {
+  const portable = JSON.parse(await readFile('assets/remote/manifests/remote-asset-manifest-v1.json', 'utf8'));
+  for (const resource of Object.values(remoteAssetManifest.resources)) {
+    const actual = portable.resources[resource.resourceId];
+    assert.equal(actual.path, resource.path); assert.equal(actual.version, resource.version);
+    assert.equal(actual.format, 'png'); assert.ok(actual.width > 0 && actual.height > 0 && actual.byteSize > 0);
+    assert.match(actual.sha256, /^[0-9a-f]{64}$/);
+  }
 });
 
 test('six interiors share twelve resolvable remote resources and support an alternate base URL', () => {

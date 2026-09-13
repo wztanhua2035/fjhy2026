@@ -2,89 +2,174 @@
   "manifestVersion": 1,
   "resources": {
     "BAISHI_INTERIOR_SALON_BG": {
-      "path": "world/baishi/interiors/salon/background_v1.png",
-      "version": 1,
-      "type": "scene-background"
+      "path": "world/baishi/interiors/salon/background_v2.png",
+      "version": 2,
+      "type": "scene-background",
+      "width": 768,
+      "height": 640,
+      "format": "png",
+      "byteSize": 469755,
+      "sha256": "0ada7a9b559963f94d177693e46eb058729d5880685ab5c0e7e306acd0e68f8f"
     },
     "BAISHI_INTERIOR_SALON_FG": {
       "path": "world/baishi/interiors/salon/foreground_v1.png",
       "version": 1,
-      "type": "scene-foreground"
+      "type": "scene-foreground",
+      "width": 768,
+      "height": 640,
+      "format": "png",
+      "byteSize": 15549,
+      "sha256": "2108969a7028f8336010f2f5a9c955e820f8f79dd7bd2d4e82903001af2d3769"
     },
     "BAISHI_INTERIOR_GROCERY_BG": {
-      "path": "world/baishi/interiors/grocery/background_v1.png",
-      "version": 1,
-      "type": "scene-background"
+      "path": "world/baishi/interiors/grocery/background_v2.png",
+      "version": 2,
+      "type": "scene-background",
+      "width": 768,
+      "height": 640,
+      "format": "png",
+      "byteSize": 547652,
+      "sha256": "88a9ee97175097f242ce7306b667cb32525c7440d20004d8c269dd7fcda3ffbf"
     },
     "BAISHI_INTERIOR_GROCERY_FG": {
       "path": "world/baishi/interiors/grocery/foreground_v1.png",
       "version": 1,
-      "type": "scene-foreground"
+      "type": "scene-foreground",
+      "width": 768,
+      "height": 640,
+      "format": "png",
+      "byteSize": 21203,
+      "sha256": "ea08ed6d26376e43a0892ee34a59b38787799dc4ecdfaa4f1c167d0413c0c7b6"
     },
     "BAISHI_INTERIOR_TRADE_BG": {
-      "path": "world/baishi/interiors/trade/background_v1.png",
-      "version": 1,
-      "type": "scene-background"
+      "path": "world/baishi/interiors/trade/background_v2.png",
+      "version": 2,
+      "type": "scene-background",
+      "width": 768,
+      "height": 640,
+      "format": "png",
+      "byteSize": 559470,
+      "sha256": "a953aa461ae4e9b66bf3e5b698dde2673ded80c6358adabb3f2e4ac60132b124"
     },
     "BAISHI_INTERIOR_TRADE_FG": {
       "path": "world/baishi/interiors/trade/foreground_v1.png",
       "version": 1,
-      "type": "scene-foreground"
+      "type": "scene-foreground",
+      "width": 768,
+      "height": 640,
+      "format": "png",
+      "byteSize": 28504,
+      "sha256": "2fe48b8167bd5b3396847d242f9289e1212b174c04f3e47def2b5f0c95c90eaa"
     },
     "BAISHI_INTERIOR_CLOTH_BG": {
-      "path": "world/baishi/interiors/cloth/background_v1.png",
-      "version": 1,
-      "type": "scene-background"
+      "path": "world/baishi/interiors/cloth/background_v2.png",
+      "version": 2,
+      "type": "scene-background",
+      "width": 768,
+      "height": 640,
+      "format": "png",
+      "byteSize": 569384,
+      "sha256": "f00cb588a9015a6f4ac6b90c7d75227e247b40abdeb00ce876f5649d0d4f4fc7"
     },
     "BAISHI_INTERIOR_CLOTH_FG": {
       "path": "world/baishi/interiors/cloth/foreground_v1.png",
       "version": 1,
-      "type": "scene-foreground"
+      "type": "scene-foreground",
+      "width": 768,
+      "height": 640,
+      "format": "png",
+      "byteSize": 22789,
+      "sha256": "fe3972c546c4cbe2fa0a79f72333b5d210144d9b648ab9767eb642417e34c9a5"
     },
     "BAISHI_INTERIOR_INN_BG": {
-      "path": "world/baishi/interiors/inn/background_v1.png",
-      "version": 1,
-      "type": "scene-background"
+      "path": "world/baishi/interiors/inn/background_v2.png",
+      "version": 2,
+      "type": "scene-background",
+      "width": 768,
+      "height": 640,
+      "format": "png",
+      "byteSize": 510136,
+      "sha256": "9c0eaeaeabcbe1330f729aa04863d0a4cb59766c14857e0fceb4efda6fb88a86"
     },
     "BAISHI_INTERIOR_INN_FG": {
       "path": "world/baishi/interiors/inn/foreground_v1.png",
       "version": 1,
-      "type": "scene-foreground"
+      "type": "scene-foreground",
+      "width": 768,
+      "height": 640,
+      "format": "png",
+      "byteSize": 22593,
+      "sha256": "90bdf5e1e6ef1b1cfd3c1aec22729149608e210b23c0f1139fd4d520c7231d96"
     },
     "BAISHI_INTERIOR_GUEST_ROOM_BG": {
-      "path": "world/baishi/interiors/guest-room/background_v2.png",
-      "version": 2,
-      "type": "scene-background"
+      "path": "world/baishi/interiors/guest-room/background_v3.png",
+      "version": 3,
+      "type": "scene-background",
+      "width": 448,
+      "height": 384,
+      "format": "png",
+      "byteSize": 125968,
+      "sha256": "7150b3da6e663eda413c86a3ac96a9dd56acd4cbe1248ec09167f6eb2f98163e"
     },
     "BAISHI_INTERIOR_GUEST_ROOM_FG": {
       "path": "world/baishi/interiors/guest-room/foreground_v2.png",
       "version": 2,
-      "type": "scene-foreground"
+      "type": "scene-foreground",
+      "width": 448,
+      "height": 384,
+      "format": "png",
+      "byteSize": 797,
+      "sha256": "a57bf0838a951c6f5253a5d2696cdb5d21931a61485d9632163471729c5cc47d"
     },
     "SIGN_BAISHI_INN_V1": {
-      "path": "signs/baishi/inn/sign_v1.png",
-      "version": 1,
-      "type": "shop-sign"
+      "path": "signs/baishi/inn/sign_v2.png",
+      "version": 2,
+      "type": "shop-sign",
+      "width": 384,
+      "height": 192,
+      "format": "png",
+      "byteSize": 93927,
+      "sha256": "febddab0051bc66e8408a76c13ff7d8e1800cf1894674421542908b25041d3af"
     },
     "SIGN_BAISHI_GROCERY_V1": {
-      "path": "signs/baishi/grocery/sign_v1.png",
-      "version": 1,
-      "type": "shop-sign"
+      "path": "signs/baishi/grocery/sign_v2.png",
+      "version": 2,
+      "type": "shop-sign",
+      "width": 384,
+      "height": 192,
+      "format": "png",
+      "byteSize": 100278,
+      "sha256": "6fb35e85cf85e7a997ae5955de4393d4805d596dbc0df9370d16a63f3f0e2913"
     },
     "SIGN_BAISHI_TRADE_V1": {
-      "path": "signs/baishi/trade/sign_v1.png",
-      "version": 1,
-      "type": "shop-sign"
+      "path": "signs/baishi/trade/sign_v2.png",
+      "version": 2,
+      "type": "shop-sign",
+      "width": 384,
+      "height": 154,
+      "format": "png",
+      "byteSize": 78103,
+      "sha256": "5a2cbd82670cee769971e29b3b52b0ccf2fc65be4d277e2e3ebb0b9d75d1a8e0"
     },
     "SIGN_BAISHI_SALON_V1": {
-      "path": "signs/baishi/salon/sign_v1.png",
-      "version": 1,
-      "type": "shop-sign"
+      "path": "signs/baishi/salon/sign_v2.png",
+      "version": 2,
+      "type": "shop-sign",
+      "width": 384,
+      "height": 164,
+      "format": "png",
+      "byteSize": 97559,
+      "sha256": "5b5e5a0db1ef622d5e6d6196ec50c9605aaa22b0d7df9943de2e1768af94f860"
     },
     "SIGN_BAISHI_CLOTH_V1": {
-      "path": "signs/baishi/cloth/sign_v1.png",
-      "version": 1,
-      "type": "shop-sign"
+      "path": "signs/baishi/cloth/sign_v2.png",
+      "version": 2,
+      "type": "shop-sign",
+      "width": 384,
+      "height": 192,
+      "format": "png",
+      "byteSize": 101003,
+      "sha256": "7b512253605af236af9ced2a216ad69588a98f9204836f7f95d873e7ce33673c"
     }
   }
 }

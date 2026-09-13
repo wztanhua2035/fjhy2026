@@ -7,6 +7,7 @@ on:
       - 'assets/remote/**'
       - 'packages/client-runtime/remote-assets.ts'
       - 'tools/verify-remote-assets.ts'
+      - 'tools/optimize-game-assets.py'
       - 'tools/cos_publish_assets.py'
       - '.github/workflows/cos-asset-publish.yml'
   workflow_dispatch:
@@ -37,7 +38,7 @@ jobs:
           python-version: '3.11'
       - run: npm ci
       - name: Validate remote asset manifest and source directory
-        run: node --import tsx tools/verify-remote-assets.ts "$ASSET_ROOT"
+        run: npm run verify-asset-budget
       - name: Discover changed remote resources
         id: changed
         shell: bash
