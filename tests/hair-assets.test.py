@@ -7,7 +7,7 @@ FORMAL=ROOT/'apps/admin/public/scene-layers/baishi/formal'
 
 class HairAssets(unittest.TestCase):
     def test_runtime_budget_dimensions_and_transparency(self):
-        files=list((FORMAL/'hair-v1').glob('*.png'))
+        files=list((FORMAL/'hair-v2').glob('*.png'))
         self.assertEqual(len(files),8)
         for file in files:
             with self.subTest(file=file.name):
@@ -21,14 +21,38 @@ class HairAssets(unittest.TestCase):
     def test_existing_outfit_body_and_feet_are_pixel_identical(self):
         for gender in ['male','female']:
             original=Image.open(FORMAL/f'player_{gender}_base.png').convert('RGBA')
-            body=Image.open(FORMAL/'hair-v1'/f'player_{gender}_body_v1.png').convert('RGBA')
+            body=Image.open(FORMAL/'hair-v2'/f'player_{gender}_body_v2.png').convert('RGBA')
             for row in range(4):
-                box=(0,row*64+32,256,row*64+64)
+                box=(0,row*64+43,256,row*64+64)
                 self.assertEqual(body.crop(box).tobytes(),original.crop(box).tobytes())
+                for y in range(32,43):
+                    for x in range(256):
+                        px=(x,row*64+y)
+                        if body.getpixel(px)!=original.getpixel(px):
+                            self.assertEqual(gender,'female')
+                            self.assertLess(y,39)
+                            self.assertEqual(body.getpixel(px),(0,0,0,0))
 
     def test_three_hairstyles_are_distinct_in_every_direction(self):
         for prefix in ['m','f']:
-            images=[Image.open(FORMAL/'hair-v1'/f'{prefix}_hair_0{i}_v1.png') for i in range(1,4)]
+            images=[Image.open(FORMAL/'hair-v2'/f'{prefix}_hair_0{i}_v2.png') for i in range(1,4)]
             for row in range(4):self.assertEqual(len({im.crop((0,row*64,64,row*64+64)).tobytes() for im in images}),3)
+
+    def test_every_hair_frame_covers_the_original_head_without_moving_feet(self):
+        for gender,prefix in [('male','m'),('female','f')]:
+            original=Image.open(FORMAL/f'player_{gender}_base.png').convert('RGBA')
+            body=Image.open(FORMAL/'hair-v2'/f'player_{gender}_body_v2.png').convert('RGBA')
+            for style in range(1,4):
+                layer=Image.open(FORMAL/'hair-v2'/f'{prefix}_hair_0{style}_v2.png').convert('RGBA')
+                composed=Image.alpha_composite(body,layer)
+                for row in range(4):
+                    for col in range(4):
+                        box=(col*64,row*64,col*64+64,row*64+64)
+                        head=layer.crop(box).crop((0,0,64,36)).getchannel('A').getbbox()
+                        self.assertIsNotNone(head)
+                        self.assertLessEqual(head[1],6)
+                        self.assertGreaterEqual(head[3],24)
+                        foot=(col*64+32,row*64+59)
+                        self.assertEqual(composed.getpixel(foot),original.getpixel(foot))
 
 if __name__=='__main__':unittest.main()

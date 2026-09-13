@@ -5,9 +5,9 @@ import {hairConfigs} from '../packages/game-config/hair-services.js';
 import {actorVisualScale} from '../packages/client-runtime/display-scale.js';
 
 test('组合顺序保持 body/outfit 在下、hair 在上，并按 64×64 注册帧',()=>{
-  const order:string[]=[],keys=new Set(['player-male-body-v1','PLAYER_M_HAIR_01']);
+  const order:string[]=[],keys=new Set(['player-male-body-v2','PLAYER_M_HAIR_01']);
   const textures={exists:(k:string)=>keys.has(k),get:(k:string)=>({getSourceImage:()=>k}),createCanvas:(key:string,w:number,h:number)=>{assert.equal(w,256);assert.equal(h,256);keys.add(key);return {context:{drawImage:(k:string)=>order.push(k)},refresh(){}};},addSpriteSheet:(_key:string,_source:unknown,config:unknown)=>assert.deepEqual(config,{frameWidth:64,frameHeight:64})};
-  composeHairTextures({textures} as any,[hairConfigs[0]]);assert.deepEqual(order,['player-male-body-v1','PLAYER_M_HAIR_01']);
+  composeHairTextures({textures} as any,[hairConfigs[0]]);assert.deepEqual(order,['player-male-body-v2','PLAYER_M_HAIR_01']);
 });
 test('所有方向与室内外缩放保持原 sprite 帧、世界位置、原点、可见性和深度',()=>{
   for(const sceneId of ['STREET_BAISHI_01','INTERIOR_B_SALON'])for(let frame=0;frame<16;frame++){

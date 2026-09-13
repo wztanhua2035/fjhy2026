@@ -9,7 +9,7 @@ export function preloadHairAssets(scene:Phaser.Scene){for(const asset of hairAss
  * one sprite so frame, camera, depth, visibility and scale cannot diverge. */
 export function composeHairTextures(scene:Phaser.Scene,configs:HairConfig[]=hairConfigs){
   for(const hair of configs){
-    const key=`appearance:${hair.hairId}:${hair.assetResourceId}`,body=`player-${hair.gender.toLowerCase()}-body-v1`;
+    const key=`appearance:${hair.hairId}:${hair.assetResourceId}`,body=`player-${hair.gender.toLowerCase()}-body-v2`;
     if(scene.textures.exists(key)||!scene.textures.exists(body)||!scene.textures.exists(hair.assetResourceId))continue;
     const canvas=scene.textures.createCanvas(key,256,256);if(!canvas)continue;
     canvas.context.drawImage(scene.textures.get(body).getSourceImage() as HTMLImageElement,0,0);
