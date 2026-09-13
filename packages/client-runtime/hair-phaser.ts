@@ -16,7 +16,7 @@ function paintHeadwear(scene:Phaser.Scene,context:CanvasRenderingContext2D,headw
  * one sprite so frame, camera, depth, visibility and scale cannot diverge. */
 export function composeHairTextures(scene:Phaser.Scene,configs:HairConfig[]=hairConfigs){
   for(const hair of configs){
-    const body=`player-${hair.gender.toLowerCase()}-body-v4`;
+    const body=`player-${hair.gender.toLowerCase()}-body-v5`;
     for(const face of faceConfigs.filter(face=>face.gender===hair.gender&&face.enabled)){
       const key=`appearance:${face.faceId}:${hair.hairId}`;
       if(scene.textures.exists(key)||!scene.textures.exists(body)||!scene.textures.exists(face.assetResourceId)||!scene.textures.exists(hair.assetResourceId))continue;

@@ -4,7 +4,7 @@ from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
 FORMAL = ROOT / 'apps/admin/public/scene-layers/baishi/formal'
-OUT = ROOT / 'tmp/face-audit'
+OUT = ROOT / 'tmp/face-audit-v1-1'
 OUT.mkdir(parents=True, exist_ok=True)
 
 
@@ -24,13 +24,20 @@ def contact(name, image):
 
 
 for gender, prefix in [('male','m'), ('female','f')]:
-    body = Image.open(FORMAL/'face-v1'/f'player_{gender}_body_v4.png').convert('RGBA')
+    body = Image.open(FORMAL/'face-v2'/f'player_{gender}_body_v5.png').convert('RGBA')
     contact(f'{gender}-body-only', body)
+    overview = Image.new('RGBA', (1152, 1152), (244, 237, 225, 255))
     for index in (1,2,3):
-        face = Image.open(FORMAL/'face-v1'/f'{prefix}_face_0{index}_v1.png').convert('RGBA')
+        face = Image.open(FORMAL/'face-v2'/f'{prefix}_face_0{index}_v2.png').convert('RGBA')
         with_face = Image.alpha_composite(body, face)
         contact(f'{prefix}-face-0{index}-body-face', with_face)
         for hair_index in (1,2,3):
             hair = Image.open(FORMAL/'hair-v3'/f'{prefix}_hair_0{hair_index}_v3.png').convert('RGBA')
-            contact(f'{prefix}-face-0{index}-hair-0{hair_index}', Image.alpha_composite(with_face,hair))
+            composed = Image.alpha_composite(with_face,hair)
+            contact(f'{prefix}-face-0{index}-hair-0{hair_index}', composed)
+            tile = Image.new('RGBA', (128, 128), (244, 237, 225, 255))
+            for direction in range(4):
+                tile.alpha_composite(composed.crop((0,direction*64,64,(direction+1)*64)),((direction%2)*64,(direction//2)*64))
+            overview.alpha_composite(tile.resize((384,384),Image.Resampling.NEAREST),((hair_index-1)*384,(index-1)*384))
+    overview.save(OUT/f'{gender}-all-face-hair-directions.png')
 print(f'Face audit sheets: {OUT}')

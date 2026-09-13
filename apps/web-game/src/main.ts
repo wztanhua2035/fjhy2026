@@ -40,7 +40,7 @@ function renderPreview(){
   ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#edf3e8';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.imageSmoothingEnabled=false;
   const gender=draft.gender.toLowerCase();
   const root='/scene-layers/baishi/formal';
-  const paths=[`${root}/face-v1/player_${gender}_body_v4.png`,`${root}/face-v1/${draft.faceId.toLowerCase()}_v1.png`,`${root}/hair-v3/${draft.hairId.toLowerCase()}_v3.png`];
+  const paths=[`${root}/face-v2/player_${gender}_body_v5.png`,`${root}/face-v2/${draft.faceId.toLowerCase()}_v2.png`,`${root}/hair-v3/${draft.hairId.toLowerCase()}_v3.png`];
   const row={down:0,left:1,right:2,up:3}[draft.direction];
   for(const path of paths){let img=previewImages.get(path);if(!img){img=new Image();img.onload=renderPreview;img.src=path;previewImages.set(path,img);}if(img.complete&&img.naturalWidth)ctx.drawImage(img,0,row*64,64,64,11,10,148,148);}
 }

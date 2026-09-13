@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'apps/admin/public/scene-layers/baishi/formal/hair-v3'
-OUT = ROOT / 'apps/admin/public/scene-layers/baishi/formal/face-v1'
+OUT = ROOT / 'apps/admin/public/scene-layers/baishi/formal/face-v2'
 TONES = [(245, 210, 179), (234, 194, 158), (240, 202, 174)]
 INK = (64, 51, 53, 255)
 SHADE = (194, 143, 121, 255)
@@ -34,11 +34,11 @@ def paint_face(cell, cx, direction, style, tone, gender):
     cheek = (226, 156, 146, 255)
     # A 1 px contour difference and independent feature geometry give each
     # template a distinct expression without shifting its hair registration.
-    widths = [10, 9, 10]
+    widths = [11, 10, 11]
     width = widths[style]
     bottom = [32, 31, 33][style]
     d.ellipse((cx-width, 9, cx+width, bottom), fill=(*tone, 255))
-    d.rectangle((cx-3, 30, cx+2, 34), fill=(*tone, 255))
+    d.rectangle((cx-3, 30, cx+2, 36), fill=(*tone, 255))
     d.point((cx-8, 27), fill=(*tone, 255))
     d.point((cx+8, 27), fill=(*tone, 255))
     if direction == 3:
@@ -92,25 +92,36 @@ def build(gender):
             frame = source.crop(box)
             cx = center(frame)
             cleaned = frame.copy()
+            # The old neutral sheet still contains isolated head/neck pixels.
             for y in range(34):
                 for x in range(64):
-                    r, g, b, a = frame.getpixel((x, y))
-                    # The green collar belongs to the outfit, not the Face.
-                    if not (a and g > r + 8 and g > b + 8):
-                        cleaned.putpixel((x, y), (0, 0, 0, 0))
+                    cleaned.putpixel((x, y), (0, 0, 0, 0))
             for y in range(34, 39):
-                for x in range(cx-5, cx+5):
-                    if is_skin(frame.getpixel((x, y))):
+                for x in range(64):
+                    if is_skin(frame.getpixel((x, y))) or not cx-13 <= x <= cx+13:
                         cleaned.putpixel((x, y), (0, 0, 0, 0))
+            # Keep collar pixels only when joined to the actual outfit below.
+            connected = {(x, 39) for x in range(64) if cleaned.getpixel((x, 39))[3]}
+            frontier = list(connected)
+            while frontier:
+                x, y = frontier.pop()
+                for nx, ny in ((x-1,y),(x+1,y),(x,y-1),(x,y+1),(x-1,y-1),(x+1,y-1)):
+                    if 0 <= nx < 64 and 34 <= ny <= 39 and (nx,ny) not in connected and cleaned.getpixel((nx,ny))[3]:
+                        connected.add((nx,ny))
+                        frontier.append((nx,ny))
+            for y in range(34, 39):
+                for x in range(64):
+                    if (x,y) not in connected:
+                        cleaned.putpixel((x,y), (0,0,0,0))
             body.paste(cleaned, (col*64, row*64))
             for style, tone in enumerate(TONES):
                 cell = Image.new('RGBA', (64, 64))
                 paint_face(cell, cx, row, style, tone, gender)
                 faces[style].paste(cell, (col*64, row*64))
     OUT.mkdir(parents=True, exist_ok=True)
-    result = [(f'player_{gender}_body_v4.png', body)]
+    result = [(f'player_{gender}_body_v5.png', body)]
     prefix = 'm' if gender == 'male' else 'f'
-    result += [(f'{prefix}_face_0{i+1}_v1.png', face) for i, face in enumerate(faces)]
+    result += [(f'{prefix}_face_0{i+1}_v2.png', face) for i, face in enumerate(faces)]
     for name, image in result:
         path = OUT / name
         image.save(path, optimize=True)
