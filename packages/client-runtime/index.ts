@@ -4,6 +4,7 @@ import {inventoryEntries,fixedShopPrice} from '../game-rules/inventory.js';
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, innOpeningDialogue } from '../game-config/inn-opening.js';
 import { furnitureInteractionLabels, serviceInteractionNpcs } from '../game-config/interactions.js';
 import type {HairConfig,HairServiceOffer} from '../game-config/hair-services.js';
+import type {OutfitConfig,OutfitOffer} from '../game-config/outfits.js';
 import { canInteractWithNpc, npcInteractionBody, interactionDefaults, interactionLabel, scoredInteraction, selectInteraction, type InteractionCandidate, type InteractionRect } from './interaction-targeting.js';
 export * from './assets.js';
 export * from './remote-assets.js';
@@ -52,6 +53,31 @@ export class GameController {
   private interacting=false;
   shopOpen=false; shopTab:'buy'|'sell'='buy'; private trading=false;
   hairPanelOpen=false;previewHairId:string|null=null;hairCatalog:HairConfig[]=[];hairOffers:HairServiceOffer[]=[];
+  outfitPanelOpen=false;previewOutfitId:string|null=null;outfitCatalog:OutfitConfig[]=[];outfitOffers:OutfitOffer[]=[];ownedOutfitIds:string[]=[];
+  get renderOutfitId(){return this.outfitPanelOpen?this.previewOutfitId??this.player?.appearance?.outfitId:this.player?.appearance?.outfitId;}
+  canUseOutfitShop(){
+    if(this.dialogue||this.introPending||this.view?.scene.buildingId!=='B_CLOTH')return false;
+    const point=this.footWorldPosition,zones=this.view.scene.interior?.zones.filter(z=>z.id==='CLOTH_FITTING'||z.id==='CLOTH_COUNTER_SERVICE')??[];
+    return !!this.view.npcs.some(n=>n.id==='NPC_CLOTH_SHOPKEEPER'&&canInteractWithNpc(this.direction,point,n).allowed)||zones.some(zone=>point.x>=zone.x&&point.x<=zone.x+zone.width&&point.y>=zone.y&&point.y<=zone.y+zone.height);
+  }
+  async openOutfitShop(){
+    if(!this.canUseOutfitShop()||this.busy||this.pending)return;
+    await this.sync();if(!this.canUseOutfitShop())return;
+    const scene=this.view?.scene.id,catalog=await this.transport('/v1/outfits/catalog?shopId=B_CLOTH',undefined,this.token);
+    if(this.view?.scene.id!==scene||!this.canUseOutfitShop())return;
+    this.outfitCatalog=catalog.outfits;this.outfitOffers=catalog.offers;this.ownedOutfitIds=catalog.ownedOutfitIds;
+    this.previewOutfitId=this.outfitCatalog.find(o=>o.outfitId===this.player?.appearance?.outfitId)?.outfitId??this.outfitCatalog[0]?.outfitId??null;
+    this.outfitPanelOpen=true;this.onChange();
+  }
+  closeOutfitShop(){this.outfitPanelOpen=false;this.previewOutfitId=null;this.onChange();}
+  cycleOutfit(delta:number){if(!this.outfitPanelOpen||!this.outfitCatalog.length||this.busy||this.pending)return;const index=this.outfitCatalog.findIndex(o=>o.outfitId===this.previewOutfitId);this.previewOutfitId=this.outfitCatalog[(index+delta+this.outfitCatalog.length)%this.outfitCatalog.length].outfitId;this.onChange();}
+  outfitPanel(){const outfit=this.outfitCatalog.find(o=>o.outfitId===this.previewOutfitId),offer=this.outfitOffers.find(o=>o.outfitId===outfit?.outfitId);return outfit&&offer?{outfit,price:offer.price,owned:this.ownedOutfitIds.includes(outfit.outfitId),current:outfit.outfitId===this.player?.appearance?.outfitId}:null;}
+  async confirmOutfit(){
+    const panel=this.outfitPanel();if(!this.outfitPanelOpen||!panel||panel.current||this.busy||this.pending)return;
+    if(!this.canUseOutfitShop()){this.closeOutfitShop();return;}
+    await this.write(panel.owned?'/v1/appearance/change':'/v1/appearance/purchase',{buildingId:'B_CLOTH',appearanceId:panel.outfit.outfitId});
+    this.ownedOutfitIds=[...new Set([...this.ownedOutfitIds,panel.outfit.outfitId])];this.closeOutfitShop();this.message=panel.owned?`已穿上：${panel.outfit.displayName}`:`已购买并穿上：${panel.outfit.displayName}，支出 ${panel.price} 文`;this.onChange();
+  }
   get renderHairId(){return this.hairPanelOpen?this.previewHairId??this.player?.appearance?.hairId:this.player?.appearance?.hairId;}
   canUseHairService(){
     if(this.dialogue||this.introPending||this.view?.scene.buildingId!=='B_SALON')return false;
@@ -84,14 +110,14 @@ export class GameController {
   setShopTab(tab:'buy'|'sell'){this.shopTab=tab;this.onChange();}
   async openShop(){if(!this.canUseShop())return;await this.sync();const id=this.view?.scene.buildingId;const catalog=await this.transport(`/v1/economy/catalog/${id}`,undefined,this.token);if(!this.view||this.view.scene.buildingId!==id)return;this.view.buildings=this.view.buildings.map(b=>b.id===id?catalog.building:b);this.view.items=[...this.view.items.filter(i=>!catalog.items.some((n:any)=>n.id===i.id)),...catalog.items];this.shopOpen=true;this.onChange();}
   closeShop(){this.shopOpen=false;this.onChange();}
-  canUseShop(){if(this.hairPanelOpen||this.dialogue||this.introPending)return false;const b=this.view?.buildings.find(b=>b.id===this.view?.scene.buildingId);if(!b)return false;const z=this.view?.scene.interior?.zones.find(z=>z.id===b.servicePointId);const p=this.footWorldPosition;return !!(z&&p.x>=z.x&&p.x<=z.x+z.width&&p.y>=z.y&&p.y<=z.y+z.height)||!!this.view?.npcs.some(n=>(!b.clerkNpcId||n.id===b.clerkNpcId)&&canInteractWithNpc(this.direction,p,n).allowed);}
+  canUseShop(){if(this.hairPanelOpen||this.outfitPanelOpen||this.dialogue||this.introPending)return false;const b=this.view?.buildings.find(b=>b.id===this.view?.scene.buildingId);if(!b)return false;const z=this.view?.scene.interior?.zones.find(z=>z.id===b.servicePointId);const p=this.footWorldPosition;return !!(z&&p.x>=z.x&&p.x<=z.x+z.width&&p.y>=z.y&&p.y<=z.y+z.height)||!!this.view?.npcs.some(n=>(!b.clerkNpcId||n.id===b.clerkNpcId)&&canInteractWithNpc(this.direction,p,n).allowed);}
   private moveRetryAt=0;
   onChange=()=>{};
   constructor(public transport:Transport){}
   get player(){return this.boot?.player??null;}
   homeActions(){return this.player?.appearance?['继续游戏','重新开始'] as const:['开始游戏'] as const;}
-  async restart(){this.closeHairService();await this.write('/v1/player/restart',{confirm:true});this.view=null;this.ghosts=[];this.quests=[];this.dialogue=null;this.dialogueSpeaker=null;this.introIndex=-1;await this.refresh();}
-  logout(){this.closeHairService();this.shopOpen=false;this.shopQuantities={};this.movePath=[];this.correctionX=0;this.correctionY=0;this.token='';this.boot=null;this.view=null;this.ghosts=[];this.quests=[];this.pending=null;this.busy=false;this.offline=false;this.x=12;this.y=15;this.interactionCooldown=0;this.message='已退出，可以重新登录验证存档';this.dialogue=null;this.dialogueSpeaker=null;this.introIndex=-1;this.onChange();}
+  async restart(){this.closeHairService();this.closeOutfitShop();await this.write('/v1/player/restart',{confirm:true});this.view=null;this.ghosts=[];this.quests=[];this.dialogue=null;this.dialogueSpeaker=null;this.introIndex=-1;await this.refresh();}
+  logout(){this.closeHairService();this.closeOutfitShop();this.shopOpen=false;this.shopQuantities={};this.movePath=[];this.correctionX=0;this.correctionY=0;this.token='';this.boot=null;this.view=null;this.ghosts=[];this.quests=[];this.pending=null;this.busy=false;this.offline=false;this.x=12;this.y=15;this.interactionCooldown=0;this.message='已退出，可以重新登录验证存档';this.dialogue=null;this.dialogueSpeaker=null;this.introIndex=-1;this.onChange();}
   async loginDev(account:string){const data=await this.transport('/v1/auth/dev',{account});this.token=data.token;await this.refresh();}
   async loginWechat(code:string){const data=await this.transport('/v1/auth/wechat',{code});this.token=data.token;await this.refresh();}
   async refresh(){this.boot=await this.transport('/v1/bootstrap',undefined,this.token);const taskData=await this.transport('/v1/quests',undefined,this.token);this.quests=taskData.quests??[];this.x=this.player!.x;this.y=this.player!.y;if(this.player!.appearance)await this.loadScene();this.startIntroIfNeeded();this.onChange();}
@@ -99,7 +125,7 @@ export class GameController {
   private startIntroIfNeeded(){if(!this.introPending||this.introIndex>=0)return;this.introIndex=0;this.showIntroLine();}
   private showIntroLine(){const line=innOpeningDialogue[this.introIndex];this.dialogue=line.text;this.dialogueSpeaker=line.speaker;this.message=line.text;this.onChange();}
   async advanceDialogue(){if(this.introIndex>=0){if(this.introIndex<innOpeningDialogue.length-1){this.introIndex++;this.showIntroLine();return;}await this.write('/v1/intro/complete',{});this.introIndex=-1;}this.dialogue=null;this.dialogueSpeaker=null;this.message='';this.onChange();}
-  async loadScene(){this.closeHairService();this.shopOpen=false;this.movePath=[];this.correctionX=0;this.correctionY=0;this.view=await this.transport(`/v1/world/scenes/${this.player!.sceneId}`,undefined,this.token);const position=this.view?.playerPosition;if(position&&position.sceneId===this.player!.sceneId){this.boot!.player.x=position.x;this.boot!.player.y=position.y;this.x=position.x;this.y=position.y;}this.ghosts=[];this.transport(`/v1/scenes/${this.player!.sceneId}/ghosts`,undefined,this.token).then(data=>{this.ghosts=data.ghosts;this.onChange();}).catch(()=>{});}
+  async loadScene(){this.closeHairService();this.closeOutfitShop();this.shopOpen=false;this.movePath=[];this.correctionX=0;this.correctionY=0;this.view=await this.transport(`/v1/world/scenes/${this.player!.sceneId}`,undefined,this.token);const position=this.view?.playerPosition;if(position&&position.sceneId===this.player!.sceneId){this.boot!.player.x=position.x;this.boot!.player.y=position.y;this.x=position.x;this.y=position.y;}this.ghosts=[];this.transport(`/v1/scenes/${this.player!.sceneId}/ghosts`,undefined,this.token).then(data=>{this.ghosts=data.ghosts;this.onChange();}).catch(()=>{});}
   async write(path:string,body:any){
     if(this.busy)throw new Error('操作正在确认，请稍候');if(this.pending)throw new Error('上次操作尚未确认，请先重试');
     if(this.offline)throw new Error('离线期间暂停交易，请先重新连接');
@@ -113,7 +139,7 @@ export class GameController {
   async create(gender:'MALE'|'FEMALE',selection:{faceId:string;hairId?:string;outfitId?:string}):Promise<void>;
   async create(gender:'MALE'|'FEMALE',baseAvatarId:string,hairColorId:string,topColorId:string,bottomColorId:string):Promise<void>;
   async create(gender:'MALE'|'FEMALE',selection:string|{faceId:string;hairId?:string;outfitId?:string},hairColorId?:string,topColorId?:string,bottomColorId?:string){await this.write('/v1/player/appearance/create',typeof selection==='string'?{gender,baseAvatarId:selection,hairColorId,topColorId,bottomColorId}:{gender,...selection});}
-  tick(dt:number,dx:number,dy:number){if(this.hairPanelOpen&&!this.canUseHairService())this.closeHairService();if(!this.view||!this.player?.appearance)return;if(this.dialogue||this.introPending||this.interacting||this.shopOpen||this.hairPanelOpen||this.trading){dx=0;dy=0;}this.interactionCooldown=Math.max(0,this.interactionCooldown-dt);
+  tick(dt:number,dx:number,dy:number){if(this.hairPanelOpen&&!this.canUseHairService())this.closeHairService();if(this.outfitPanelOpen&&!this.canUseOutfitShop())this.closeOutfitShop();if(!this.view||!this.player?.appearance)return;if(this.dialogue||this.introPending||this.interacting||this.shopOpen||this.hairPanelOpen||this.outfitPanelOpen||this.trading){dx=0;dy=0;}this.interactionCooldown=Math.max(0,this.interactionCooldown-dt);
     this.walkTime+=dt;this.moving=!!(dx||dy)&&(!this.busy||this.offline);
     const correctionFactor=1-Math.exp(-dt*10);
     const correctionStepX=this.correctionX*correctionFactor,correctionStepY=this.correctionY*correctionFactor;
@@ -222,7 +248,7 @@ export class GameController {
   }
   canUseNpcServices(){return !this.hairPanelOpen&&!this.dialogue&&!this.introPending&&!!this.view?.npcs.some(n=>canInteractWithNpc(this.direction,this.footWorldPosition,n).allowed);}
   nearby(){const candidates=this.interactionCandidates();const next=selectInteraction(candidates,this.activeInteraction?.id);this.activeInteraction=next;return next;}
-  async interact(){if(this.interacting||this.shopOpen||this.hairPanelOpen)return;const target=this.nearby();if(!target){this.message="请靠近互动目标";this.onChange();return;}this.interacting=true;this.message="正在确认位置…";this.onChange();try{const entrance=target.path==='/v1/world/enter'?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===target.body.entranceId):undefined;const portal=target.path==='/v1/world/portal'?this.view?.scene.portals.find(p=>p.id===target.body.portalId):undefined;const returned=portal?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===portal.returnEntranceId):undefined;await this.sync();await this.sync();if(this.nearby()?.id!==target.id)throw new Error("位置已校准，请重新靠近互动目标");if(target.path==='shop'){await this.openShop();return;}await this.write(target.path,target.body);if(entrance){this.direction=entrance.direction==='south'?'up':entrance.direction==='west'?'right':entrance.direction==='east'?'left':'down';this.message='进入建筑…';}else if(portal){if(returned)this.direction=returned.direction==='south'?'down':returned.direction==='west'?'left':returned.direction==='east'?'right':'up';this.interactionCooldown=.8;if(!this.dialogue)this.message='已到达'+(this.view?.scene.name??'场景');}this.onChange();}finally{this.interacting=false;this.onChange();}}
+  async interact(){if(this.interacting||this.shopOpen||this.hairPanelOpen||this.outfitPanelOpen)return;const target=this.nearby();if(!target){this.message="请靠近互动目标";this.onChange();return;}this.interacting=true;this.message="正在确认位置…";this.onChange();try{const entrance=target.path==='/v1/world/enter'?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===target.body.entranceId):undefined;const portal=target.path==='/v1/world/portal'?this.view?.scene.portals.find(p=>p.id===target.body.portalId):undefined;const returned=portal?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===portal.returnEntranceId):undefined;await this.sync();await this.sync();if(this.nearby()?.id!==target.id)throw new Error("位置已校准，请重新靠近互动目标");if(target.path==='shop'){await this.openShop();return;}await this.write(target.path,target.body);if(entrance){this.direction=entrance.direction==='south'?'up':entrance.direction==='west'?'right':entrance.direction==='east'?'left':'down';this.message='进入建筑…';}else if(portal){if(returned)this.direction=returned.direction==='south'?'down':returned.direction==='west'?'left':returned.direction==='east'?'right':'up';this.interactionCooldown=.8;if(!this.dialogue)this.message='已到达'+(this.view?.scene.name??'场景');}this.onChange();}finally{this.interacting=false;this.onChange();}}
   async trade(action:'buy'|'sell',itemId:string,quantity=1){
     if(this.trading||this.busy||this.pending)return;
     this.trading=true;

@@ -59,6 +59,8 @@ export interface WorldConfig {
   faces?: import('../game-config/face-templates.js').FaceConfig[];
   hairs?:import('../game-config/hair-services.js').HairConfig[];
   hairServiceOffers?:import('../game-config/hair-services.js').HairServiceOffer[];
+  outfits?:import('../game-config/outfits.js').OutfitConfig[];
+  outfitOffers?:import('../game-config/outfits.js').OutfitOffer[];
   worldVersion: number; configVersion: number; assetVersion: number; scenes: SceneConfig[]; plots: PlotConfig[];
   buildings: BuildingConfig[]; npcs: NPCConfig[]; items: ItemConfig[]; appearances: AppearanceDefinition[];
   colors: Record<string, string>; quests: QuestConfig[]; roads: {id: string; name: string; connects: string[]}[];

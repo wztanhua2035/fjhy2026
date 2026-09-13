@@ -17,6 +17,7 @@ import { initialWorld } from '../../../packages/game-config/index.js';
 import {inventoryEntries} from '../../../packages/game-rules/inventory.js';
 import {hairServiceConfig} from '../../../packages/game-config/hair-services.js';
 import {faceConfigs} from '../../../packages/game-config/face-templates.js';
+import {outfitShopConfig} from '../../../packages/game-config/outfits.js';
 declare module '@fastify/jwt' {interface FastifyJWT {payload:{sub:string};user:{sub:string}}}
 const requestId=z.string().uuid(),id=z.string().min(1).max(80);
 const schemas={
@@ -117,7 +118,15 @@ if(status>=500){
   app.post('/v1/player/debug-safe-reset',async req=>{ensure(env.appEnv==='DEV'&&env.mode!=='production','NOT_FOUND','接口不存在',404);return game.action(req.user.sub,'safeReset',z.object({requestId}).strict().parse(req.body));});
   app.get('/v1/player/appearance',async req=>{const p=await repo.player(req.user.sub);return {appearance:p.appearance,owned:p.cosmetics};});
   app.get('/v1/appearance/owned',async req=>({owned:(await repo.player(req.user.sub)).cosmetics}));
-  app.get('/v1/appearance/catalog',async req=>{const {shop}=z.object({shop:id}).parse(req.query),w=await repo.world(),p=await repo.player(req.user.sub);const b=game.shop(w,p,shop,requestGameContext(req));return {catalog:[...w.appearances,...starterLooks.filter(a=>!w.appearances.some(old=>old.id===a.id))].filter(a=>a.enabled&&(a.genderScope==='ALL'||a.genderScope===p.appearance?.gender)&&(b.buildingType==='SALON'?a.partType==='HAIR'&&a.colors.length===0:b.buildingType==='CLOTH'?['OUTFIT','ACCESSORY'].includes(a.partType):false))};});
+  app.get('/v1/outfits/catalog',async req=>{
+    const {shopId}=z.object({shopId:id}).strict().parse(req.query),w=await repo.world(),p=await repo.player(req.user.sub);
+    ensure(p.appearance,'CHARACTER_REQUIRED','请先创建角色',409);
+    const shop=game.shop(w,p,shopId,requestGameContext(req));ensure(shop.buildingType==='CLOTH','WRONG_SHOP','请前往服装店');
+    const {outfits,offers}=outfitShopConfig(w);
+    const listed=offers.filter(o=>o.shopId===shopId&&o.enabled);
+    return {shopId,outfits:outfits.filter(o=>o.enabled&&o.gender===p.appearance!.gender&&listed.some(l=>l.outfitId===o.outfitId)).sort((a,b)=>a.sortOrder-b.sortOrder),offers:listed,ownedOutfitIds:p.cosmetics.filter(id=>outfits.some(o=>o.outfitId===id)),currentOutfitId:p.appearance.outfitId};
+  });
+  app.get('/v1/appearance/catalog',async req=>{const {shop}=z.object({shop:id}).parse(req.query),w=await repo.world(),p=await repo.player(req.user.sub);const b=game.shop(w,p,shop,requestGameContext(req));const {outfits,offers}=outfitShopConfig(w);return {catalog:[...w.appearances,...starterLooks.filter(a=>!w.appearances.some(old=>old.id===a.id))].filter(a=>a.enabled&&(a.genderScope==='ALL'||a.genderScope===p.appearance?.gender)&&(b.buildingType==='SALON'?a.partType==='HAIR'&&a.colors.length===0:b.buildingType==='CLOTH'?['OUTFIT','ACCESSORY'].includes(a.partType):false)).filter(a=>a.partType!=='OUTFIT'||!!outfits.find(o=>o.outfitId===a.id&&o.enabled)&&!!offers.find(o=>o.shopId===shop&&o.outfitId===a.id&&o.enabled)).map(a=>a.partType==='OUTFIT'?{...a,price:offers.find(o=>o.shopId===shop&&o.outfitId===a.id&&o.enabled)?.price??0}:a)};});
   for(const route of ['/v1/social/gifts','/v1/mail/:id/claim','/v1/property/purchase'])app.post(route,async()=>{throw new GameError('FEATURE_NOT_ENABLED','该功能将在后续开发阶段开放',501);});
   app.get('/v1/quests',async req=>{const world=await repo.world(),p=await repo.player(req.user.sub);const quests=world.quests.filter(q=>q.enabled).map(quest=>{const accepted=p.ledger.some(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId===quest.id),completed=p.ledger.some(l=>l.type==='QUEST_REWARD'&&l.referenceId===quest.id),stepProgress=questStepProgress(quest,p.ledger),progressed=stepProgress.some(Boolean),state=completed?'completed':accepted?(progressed?'in_progress':'accepted'):'available';return {...quest,state,progress:Object.fromEntries(quest.steps.map((step,index)=>[step.type,stepProgress[index]])),stepProgress,rewardClaimed:completed};});return {enabled:true,quests};});
   app.get('/v1/rank/wealth',async()=>({enabled:false,players:[]}));

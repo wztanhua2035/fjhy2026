@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import {installHairService} from '../../../packages/client-runtime/hair-phaser.js';
+import {installOutfitShop} from '../../../packages/client-runtime/outfit-phaser.js';
 import { GameController, formatQuestTracker, formatCyclingQuestTracker, baishiFormalArtRegistry, baishiInteriorArtRegistry, baishiV2ArtAssets, GROUND_DEPTH, WORLD_BASE, PORTRAIT_DIM_DEPTH, PORTRAIT_DEPTH, UI_DEPTH_BASE, DEBUG_DEPTH, worldActorDepth, worldBuildingDepth, buildingImagePosition, foregroundImagePosition, OUTDOOR_CAMERA_ZOOM, actorVisualScale, DIALOGUE_PORTRAIT_SCALE, DIALOGUE_ACTIVE_PORTRAIT_SCALE, DIALOGUE_INACTIVE_ALPHA, JOYSTICK_VISUAL_SCALE, JOYSTICK_HIT_SCALE, baishiShopSignPlacements, buildingDisplayName, shouldUseCustomSign, signTemplateTextStyle, INTERACTION_TARGETING_BUILD_MARKER, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
 import { availableStarterLookOptions } from '../../../packages/game-config/appearance-v1.js';
 import { createWeChatPlatform, safeInsets, allowWechatDebug } from './wechat-platform';
@@ -228,6 +229,7 @@ class BaishiWechatScene extends Phaser.Scene {
     this.worldOverlayCamera = this.cameras.add(0, 0, WIDTH, HEIGHT);
     this.worldOverlayCamera.ignore(world);
     installHairService(this,controller,this.playerSprite,WIDTH,HEIGHT,()=>draft);
+    installOutfitShop(this,controller,WIDTH,HEIGHT);
     void this.loginPreview();
   }
   private async loginPreview() {

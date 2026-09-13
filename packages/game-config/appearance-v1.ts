@@ -1,14 +1,14 @@
 import type { AppearanceDefinition, Gender } from '../shared-types/index.js';
 import {availableFaces,faceConfigs} from './face-templates.js';
+import {outfitConfigs} from './outfits.js';
 
-// These IDs describe finished looks. The existing clothed 4x4 player sheets
-// remain the safe render fallback until matching transparent walk layers exist.
+// Stable creation IDs. Runtime body, Outfit, Face and Hair layers are separate.
 export const starterLooks: AppearanceDefinition[] = (['MALE', 'FEMALE'] as Gender[]).flatMap(gender => {
   const prefix = gender === 'MALE' ? 'M' : 'F';
   const hairNames = gender === 'MALE' ? ['竖起短发·蓝黑', '规整中短发·蓝黑', '蓬松侧后束·蓝黑'] : ['自然垂落发', '高束长卷发', '蓝丝带双丸子头'];
   return [
     ...hairNames.map((name, index) => ({ id: `${prefix}_HAIR_0${index + 1}`, partType: 'HAIR', name, genderScope: gender, assetKey: `appearance/${prefix}_HAIR_0${index + 1}`, price: 0, colors: [], enabled: true, starter: true })),
-    ...[1, 2, 3].map(index => ({ id: `${prefix}_OUTFIT_0${index}`, partType: 'OUTFIT', name: `${gender === 'MALE' ? '男装' : '女装'}整套 ${index}`, genderScope: gender, assetKey: `appearance/${prefix}_OUTFIT_0${index}`, price: 0, colors: [], enabled: true, starter: true }))
+    ...[1, 2, 3].map(index => ({ id: `${prefix}_OUTFIT_0${index}`, partType: 'OUTFIT', name: outfitConfigs.find(outfit=>outfit.outfitId===`${prefix}_OUTFIT_0${index}`)!.displayName, genderScope: gender, assetKey: `appearance/${prefix}_OUTFIT_0${index}`, price: 0, colors: [], enabled: true, starter: true }))
   ];
 });
 

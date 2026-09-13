@@ -4,6 +4,7 @@ import type { PlayerState, WorldConfig, ShopTradeResult } from '../../../package
 import { ensure, canStand, recoverSafePosition, positionBlockers, isOpen, starterAppearance, createStarterAppearance, formalizeAppearance, publicPlayer, sceneView, plotEntrances, inEntranceArea, questStepProgress, questStepLedgerType, questStepReference, portalInteractionZone } from '../../../packages/game-rules/index.js';
 import { starterLooks } from '../../../packages/game-config/appearance-v1.js';
 import {hairServiceConfig} from '../../../packages/game-config/hair-services.js';
+import {outfitShopConfig} from '../../../packages/game-config/outfits.js';
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, guestRoomObjectDialogue } from '../../../packages/game-config/inn-opening.js';
 import {applyItemEffect,resolveShopPrice,itemStackLimit,requireSupportedStockMode} from '../../../packages/game-rules/inventory.js';
 export interface RequestGameContext { debugOpenAll?: boolean }
@@ -145,14 +146,19 @@ export class GameService {
           if(taskMessages.length)dialogue=taskMessages.join('\n');return {player:publicPlayer(p),dialogue};
         }        case 'purchaseAppearance':{
           const shop=this.shop(world,p,body.buildingId,context),a=[...world.appearances,...starterLooks].find(a=>a.id===body.appearanceId&&a.enabled);
-          ensure(a&&a.partType!=='BASE'&&a.partType!=='HAIR','BAD_APPEARANCE','请选择可购买的服饰');ensure(shop.buildingType==='CLOTH','WRONG_SHOP','请前往服装店');ensure(a.genderScope==='ALL'||a.genderScope===p.appearance!.gender,'INCOMPATIBLE','此部件不适配当前角色');ensure(!p.cosmetics.includes(a.id),'ALREADY_OWNED','已经拥有该服饰');money(p,-a.price,'COSMETIC_BUY',a.id,body.requestId);p.cosmetics.push(a.id);break;
+          ensure(a&&a.partType!=='BASE'&&a.partType!=='HAIR','BAD_APPEARANCE','请选择可购买的服饰');ensure(shop.buildingType==='CLOTH','WRONG_SHOP','请前往服装店');ensure(a.genderScope==='ALL'||a.genderScope===p.appearance!.gender,'INCOMPATIBLE','此部件不适配当前角色');ensure(!p.cosmetics.includes(a.id),'ALREADY_OWNED','已经拥有该服饰');
+          if(a.partType==='OUTFIT'){
+            const {outfits,offers}=outfitShopConfig(world),outfit=outfits.find(o=>o.outfitId===a.id),offer=offers.find(o=>o.shopId===shop.id&&o.outfitId===a.id);
+            ensure(outfit&&outfit.enabled,'OUTFIT_DISABLED','此服装暂不可用');ensure(outfit.gender===p.appearance!.gender,'INCOMPATIBLE','此服装不适配当前角色');ensure(offer&&offer.enabled,'OUTFIT_UNLISTED','此服装未上架');
+            money(p,-offer.price,'OUTFIT_BUY',`${shop.id}:${a.id}`,body.requestId);p.cosmetics.push(a.id);p.appearance!.outfitId=a.id;p.appearance!.topStyleId=a.id;
+          }else{money(p,-a.price,'COSMETIC_BUY',a.id,body.requestId);p.cosmetics.push(a.id);}break;
         }
         case 'changeAppearance':{
           ensure(!hairServiceConfig(world).hairs.some(h=>h.hairId===body.appearanceId),'SERVICE_REQUIRED','请通过美发服务确认更换');
           const shop=this.shop(world,p,body.buildingId,context),a=[...world.appearances,...starterLooks].find(a=>a.id===body.appearanceId);
           ensure(a&&a.partType!=='BASE'&&a.partType!=='ACCESSORY','BAD_APPEARANCE','部件不可穿戴');ensure(a.genderScope==='ALL'||a.genderScope===p.appearance!.gender,'INCOMPATIBLE','此部件不适配当前角色');if(a.partType!=='OUTFIT'&&a.colors.length)ensure(a.colors.includes(body.colorId),'BAD_COLOR','配色不适配');
           if(a.partType==='HAIR'){ensure(shop.buildingType==='SALON'&&a.enabled,'WRONG_SHOP','请前往美发室选择有效发型');money(p,-a.price,'HAIRCUT',a.id,body.requestId);if(!p.cosmetics.includes(a.id))p.cosmetics.push(a.id);}
-          else{ensure(shop.buildingType==='CLOTH','WRONG_SHOP','请在服装店试衣');ensure(p.cosmetics.includes(a.id),'NOT_OWNED','尚未拥有该服饰',403);}
+          else{ensure(shop.buildingType==='CLOTH','WRONG_SHOP','请在服装店试衣');ensure(p.cosmetics.includes(a.id),'NOT_OWNED','尚未拥有该服饰',403);if(a.partType==='OUTFIT'){const outfit=outfitShopConfig(world).outfits.find(o=>o.outfitId===a.id);ensure(outfit&&outfit.enabled&&outfit.gender===p.appearance!.gender,'OUTFIT_DISABLED','此服装暂不可用');ensure(p.appearance!.outfitId!==a.id,'CURRENT_OUTFIT','已经穿着此服装');}}
           const ap=p.appearance!;if(a.partType==='HAIR'){ap.hairStyleId=a.id;ap.hairId=starterLooks.some(look=>look.id===a.id)?a.id:undefined;if(body.colorId)ap.hairColorId=body.colorId;}if(a.partType==='OUTFIT'){ap.outfitId=a.id;ap.topStyleId=a.id;}if(a.partType==='TOP'){ap.topStyleId=a.id;ap.topColorId=body.colorId;}if(a.partType==='BOTTOM'){ap.bottomStyleId=a.id;ap.bottomColorId=body.colorId;}if(a.partType==='SHOES')ap.shoesId=a.id;break;
         }
       }
