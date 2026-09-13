@@ -2,29 +2,42 @@ import type Phaser from 'phaser';
 import type {GameController} from './index.js';
 import {hairAssets,resolvedHair} from './hair-assets.js';
 import {hairConfigs,type HairConfig} from '../game-config/hair-services.js';
+import {defaultFaceId,faceConfigs} from '../game-config/face-templates.js';
+import {headwearConfigs} from '../game-config/headwear.js';
 import {UI_DEPTH_BASE} from './assets.js';
 
 export function preloadHairAssets(scene:Phaser.Scene){for(const asset of hairAssets)scene.load.image(asset.key,asset.source);}
+function paintHeadwear(scene:Phaser.Scene,context:CanvasRenderingContext2D,headwearId:string|null){
+  if(!headwearId)return;
+  const config=headwearConfigs.find(item=>item.headwearId===headwearId&&item.enabled);
+  if(config&&scene.textures.exists(config.assetResourceId))context.drawImage(scene.textures.get(config.assetResourceId).getSourceImage() as HTMLImageElement,0,0);
+}
 /** Body already includes the unchanged starter outfit. Compose once, then use
  * one sprite so frame, camera, depth, visibility and scale cannot diverge. */
 export function composeHairTextures(scene:Phaser.Scene,configs:HairConfig[]=hairConfigs){
   for(const hair of configs){
-    const key=`appearance:${hair.hairId}:${hair.assetResourceId}`,body=`player-${hair.gender.toLowerCase()}-body-v3`;
-    if(scene.textures.exists(key)||!scene.textures.exists(body)||!scene.textures.exists(hair.assetResourceId))continue;
-    const canvas=scene.textures.createCanvas(key,256,256);if(!canvas)continue;
-    canvas.context.drawImage(scene.textures.get(body).getSourceImage() as HTMLImageElement,0,0);
-    canvas.context.drawImage(scene.textures.get(hair.assetResourceId).getSourceImage() as HTMLImageElement,0,0);
-    canvas.refresh();scene.textures.addSpriteSheet(key,canvas,{frameWidth:64,frameHeight:64});
+    const body=`player-${hair.gender.toLowerCase()}-body-v4`;
+    for(const face of faceConfigs.filter(face=>face.gender===hair.gender&&face.enabled)){
+      const key=`appearance:${face.faceId}:${hair.hairId}`;
+      if(scene.textures.exists(key)||!scene.textures.exists(body)||!scene.textures.exists(face.assetResourceId)||!scene.textures.exists(hair.assetResourceId))continue;
+      const canvas=scene.textures.createCanvas(key,256,256);if(!canvas)continue;
+      canvas.context.drawImage(scene.textures.get(body).getSourceImage() as HTMLImageElement,0,0);
+      canvas.context.drawImage(scene.textures.get(face.assetResourceId).getSourceImage() as HTMLImageElement,0,0);
+      canvas.context.drawImage(scene.textures.get(hair.assetResourceId).getSourceImage() as HTMLImageElement,0,0);
+      // Body/Outfit → Face → Hair → Headwear. The registry is empty in V1.
+      paintHeadwear(scene,canvas.context,null);
+      canvas.refresh();scene.textures.addSpriteSheet(key,canvas,{frameWidth:64,frameHeight:64});
+    }
   }
 }
-export function applyHairTexture(scene:Phaser.Scene,sprite:Phaser.GameObjects.Sprite,gender:'MALE'|'FEMALE',hairId?:string,configs:HairConfig[]=hairConfigs){
-  const hair=configs.find(h=>h.hairId===hairId&&h.gender===gender)??resolvedHair(gender,hairId),key=`appearance:${hair.hairId}:${hair.assetResourceId}`;
+export function applyHairTexture(scene:Phaser.Scene,sprite:Phaser.GameObjects.Sprite,gender:'MALE'|'FEMALE',hairId?:string,configs:HairConfig[]=hairConfigs,faceId?:string){
+  const hair=configs.find(h=>h.hairId===hairId&&h.gender===gender)??resolvedHair(gender,hairId),key=`appearance:${faceId??defaultFaceId(gender)}:${hair.hairId}`;
   if(!scene.textures.exists(key))return; // Keep the existing complete-player fallback.
   const frame=sprite.frame.name,width=sprite.displayWidth,height=sprite.displayHeight,ox=sprite.originX,oy=sprite.originY;
   sprite.setTexture(key,frame).setOrigin(ox,oy).setDisplaySize(width,height);
 }
 
-export function installHairService(scene:Phaser.Scene,game:GameController,sprite:Phaser.GameObjects.Sprite,width:number,height:number,creation?:()=>{gender:'MALE'|'FEMALE';hairId:string}){
+export function installHairService(scene:Phaser.Scene,game:GameController,sprite:Phaser.GameObjects.Sprite,width:number,height:number,creation?:()=>{gender:'MALE'|'FEMALE';faceId:string;hairId:string}){
   composeHairTextures(scene);
   const depth=UI_DEPTH_BASE+100,objects:Phaser.GameObjects.GameObject[]=[];
   const text=(x:number,y:number,label:string)=>{const t=scene.add.text(x,y,label,{fontFamily:'Microsoft YaHei, Arial',fontSize:'21px',color:'#334538',align:'center'}).setOrigin(.5).setDepth(depth+2);objects.push(t);return t;};
@@ -49,12 +62,12 @@ export function installHairService(scene:Phaser.Scene,game:GameController,sprite
     const configs=game.hairCatalog.length?game.hairCatalog:game.boot?.hairs??hairConfigs;
     if(configs!==previousConfig){composeHairTextures(scene,configs);previousConfig=configs;}
     const ap=game.player?.appearance??creation?.();
-    if(ap&&sprite.visible)applyHairTexture(scene,sprite,ap.gender,game.player?.appearance?game.renderHairId:ap.hairId,configs);
+    if(ap&&sprite.visible)applyHairTexture(scene,sprite,ap.gender,game.player?.appearance?game.renderHairId:ap.hairId,configs,ap.faceId);
     open.setVisible(!!game.player?.appearance&&game.canUseHairService()&&!game.hairPanelOpen);
     for(const object of panel)object.setVisible(game.hairPanelOpen);
     if(!game.hairPanelOpen)return;
     const current=game.hairPanel();
-    if(ap){preview.setTexture(`formal-player-${ap.gender.toLowerCase()}`,previewDirection*4);applyHairTexture(scene,preview,ap.gender,current?.hair.hairId,configs);}
+    if(ap){preview.setTexture(`formal-player-${ap.gender.toLowerCase()}`,previewDirection*4);applyHairTexture(scene,preview,ap.gender,current?.hair.hairId,configs,ap.faceId);}
     info.setText(current?`${current.hair.displayName}${current.current?' · 当前发型':''}\n服务费 ${current.price} 文　铜钱 ${game.player?.cash??0} 文`:'暂无可用发型');
     confirm.setText(current?.current?'当前发型':game.busy?'正在确认…':'确认更换');
     confirm.setAlpha(!current||current.current||game.busy||!!game.pending? .5:1);

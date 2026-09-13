@@ -8,6 +8,7 @@ const point=z.object({x:z.number().min(0).max(160),y:z.number().min(0).max(120)}
 const entrance=z.object({id,position:point,direction:z.enum(['south','west','east','north']),interactionArea:rect,targetScene:id,targetSpawnPoint:point});
 const interiorZone=rect.extend({id,kind:z.enum(['wall','counter','shelf','storage','stairs','room','waitingArea','servicePoint','displayArea','chair','mirror','exit','entry','future','bed','wardrobe','desk']),solid:z.boolean(),label:z.string().max(40).optional(),interactionPoint:point.optional()});
 export const worldSchema=z.object({
+  faces:z.array(z.object({faceId:id,gender:z.enum(['MALE','FEMALE']),displayName:name,description:z.string().max(160).optional(),assetResourceId:id,enabled:z.boolean(),sortOrder:z.number().int()}).strict()).max(100).optional(),
   hairs:z.array(z.object({hairId:id,gender:z.enum(['MALE','FEMALE']),displayName:name,description:z.string().max(160).optional(),assetResourceId:id,enabled:z.boolean(),sortOrder:z.number().int()}).strict()).max(100).optional(),
   hairServiceOffers:z.array(z.object({serviceId:id,shopId:id,hairId:id,price:z.number().int().min(1).max(1e6),enabled:z.boolean(),sortOrder:z.number().int()}).strict()).max(500).optional(),
   worldVersion:z.number().int().positive(),configVersion:z.number().int().positive(),assetVersion:z.number().int().positive(),
@@ -23,6 +24,8 @@ export const worldSchema=z.object({
 }).strict();
 export function validateWorld(input:unknown,previous?:WorldConfig){
   const w=worldSchema.parse(input);
+  if(w.faces){ensure(new Set(w.faces.map(face=>face.faceId)).size===w.faces.length,'DUPLICATE_ID','脸型 ID 重复');for(const old of previous?.faces??[])ensure(w.faces.some(face=>face.faceId===old.faceId&&face.gender===old.gender),'IMMUTABLE_ID','已有脸型 ID 和性别不可更改');}
+  if(previous?.faces)ensure(w.faces,'IMMUTABLE_ID','不能删除脸型配置');
   if(w.hairs){ensure(new Set(w.hairs.map(h=>h.hairId)).size===w.hairs.length,'DUPLICATE_ID','发型 ID 重复');for(const old of previous?.hairs??[])ensure(w.hairs.some(h=>h.hairId===old.hairId&&h.gender===old.gender),'IMMUTABLE_ID','已有发型 ID 和性别不可更改');}
   if(previous?.hairs)ensure(w.hairs,'IMMUTABLE_ID','不能删除发型配置');
   if(w.hairServiceOffers){

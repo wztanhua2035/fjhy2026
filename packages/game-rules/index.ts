@@ -1,5 +1,6 @@
 import type { Appearance, PlayerState, WorldConfig, SceneView, PlotConfig, EntranceConfig, LedgerEntry, QuestConfig, QuestStepConfig } from '../shared-types/index.js';
 import { starterLookOptions } from '../game-config/appearance-v1.js';
+import {availableFaces,defaultFaceId,faceConfigs,type FaceConfig} from '../game-config/face-templates.js';
 export class GameError extends Error { constructor(public code:string, message:string, public status=400){super(message)} }
 export function ensure(ok:unknown, code:string, message:string, status=400): asserts ok { if(!ok) throw new GameError(code,message,status); }
 export function minutesAt(now:Date){return (now.getUTCHours()*60+now.getUTCMinutes()+480)%1440;}
@@ -31,22 +32,24 @@ export function canStand(world:WorldConfig,sceneId:string,x:number,y:number){
   const s=world.scenes.find(s=>s.id===sceneId);if(!s||x<1||y<1||x>s.width-1||y>s.height-1)return false;
   const staticBlocks=[...s.collision,...world.plots.filter(p=>p.sceneId===sceneId&&p.buildingId)];const npcBlocks=world.npcs.filter(n=>n.enabled&&n.sceneId===sceneId).map(npcCollisionRect);return !staticBlocks.some(r=>x>r.x-.18&&x<r.x+r.width+.18&&y>r.y-.18&&y<r.y+r.height+.18)&&!npcBlocks.some(r=>x>r.x&&x<r.x+r.width&&y>r.y&&y<r.y+r.height);
 }
-export interface StarterLookSelection { hairId?: string; outfitId?: string }
-export function createStarterAppearance(gender:'MALE'|'FEMALE', selection:StarterLookSelection):Appearance {
+export interface StarterLookSelection { faceId: string; hairId?: string; outfitId?: string }
+export function createStarterAppearance(gender:'MALE'|'FEMALE', selection:StarterLookSelection, faces:FaceConfig[]=faceConfigs):Appearance {
   const options=starterLookOptions(gender);
+  ensure(availableFaces(gender,faces).some(face=>face.faceId===selection.faceId),'BAD_FACE','请选择有效脸型');
   const hair=selection.hairId??options.hairs[0]?.id;
   const outfit=selection.outfitId??options.outfits[0]?.id;
   ensure(options.hairs.some(h=>h.id===hair),'BAD_HAIR','发型不存在');
   ensure(options.outfits.some(o=>o.id===outfit),'BAD_OUTFIT','服装不存在');
   // The database's existing non-null columns encode the complete IDs until a
   // future additive schema migration. Deprecated colors are storage defaults.
-  return {gender,baseAvatarId:`${gender}_01`,hairId:hair,outfitId:outfit,
+  return {gender,baseAvatarId:`${gender}_01`,faceId:selection.faceId,hairId:hair,outfitId:outfit,headwearId:null,
     hairStyleId:hair,hairColorId:'INK',topStyleId:outfit,topColorId:'SAGE',
     bottomStyleId:`BOTTOM_${gender}_01`,bottomColorId:'BLUE',shoesId:`SHOES_${gender}_01`,accessoryIds:[]};
 }
 export function formalizeAppearance(appearance:Appearance):Appearance {
   const options=starterLookOptions(appearance.gender);
   return {...appearance,
+    faceId:appearance.faceId??defaultFaceId(appearance.gender),headwearId:appearance.headwearId??null,
     hairId:options.hairs.some(h=>h.id===(appearance.hairId??appearance.hairStyleId))?(appearance.hairId??appearance.hairStyleId):options.hairs[0].id,
     outfitId:options.outfits.some(o=>o.id===(appearance.outfitId??appearance.topStyleId))?(appearance.outfitId??appearance.topStyleId):options.outfits[0].id};
 }

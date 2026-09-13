@@ -24,7 +24,7 @@ test('新老玩家首页选项、确认重开、进度归零与稳定微信身�
     assert.equal(client.player?.appearance,null);
     const premature=await app.inject({method:'POST',url:'/v1/player/restart',headers,payload:{requestId:randomUUID(),confirm:true}});
     assert.equal(premature.statusCode,409);
-    await client.create('FEMALE',{hairId:'F_HAIR_02',outfitId:'F_OUTFIT_03'});
+    await client.create('FEMALE',{faceId:'F_FACE_02',hairId:'F_HAIR_02',outfitId:'F_OUTFIT_03'});
     assert.deepEqual(client.homeActions(),['继续游戏','重新开始']);
     const saved=await repo.player(id);assert.equal(saved.cash,120);
     client=new GameController(transport);await client.loginWechat('again');
@@ -46,7 +46,7 @@ test('新老玩家首页选项、确认重开、进度归零与稳定微信身�
     assert.equal(sameAccount.player.id,id);assert.equal(sameAccount.player.appearance,null);
     assert.deepEqual(repo.requests.get(`${id}:${requestId}`)?.result.backup.ledger.some((entry:any)=>entry.type==='QUEST_REWARD'),true);
     client=new GameController(transport);await client.loginWechat('after-reset');assert.deepEqual(client.homeActions(),['开始游戏']);
-    await client.create('MALE',{hairId:'M_HAIR_03',outfitId:'M_OUTFIT_01'});
+  await client.create('MALE',{faceId:'M_FACE_03',hairId:'M_HAIR_03',outfitId:'M_OUTFIT_01'});
     assert.equal(client.player?.id,id);assert.equal(client.player?.cash,120);
     client=new GameController(transport);await client.loginWechat('final');assert.deepEqual(client.homeActions(),['继续游戏','重新开始']);
     assert.equal(client.player?.appearance?.hairId,'M_HAIR_03');

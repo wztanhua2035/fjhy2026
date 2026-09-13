@@ -45,7 +45,7 @@ export class GameRuntime extends Component {
     if(!c.player?.appearance){this.label('初到横阳 · 创建你的角色',480,60,30);this.button(this.gender==='MALE'?'男 ✓':'男',260,125,90,()=>{this.gender='MALE';this.buildHUD();});this.button(this.gender==='FEMALE'?'女 ✓':'女',370,125,90,()=>{this.gender='FEMALE';this.buildHUD();});for(let i=1;i<=6;i++)this.button(`${this.selected===i?'✓ ':''}形象 ${i}`,200+(i-1)%3*110,195+Math.floor((i-1)/3)*55,100,()=>{this.selected=i;this.buildHUD();});
       [['发色',this.colors[0]],['上衣',this.colors[1]],['下装',this.colors[2]]].forEach(([name,value],i)=>this.button(`${name} · ${value}`,310,315+i*45,300,()=>{const keys=Object.keys(c.boot!.colors);this.colors[i]=keys[(keys.indexOf(this.colors[i])+1)%keys.length];this.buildHUD();}));
       this.button('旋转预览',710,405,150,()=>{const dirs:Direction[]=['down','left','up','right'];this.direction=dirs[(dirs.indexOf(this.direction)+1)%4];});
-      this.button('确认形象，入住客栈',480,525,300,()=>void this.run(()=>c.create(this.gender,`${this.gender}_${String(this.selected).padStart(2,'0')}`,this.colors[0],this.colors[1],this.colors[2])));
+      this.button('确认形象，入住客栈',480,525,300,()=>void this.run(()=>c.create(this.gender,{faceId:`${this.gender==='MALE'?'M':'F'}_FACE_0${Math.min(this.selected,3)}`,hairId:`${this.gender==='MALE'?'M':'F'}_HAIR_01`,outfitId:`${this.gender==='MALE'?'M':'F'}_OUTFIT_01`})));
     }else{
       this.label(`${c.view?.scene.name??'横阳'} · ${c.view?.phase??''}　|　铜钱 ${c.player.cash} 文　|　大米 ${c.player.inventory.RICE_01??0}`,430,28,20);
 if(c.dialogue)this.label(`${c.dialogueSpeaker??'白石街'}：${c.message}`,480,430,20);

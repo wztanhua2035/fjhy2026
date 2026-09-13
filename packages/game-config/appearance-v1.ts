@@ -1,4 +1,5 @@
 import type { AppearanceDefinition, Gender } from '../shared-types/index.js';
+import {availableFaces,faceConfigs} from './face-templates.js';
 
 // These IDs describe finished looks. The existing clothed 4x4 player sheets
 // remain the safe render fallback until matching transparent walk layers exist.
@@ -21,12 +22,14 @@ export function starterLookOptions(gender: Gender) {
 /** The same published choices and fallback selection are used by Web and WeChat. */
 export function availableStarterLookOptions(
   bootstrap: { appearances: AppearanceDefinition[]; colors: Record<string,string> }, gender: Gender,
-  current: { hairId?: string; outfitId?: string }
+  current: { faceId?: string; hairId?: string; outfitId?: string }, faces=faceConfigs
 ) {
   const catalogIds=new Set(starterLooks.map(item=>item.id));
   const hairs=bootstrap.appearances.filter(item=>item.enabled&&item.starter&&item.partType==='HAIR'&&item.genderScope===gender&&catalogIds.has(item.id));
   const outfits=bootstrap.appearances.filter(item=>item.enabled&&item.starter&&item.partType==='OUTFIT'&&item.genderScope===gender&&catalogIds.has(item.id));
-  return {hairs,outfits,selection:{
+  const available=availableFaces(gender,faces);
+  return {faces:available,hairs,outfits,selection:{
+    faceId:available.some(item=>item.faceId===current.faceId)?current.faceId:available[0]?.faceId??'',
     hairId:hairs.some(item=>item.id===current.hairId)?current.hairId:hairs[0]?.id??'',
     outfitId:outfits.some(item=>item.id===current.outfitId)?current.outfitId:outfits[0]?.id??''
   }};

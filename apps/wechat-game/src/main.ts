@@ -26,8 +26,8 @@ const controller = new GameController(platform.transport);
 // Allows DEV diagnostics and the build script to distinguish the targeting V2 bundle.
 (globalThis as { __fjhyInteractionTargetingBuild?: string }).__fjhyInteractionTargetingBuild = INTERACTION_TARGETING_BUILD_MARKER;
 const debugCollision = allowWechatDebug(__WECHAT_DEV_COLLISION__, wx.getAccountInfoSync?.().miniProgram?.envVersion);
-type Draft = { gender: 'MALE' | 'FEMALE'; hairId: string; outfitId: string; direction: Direction };
-const draft: Draft = { gender: 'FEMALE', hairId: 'F_HAIR_01', outfitId: 'F_OUTFIT_01', direction: 'down' };
+type Draft = { gender: 'MALE' | 'FEMALE'; faceId: string; hairId: string; outfitId: string; direction: Direction };
+const draft: Draft = { gender: 'FEMALE', faceId: 'F_FACE_01', hairId: 'F_HAIR_01', outfitId: 'F_OUTFIT_01', direction: 'down' };
 // WeChat sends touch coordinates directly to the game canvas. Phaser's web-only
 // document.elementFromPoint check is not available in the Mini Game runtime.
 function installWeChatTouchMoveBridge() {
@@ -267,21 +267,22 @@ class BaishiWechatScene extends Phaser.Scene {
   }
   private async run(action: () => Promise<unknown>) { try { await action(); } catch (error: any) { controller.message = error.message ?? '操作失败'; } this.syncUi(); }
   private async createPreviewPlayer() {
-    await controller.create(draft.gender, { hairId: draft.hairId, outfitId: draft.outfitId });
+    await controller.create(draft.gender, { faceId: draft.faceId, hairId: draft.hairId, outfitId: draft.outfitId });
     await this.checkContent();
   }
   private creationOptions() {
     const boot = controller.boot;
-    if (!boot) return { hairs: [], outfits: [] };
-    const { hairs, outfits, selection } = availableStarterLookOptions(boot, draft.gender, draft);
+    if (!boot) return { faces: [], hairs: [], outfits: [] };
+    const { faces, hairs, outfits, selection } = availableStarterLookOptions(boot, draft.gender, draft,boot.faces);
     Object.assign(draft, selection);
-    return { hairs, outfits };
+    return { faces, hairs, outfits };
   }
   private chooseCreation(index: number) {
     const options = this.creationOptions();
     if (this.creationStep === 0) draft.gender = (['MALE', 'FEMALE'] as const)[index] ?? draft.gender;
-    if (this.creationStep === 1) draft.hairId = options.hairs[index]?.id ?? draft.hairId;
-    if (this.creationStep === 2) draft.outfitId = options.outfits[index]?.id ?? draft.outfitId;
+    if (this.creationStep === 1) draft.faceId = options.faces[index]?.faceId ?? draft.faceId;
+    if (this.creationStep === 2) draft.hairId = options.hairs[index]?.id ?? draft.hairId;
+    if (this.creationStep === 3) draft.outfitId = options.outfits[index]?.id ?? draft.outfitId;
     controller.message = '欢迎来到横阳';
     this.syncUi();
   }
@@ -289,18 +290,18 @@ class BaishiWechatScene extends Phaser.Scene {
     const options = this.creationOptions();
     const groups = [
       [{ id: 'MALE', name: '男' }, { id: 'FEMALE', name: '女' }],
-      options.hairs, options.outfits, []
+      options.faces.map(face=>({id:face.faceId,name:face.displayName})), options.hairs, options.outfits, []
     ];
-    const selected = [draft.gender, draft.hairId, draft.outfitId, ''][this.creationStep];
+    const selected = [draft.gender, draft.faceId, draft.hairId, draft.outfitId, ''][this.creationStep];
     for (const [index, button] of this.creationChoices.entries()) {
       const item = groups[this.creationStep]?.[index];
       button.setVisible(!!item).setText(item ? `${item.id === selected ? '✓ ' : ''}${item.name}` : '');
     }
     this.genderToggle.setVisible(this.creationStep > 0);
-    const labels = ['选择性别', '选择完整发型', '选择整套服装', '确认形象'];
-    this.message.setText(`${labels[this.creationStep]} · ${this.creationStep + 1}/4\n当前使用已穿衣的正式基础贴片预览`);
-    this.primary.setText(this.creationStep === 3 ? '确认创建' : '下一步').setVisible(!!draft.hairId && !!draft.outfitId)
-      .removeAllListeners('pointerdown').on('pointerdown', () => this.creationStep === 3 ? void this.run(() => this.createPreviewPlayer()) : (this.creationStep++, this.syncUi()));
+    const labels = ['选择性别', '选择长相', '选择完整发型', '选择整套服装', '确认形象'];
+    this.message.setText(`${labels[this.creationStep]} · ${this.creationStep + 1}/5\n当前预览：长相、发型与服装组合`);
+    this.primary.setText(this.creationStep === 4 ? '确认创建' : '下一步').setVisible(!!draft.faceId && !!draft.hairId && !!draft.outfitId)
+      .removeAllListeners('pointerdown').on('pointerdown', () => this.creationStep === 4 ? void this.run(() => this.createPreviewPlayer()) : (this.creationStep++, this.syncUi()));
   }
   private syncUi() {
     const player = controller.player; const hasPlayer = !!player?.appearance;

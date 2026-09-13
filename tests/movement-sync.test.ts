@@ -10,7 +10,7 @@ async function fixture(){
  const repo=new MemoryRepository(),p=await repo.login(randomUUID()),service=new GameService(repo);
  const world=repo.versions[0].config,scene=world.scenes.find(s=>s.id==='STREET_BAISHI_01')!;
  scene.collision=[{x:10.7,y:9.7,width:.3,height:.6}];world.plots=[];world.npcs=[];
- await repo.mutate(p.id,randomUUID(),'fixture',p=>{p.appearance=createStarterAppearance('MALE',{});p.sceneId=scene.id;p.x=10;p.y=10;return {};});
+ await repo.mutate(p.id,randomUUID(),'fixture',p=>{p.appearance=createStarterAppearance('MALE',{faceId:'M_FACE_01'});p.sceneId=scene.id;p.x=10;p.y=10;return {};});
  const c=new GameController(async(path,body)=>service.action(p.id,path.endsWith('/move')?'move':'portal',body));
  c.boot={player:await repo.player(p.id),features:{movementPath:true}} as any;c.view=sceneView(world,scene.id,new Date());c.x=10;c.y=10;
  (c as any).lastSync=-100;

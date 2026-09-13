@@ -33,6 +33,8 @@ model PlayerAppearance {
   playerId String @id @db.Uuid
   player Player @relation(fields:[playerId],references:[id])
   gender String
+  faceId String
+  headwearId String?
   baseAvatarId String
   hairStyleId String
   hairColorId String

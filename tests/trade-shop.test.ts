@@ -14,7 +14,7 @@ async function fixture(){
   const repo=new MemoryRepository(),app=await buildApp(repo,env);
   const auth=(await app.inject({method:'POST',url:'/v1/auth/dev',payload:{account:'trade-test'}})).json();
   const headers={authorization:`Bearer ${auth.token}`},post=(url:string,payload:object)=>app.inject({method:'POST',url,headers,payload});
-  await post('/v1/player/appearance/create',{requestId:randomUUID(),gender:'FEMALE'});
+  await post('/v1/player/appearance/create',{requestId:randomUUID(),gender:'FEMALE',faceId:'F_FACE_01'});
   const player=repo.players.get(auth.player.id)!;player.sceneId='INTERIOR_B_TRADE';player.x=12;player.y=12.5;
   const sell=(itemId='WATER_01',quantity=1,requestId=randomUUID())=>post('/v1/economy/sell',{requestId,buildingId:'B_TRADE',itemId,quantity});
   return {repo,app,headers,post,player,sell};

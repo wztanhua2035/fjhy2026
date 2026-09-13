@@ -110,9 +110,9 @@ export class GameController {
     catch(e:any){this.dialogue=null;this.dialogueSpeaker=null;this.message=e.message;if(e.status){this.pending=null;this.x=this.player?.x??this.x;this.y=this.player?.y??this.y;}else{this.offline=true;this.message=this.pending?'网络中断，操作结果待确认。点击重试，使用同一请求编号。':'操作已确认，场景加载失败，请重新连接。';}throw e;}
     finally{this.busy=false;this.onChange();}
   }
-  async create(gender:'MALE'|'FEMALE',selection:{hairId?:string;outfitId?:string}):Promise<void>;
+  async create(gender:'MALE'|'FEMALE',selection:{faceId:string;hairId?:string;outfitId?:string}):Promise<void>;
   async create(gender:'MALE'|'FEMALE',baseAvatarId:string,hairColorId:string,topColorId:string,bottomColorId:string):Promise<void>;
-  async create(gender:'MALE'|'FEMALE',selection:string|{hairId?:string;outfitId?:string},hairColorId?:string,topColorId?:string,bottomColorId?:string){await this.write('/v1/player/appearance/create',typeof selection==='string'?{gender,baseAvatarId:selection,hairColorId,topColorId,bottomColorId}:{gender,...selection});}
+  async create(gender:'MALE'|'FEMALE',selection:string|{faceId:string;hairId?:string;outfitId?:string},hairColorId?:string,topColorId?:string,bottomColorId?:string){await this.write('/v1/player/appearance/create',typeof selection==='string'?{gender,baseAvatarId:selection,hairColorId,topColorId,bottomColorId}:{gender,...selection});}
   tick(dt:number,dx:number,dy:number){if(this.hairPanelOpen&&!this.canUseHairService())this.closeHairService();if(!this.view||!this.player?.appearance)return;if(this.dialogue||this.introPending||this.interacting||this.shopOpen||this.hairPanelOpen||this.trading){dx=0;dy=0;}this.interactionCooldown=Math.max(0,this.interactionCooldown-dt);
     this.walkTime+=dt;this.moving=!!(dx||dy)&&(!this.busy||this.offline);
     const correctionFactor=1-Math.exp(-dt*10);

@@ -3,7 +3,10 @@ import type { WorldConfig, SceneConfig, BuildingConfig, AppearanceDefinition, En
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID } from './inn-opening.js';
 import { starterLooks } from './appearance-v1.js';
 import {hairConfigs,hairServiceOffers} from './hair-services.js';
+import {faceConfigs} from './face-templates.js';
 export { starterLookOptions, starterLooks, availableStarterLookOptions } from './appearance-v1.js';
+export {faceConfigs,availableFaces,defaultFaceId} from './face-templates.js';
+export {headwearConfigs} from './headwear.js';
 const street = 'STREET_BAISHI_01';
 // Solid decorations reuse the shared static-collision path. Rectangles follow
 // only each object's footprint and leave every entrance corridor unobstructed.
@@ -154,6 +157,7 @@ const baishiPlots: PlotConfig[] = [
   ...[{id:'P_BAISHI_006',x:2,y:27,width:11,height:12},{id:'P_BAISHI_007',x:14,y:29,width:6,height:9},{id:'P_BAISHI_008',x:28,y:27,width:12,height:11},{id:'P_BAISHI_009',x:41,y:27,width:7,height:12},{id:'P_BAISHI_010',x:41,y:5,width:7,height:14}].map(p=>({...p,entranceX:p.x+1,entranceY:p.y+p.height+1,buildingId:null}))
 ].map(p=>({townId:'TOWN_CENTER',districtId:'DIST_BAISHI',sceneId:street,plotType:'M',facing:'SOUTH',status:p.buildingId?'NPC_OCCUPIED':'RESERVED',allowedBuildingTypes:['SHOP','INN','SALON','CLOTH'],version:1,...p}));
 export const initialWorld: WorldConfig = {
+  faces:faceConfigs,
   hairs:hairConfigs,hairServiceOffers,
   worldVersion:1, configVersion:1, assetVersion:2, scenes, buildings, appearances,
   plots:baishiPlots,

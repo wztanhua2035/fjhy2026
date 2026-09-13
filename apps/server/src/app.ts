@@ -16,12 +16,13 @@ import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID } from '../../../packages/game-
 import { initialWorld } from '../../../packages/game-config/index.js';
 import {inventoryEntries} from '../../../packages/game-rules/inventory.js';
 import {hairServiceConfig} from '../../../packages/game-config/hair-services.js';
+import {faceConfigs} from '../../../packages/game-config/face-templates.js';
 declare module '@fastify/jwt' {interface FastifyJWT {payload:{sub:string};user:{sub:string}}}
 const requestId=z.string().uuid(),id=z.string().min(1).max(80);
 const schemas={
   appearanceService:z.object({requestId,shopId:id,serviceType:z.literal('HAIR'),targetId:id}).strict(),
   create:z.union([
-    z.object({requestId,gender:z.enum(['MALE','FEMALE']),hairId:id.optional(),outfitId:id.optional()}).strict(),
+    z.object({requestId,gender:z.enum(['MALE','FEMALE']),faceId:id,hairId:id.optional(),outfitId:id.optional()}).strict(),
     z.object({requestId,gender:z.enum(['MALE','FEMALE']),baseAvatarId:id,hairColorId:id,topColorId:id,bottomColorId:id}).strict()
   ]),
   move:z.object({requestId,x:z.number().finite(),y:z.number().finite(),path:z.array(z.object({x:z.number().finite(),y:z.number().finite()}).strict()).min(1).max(256).optional()}).strict(),
@@ -93,7 +94,7 @@ if(status>=500){
     return login(result.openid);
   });
   app.post('/v1/auth/dev',async req=>{ensure(env.allowDevAuth&&env.appEnv==='DEV'&&env.mode!=='production','NOT_FOUND','接口不存在',404);const {account}=z.object({account:z.string().regex(/^[a-z0-9_-]{1,32}$/)}).strict().parse(req.body);return login(`dev:${account}`);});
-  app.get('/v1/bootstrap',async req=>{const w=await repo.world(),p=await repo.repairPosition(req.user.sub,w);return {hairs:hairServiceConfig(w).hairs,player:publicPlayer(p),serverTime:game.now().toISOString(),worldVersion:w.worldVersion,configVersion:w.configVersion,assetVersion:w.assetVersion,assetManifest:`${env.assetBase}/${w.assetVersion}/manifest.json`,colors:Object.fromEntries(Object.entries(w.colors).filter(([key])=>!key.startsWith('SKIN_'))),appearances:[...w.appearances.filter(a=>a.enabled&&!starterLooks.some(s=>s.id===a.id)),...starterLooks],features:{movementPath:true,trade:true,appearance:true,ghostPreview:true,gifts:false,property:false,quests:true,rank:false}};});
+  app.get('/v1/bootstrap',async req=>{const w=await repo.world(),p=await repo.repairPosition(req.user.sub,w);return {faces:w.faces??faceConfigs,hairs:hairServiceConfig(w).hairs,player:publicPlayer(p),serverTime:game.now().toISOString(),worldVersion:w.worldVersion,configVersion:w.configVersion,assetVersion:w.assetVersion,assetManifest:`${env.assetBase}/${w.assetVersion}/manifest.json`,colors:Object.fromEntries(Object.entries(w.colors).filter(([key])=>!key.startsWith('SKIN_'))),appearances:[...w.appearances.filter(a=>a.enabled&&!starterLooks.some(s=>s.id===a.id)),...starterLooks],features:{movementPath:true,trade:true,appearance:true,ghostPreview:true,gifts:false,property:false,quests:true,rank:false}};});
   app.post('/v1/player/restart',async req=>{const body=z.object({requestId,confirm:z.literal(true)}).strict().parse(req.body);return {player:publicPlayer(await repo.restartGame(req.user.sub,body.requestId))};});
   app.get('/v1/world/scenes/:id',async req=>{const w=await repo.world(),p=await repo.repairPosition(req.user.sub,w);ensure(p.appearance,'CHARACTER_REQUIRED','请先创建角色',409);return {...sceneView(w,(req.params as any).id,game.now(),requestGameContext(req).debugOpenAll),playerPosition:{sceneId:p.sceneId,x:p.x,y:p.y}};});
   app.get('/v1/scenes/:id/ghosts',async req=>{const p=await repo.player(req.user.sub);ensure(p.appearance&&p.sceneId===(req.params as any).id,'WRONG_SCENE','请进入对应场景');return {ghosts:await repo.ghosts(p.id)};});

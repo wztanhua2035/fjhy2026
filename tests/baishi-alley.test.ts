@@ -24,7 +24,7 @@ test('衣坊右侧巷道与正式画面相符：中段至少约两格宽，上�
 
 test('真实服务端双向走通巷道与南侧步道，无同步碰撞拒绝',async()=>{
   const repo=new MemoryRepository(),player=await repo.login(randomUUID()),game=new GameService(repo);
-  await repo.mutate(player.id,randomUUID(),'fixture',p=>{p.appearance=createStarterAppearance('MALE',{});p.sceneId=scene;p.x=40.7;p.y=25;return {};});
+  await repo.mutate(player.id,randomUUID(),'fixture',p=>{p.appearance=createStarterAppearance('MALE',{faceId:'M_FACE_01'});p.sceneId=scene;p.x=40.7;p.y=25;return {};});
   const move=async(path:{x:number;y:number}[])=>{const end=path.at(-1)!;await game.action(player.id,'move',{requestId:randomUUID(),...end,path});};
   await move([{x:40.7,y:31}]);await move([{x:40.7,y:37.5}]);
   await move([{x:40.7,y:38.25},{x:39.5,y:38.25},{x:36,y:38.25}]);

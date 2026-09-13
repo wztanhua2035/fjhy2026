@@ -1,7 +1,7 @@
 export type Gender = 'MALE' | 'FEMALE';
 export interface Appearance {
   /** V1 formal look: each hair ID includes its color; each outfit is a full set. */
-  hairId?: string; outfitId?: string;
+  faceId?: string; hairId?: string; outfitId?: string; headwearId?: string | null;
   /** Legacy persistence and old NPC configs; no longer player creation choices. */
   gender: Gender; baseAvatarId: string; hairStyleId: string; hairColorId: string;
   topStyleId: string; topColorId: string; bottomStyleId: string; bottomColorId: string; shoesId: string; accessoryIds: string[];
@@ -56,6 +56,7 @@ export interface QuestConfig { id: string; name: string; steps: QuestStepConfig[
 export interface QuestRuntime extends QuestConfig { state: 'available'|'accepted'|'in_progress'|'completed'; progress: Record<string,number>; stepProgress: number[]; rewardClaimed: boolean }
 export interface QuestTrackerItem { id: string; name: string; state: QuestRuntime['state']; stepIndex: number; stepCount: number; currentStep: string; currentObjective: string; rewardSummary: string; completed: boolean }
 export interface WorldConfig {
+  faces?: import('../game-config/face-templates.js').FaceConfig[];
   hairs?:import('../game-config/hair-services.js').HairConfig[];
   hairServiceOffers?:import('../game-config/hair-services.js').HairServiceOffer[];
   worldVersion: number; configVersion: number; assetVersion: number; scenes: SceneConfig[]; plots: PlotConfig[];
@@ -74,4 +75,4 @@ export interface SceneView { scene: SceneConfig; plots: PlotConfig[]; buildings:
 export interface ShopItemView { id: string; name: string; icon: string; owned: number; buyPrice: number; sellPrice: number; dailyLimit: number; description?: string; stackMax?: number }
 export interface ShopTradeResult { transactionId:string; playerId:string; shopId:string; itemId:string; side:'BUY'|'SELL'; quantity:number; actualUnitPrice:number; total:number; timestamp:string }
 export interface ShopPanelView { buildingId: string; title: string; balance: number; items: ShopItemView[] }
-export interface Bootstrap { hairs?:import('../game-config/hair-services.js').HairConfig[]; player: PlayerState; serverTime: string; worldVersion: number; configVersion: number; assetVersion: number; assetManifest: string; colors: Record<string,string>; appearances: AppearanceDefinition[]; features: Record<string,boolean> }
+export interface Bootstrap { faces?:import('../game-config/face-templates.js').FaceConfig[]; hairs?:import('../game-config/hair-services.js').HairConfig[]; player: PlayerState; serverTime: string; worldVersion: number; configVersion: number; assetVersion: number; assetManifest: string; colors: Record<string,string>; appearances: AppearanceDefinition[]; features: Record<string,boolean> }
