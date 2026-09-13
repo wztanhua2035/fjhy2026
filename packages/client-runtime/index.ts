@@ -46,12 +46,14 @@ export function browserTransport(base=''):Transport{return async(path,body,token
 export class GameController {
   token='';boot:Bootstrap|null=null;view:SceneView|null=null;ghosts:GhostProfile[]=[];quests:QuestRuntime[]=[];direction:Direction='down';walkTime=0;moving=false;private interactionCooldown=0;private introIndex=-1;
   x=12;y=15;busy=false;offline=false;message='欢迎来到横阳';dialogue:string|null=null;dialogueSpeaker:string|null=null;pending:{path:string;body:any}|null=null;private interactionLabel='';private activeInteraction:InteractionCandidate|null=null;private lastSync=0;private syncInFlight:Promise<unknown>|null=null;private correctionX=0;private correctionY=0;
+  private movePath:{x:number;y:number}[]=[];
+  private interacting=false;
   onChange=()=>{};
   constructor(public transport:Transport){}
   get player(){return this.boot?.player??null;}
   homeActions(){return this.player?.appearance?['继续游戏','重新开始'] as const:['开始游戏'] as const;}
   async restart(){await this.write('/v1/player/restart',{confirm:true});this.view=null;this.ghosts=[];this.quests=[];this.dialogue=null;this.dialogueSpeaker=null;this.introIndex=-1;await this.refresh();}
-  logout(){this.token='';this.boot=null;this.view=null;this.ghosts=[];this.quests=[];this.pending=null;this.busy=false;this.offline=false;this.x=12;this.y=15;this.interactionCooldown=0;this.message='已退出，可以重新登录验证存档';this.dialogue=null;this.dialogueSpeaker=null;this.introIndex=-1;this.onChange();}
+  logout(){this.movePath=[];this.correctionX=0;this.correctionY=0;this.token='';this.boot=null;this.view=null;this.ghosts=[];this.quests=[];this.pending=null;this.busy=false;this.offline=false;this.x=12;this.y=15;this.interactionCooldown=0;this.message='已退出，可以重新登录验证存档';this.dialogue=null;this.dialogueSpeaker=null;this.introIndex=-1;this.onChange();}
   async loginDev(account:string){const data=await this.transport('/v1/auth/dev',{account});this.token=data.token;await this.refresh();}
   async loginWechat(code:string){const data=await this.transport('/v1/auth/wechat',{code});this.token=data.token;await this.refresh();}
   async refresh(){this.boot=await this.transport('/v1/bootstrap',undefined,this.token);const taskData=await this.transport('/v1/quests',undefined,this.token);this.quests=taskData.quests??[];this.x=this.player!.x;this.y=this.player!.y;if(this.player!.appearance)await this.loadScene();this.startIntroIfNeeded();this.onChange();}
@@ -59,7 +61,7 @@ export class GameController {
   private startIntroIfNeeded(){if(!this.introPending||this.introIndex>=0)return;this.introIndex=0;this.showIntroLine();}
   private showIntroLine(){const line=innOpeningDialogue[this.introIndex];this.dialogue=line.text;this.dialogueSpeaker=line.speaker;this.message=line.text;this.onChange();}
   async advanceDialogue(){if(this.introIndex>=0){if(this.introIndex<innOpeningDialogue.length-1){this.introIndex++;this.showIntroLine();return;}await this.write('/v1/intro/complete',{});this.introIndex=-1;}this.dialogue=null;this.dialogueSpeaker=null;this.message='';this.onChange();}
-  async loadScene(){this.view=await this.transport(`/v1/world/scenes/${this.player!.sceneId}`,undefined,this.token);const position=this.view?.playerPosition;if(position&&position.sceneId===this.player!.sceneId){this.boot!.player.x=position.x;this.boot!.player.y=position.y;this.x=position.x;this.y=position.y;}this.ghosts=[];this.transport(`/v1/scenes/${this.player!.sceneId}/ghosts`,undefined,this.token).then(data=>{this.ghosts=data.ghosts;this.onChange();}).catch(()=>{});}
+  async loadScene(){this.movePath=[];this.correctionX=0;this.correctionY=0;this.view=await this.transport(`/v1/world/scenes/${this.player!.sceneId}`,undefined,this.token);const position=this.view?.playerPosition;if(position&&position.sceneId===this.player!.sceneId){this.boot!.player.x=position.x;this.boot!.player.y=position.y;this.x=position.x;this.y=position.y;}this.ghosts=[];this.transport(`/v1/scenes/${this.player!.sceneId}/ghosts`,undefined,this.token).then(data=>{this.ghosts=data.ghosts;this.onChange();}).catch(()=>{});}
   async write(path:string,body:any){
     if(this.busy)throw new Error('操作正在确认，请稍候');if(this.pending)throw new Error('上次操作尚未确认，请先重试');
     if(this.offline)throw new Error('离线期间暂停交易，请先重新连接');
@@ -73,14 +75,14 @@ export class GameController {
   async create(gender:'MALE'|'FEMALE',selection:{skinToneId?:string;hairId?:string;outfitId?:string}):Promise<void>;
   async create(gender:'MALE'|'FEMALE',baseAvatarId:string,skinColorId:string,hairColorId:string,topColorId:string,bottomColorId:string):Promise<void>;
   async create(gender:'MALE'|'FEMALE',selection:string|{skinToneId?:string;hairId?:string;outfitId?:string},skinColorId?:string,hairColorId?:string,topColorId?:string,bottomColorId?:string){await this.write('/v1/player/appearance/create',typeof selection==='string'?{gender,baseAvatarId:selection,skinColorId,hairColorId,topColorId,bottomColorId}:{gender,...selection});}
-  tick(dt:number,dx:number,dy:number){if(!this.view||!this.player?.appearance)return;if(this.dialogue||this.introPending){dx=0;dy=0;}this.interactionCooldown=Math.max(0,this.interactionCooldown-dt);
+  tick(dt:number,dx:number,dy:number){if(!this.view||!this.player?.appearance)return;if(this.dialogue||this.introPending||this.interacting){dx=0;dy=0;}this.interactionCooldown=Math.max(0,this.interactionCooldown-dt);
     this.walkTime+=dt;this.moving=!!(dx||dy)&&(!this.busy||this.offline);
     const correctionFactor=1-Math.exp(-dt*10);
     const correctionStepX=this.correctionX*correctionFactor,correctionStepY=this.correctionY*correctionFactor;
     if(this.stand(this.x+correctionStepX,this.y)&&this.stand(this.x,this.y+correctionStepY)){this.x+=correctionStepX;this.y+=correctionStepY;this.correctionX-=correctionStepX;this.correctionY-=correctionStepY;}
     if((!this.busy||this.offline)&&(dx||dy)){
       const norm=Math.hypot(dx,dy);dx/=norm;dy/=norm;const nx=this.x+dx*dt*5,ny=this.y+dy*dt*5;
-      if(this.offline||Math.hypot(nx-this.player.x,ny-this.player.y)<5){if(this.traversable(this.x,this.y,nx,ny)){this.x=nx;this.y=ny;}}
+      if(this.offline||Math.hypot(nx-this.player.x,ny-this.player.y)<5){if(this.traversable(this.x,this.y,nx,ny)){this.recordMove(nx,ny);this.x=nx;this.y=ny;}}
       this.direction=Math.abs(dx)>Math.abs(dy)?dx>0?'right':'left':dy>0?'down':'up';
     }
     this.lastSync+=dt;if(this.lastSync>.4&&!this.busy&&!this.syncInFlight&&!this.offline&&Math.hypot(this.x-this.player.x,this.y-this.player.y)>.05){this.lastSync=0;void this.sync().catch(()=>{});}
@@ -88,16 +90,39 @@ export class GameController {
   }
   stand(x:number,y:number){const v=this.view!;const staticBlocks=[...v.scene.collision,...v.plots.filter(p=>p.buildingId)];const npcBlocks=v.npcs.filter(n=>n.enabled).map(npcCollisionRect);return x>=1&&y>=1&&x<=v.scene.width-1&&y<=v.scene.height-1&&!staticBlocks.some(r=>x>r.x-.18&&x<r.x+r.width+.18&&y>r.y-.18&&y<r.y+r.height+.18)&&!npcBlocks.some(r=>x>r.x&&x<r.x+r.width&&y>r.y&&y<r.y+r.height);}
   traversable(fromX:number,fromY:number,toX:number,toY:number){for(let i=1;i<=8;i++){const t=i/8;if(!this.stand(fromX+(toX-fromX)*t,fromY+(toY-fromY)*t))return false;}return true;}
+  private recordMove(x:number,y:number){
+    const last=this.movePath.at(-1),previous=this.movePath.at(-2);
+    // Merge only straight forward movement. Keep every turn for server validation.
+    if(last&&previous){const ax=last.x-previous.x,ay=last.y-previous.y,bx=x-last.x,by=y-last.y;
+      if(Math.abs(ax*by-ay*bx)<1e-8&&ax*bx+ay*by>=0&&Math.hypot(x-previous.x,y-previous.y)<4){this.movePath[this.movePath.length-1]={x,y};return;}}
+    this.movePath.push({x,y});
+  }
   async sync(){
     if(this.syncInFlight)return this.syncInFlight;
-    if(!this.player||this.x===this.player.x&&this.y===this.player.y)return;
-    const sentX=this.x,sentY=this.y;
-    const request=this.transport('/v1/player/move',{x:sentX,y:sentY,requestId:uuid()},this.token).then((result:any)=>{
-      if(result.player){this.boot!.player=result.player;if(result.positionRestored){this.x=result.player.x;this.y=result.player.y;this.correctionX=0;this.correctionY=0;}else{this.correctionX+=result.player.x-sentX;this.correctionY+=result.player.y-sentY;}this.offline=false;}
-      return result;
-    }).catch((error:any)=>{if(!error.status)this.offline=true;throw error;}).finally(()=>{this.syncInFlight=null;this.onChange();});
-    this.syncInFlight=request;
-    return request;
+    if(!this.player)return;
+    if(!this.movePath.length&&this.x===this.player.x&&this.y===this.player.y)return;
+    const points=this.movePath.splice(0);
+    if(!points.length)points.push({x:this.x,y:this.y});
+    const player=this.player,sceneId=player.sceneId;
+    const request=(async()=>{
+      try{
+        for(const point of points){
+          const result=await this.transport('/v1/player/move',{...point,requestId:uuid()},this.token);
+          if(this.player?.id!==player.id||this.player.sceneId!==sceneId)return;
+          if(result.player){this.boot!.player=result.player;this.offline=false;
+            if(result.positionRestored){this.movePath=[];this.x=result.player.x;this.y=result.player.y;this.correctionX=0;this.correctionY=0;return result;}
+            this.correctionX+=result.player.x-point.x;this.correctionY+=result.player.y-point.y;
+          }
+        }
+      }catch(error:any){
+        if(this.player?.id===player.id&&this.player.sceneId===sceneId){
+          this.movePath=[];this.x=this.player.x;this.y=this.player.y;this.correctionX=0;this.correctionY=0;
+          this.offline=!error.status;this.message=error.status?`位置同步未通过：${error.message}`:'移动同步中断，请重新连接';
+        }
+        throw error;
+      }finally{this.syncInFlight=null;this.onChange();}
+    })();
+    this.syncInFlight=request;return request;
   }
   questProgress(){const ledger=this.player?.ledger??[];const bought=ledger.some(l=>l.type==='SHOP_BUY'&&l.referenceId.includes('RICE_01'));const sold=ledger.some(l=>l.type==='SHOP_SELL'&&l.referenceId.includes('RICE_01'));const accepted=ledger.some(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_001');const completed=ledger.some(l=>l.type==='QUEST_REWARD'&&l.referenceId==='Q_001');return {bought,sold,accepted,completed};}
   questTracker():QuestTrackerItem[]{const ledger=this.player?.ledger??[];return this.quests.flatMap(quest=>{const accepted=ledger.some(entry=>entry.type==='QUEST_ACCEPTED'&&entry.referenceId===quest.id),completed=ledger.some(entry=>entry.type==='QUEST_REWARD'&&entry.referenceId===quest.id);if(!accepted&&!completed)return [];const progress=questStepProgress(quest,ledger),pendingIndex=progress.findIndex((value,index)=>value<quest.steps[index].count),stepIndex=completed?quest.steps.length:pendingIndex<0?quest.steps.length-1:pendingIndex,step=quest.steps[Math.min(stepIndex,quest.steps.length-1)],awaitingReward=!completed&&pendingIndex<0;const fallbackTitle=`${step?.type??'任务'} ${step?.target??''}`.trim(),fallbackObjective=step?`${fallbackTitle} ×${step.count}`:'任务已完成';return [{id:quest.id,name:quest.name,state:completed?'completed':progress.some(Boolean)?'in_progress':'accepted',stepIndex,stepCount:quest.steps.length,currentStep:completed?'全部步骤已完成':awaitingReward?'全部步骤已完成 · 等待结算':`步骤 ${stepIndex+1}/${quest.steps.length} · ${step?.title??fallbackTitle}`,currentObjective:completed?'任务已完成':awaitingReward?'等待任务奖励结算':step?.objective??fallbackObjective,rewardSummary:`奖励：${quest.reward} 文`,completed}];});}
@@ -153,7 +178,7 @@ export class GameController {
   }
   canUseNpcServices(){return !this.dialogue&&!this.introPending&&!!this.view?.npcs.some(n=>canInteractWithNpc(this.direction,this.footWorldPosition,n).allowed);}
   nearby(){const candidates=this.interactionCandidates();const next=selectInteraction(candidates,this.activeInteraction?.id);this.activeInteraction=next;return next;}
-  async interact(){const target=this.nearby();if(!target)return;const entrance=target.path==='/v1/world/enter'?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===target.body.entranceId):undefined;const portal=target.path==='/v1/world/portal'?this.view?.scene.portals.find(p=>p.id===target.body.portalId):undefined;const returned=portal?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===portal.returnEntranceId):undefined;await this.sync();await this.write(target.path,target.body);if(entrance){this.direction=entrance.direction==='south'?'up':entrance.direction==='west'?'right':entrance.direction==='east'?'left':'down';this.message='进入建筑…';}else if(portal){if(returned)this.direction=returned.direction==='south'?'down':returned.direction==='west'?'left':returned.direction==='east'?'right':'up';this.interactionCooldown=.8;if(!this.dialogue)this.message='已到达'+(this.view?.scene.name??'场景');}this.onChange();}
+  async interact(){if(this.interacting)return;const target=this.nearby();if(!target){this.message="请靠近互动目标";this.onChange();return;}this.interacting=true;try{const entrance=target.path==='/v1/world/enter'?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===target.body.entranceId):undefined;const portal=target.path==='/v1/world/portal'?this.view?.scene.portals.find(p=>p.id===target.body.portalId):undefined;const returned=portal?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===portal.returnEntranceId):undefined;await this.sync();await this.sync();if(this.nearby()?.id!==target.id)throw new Error("位置已校准，请重新靠近互动目标");await this.write(target.path,target.body);if(entrance){this.direction=entrance.direction==='south'?'up':entrance.direction==='west'?'right':entrance.direction==='east'?'left':'down';this.message='进入建筑…';}else if(portal){if(returned)this.direction=returned.direction==='south'?'down':returned.direction==='west'?'left':returned.direction==='east'?'right':'up';this.interactionCooldown=.8;if(!this.dialogue)this.message='已到达'+(this.view?.scene.name??'场景');}this.onChange();}finally{this.interacting=false;this.onChange();}}
   async trade(action:'buy'|'sell',itemId:string,quantity=1){
     await this.sync();
     const building=this.view!.buildings.find(candidate=>candidate.id===this.view!.scene.buildingId);const firstTrade=!(this.player?.ledger??[]).some(entry=>(entry.type==='SHOP_BUY'||entry.type==='SHOP_SELL')&&entry.referenceId.startsWith((building?.id??'')+':'));

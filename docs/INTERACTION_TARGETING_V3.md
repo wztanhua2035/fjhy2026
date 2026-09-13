@@ -1,4 +1,4 @@
-# Interaction Targeting V4
+# Interaction Targeting V5
 
 互动使用玩家脚底世界坐标。人物素材、显示倍率和 footAnchor 不参与距离调整。
 
@@ -20,6 +20,10 @@
 
 `tests/interaction-targeting.test.ts` 使用真实 SceneConfig 覆盖左右门槛、贴门帘、NPC 四侧及所有朝向，并调用 GameService 验证服务器确实允许相同门口位置。`tests/guest-room.test.ts` 覆盖配置发布及 API 字段保留、开场与往返。
 
-DEV/STAGING 使用现有 collision debug 开关查看互动区。微信输出 `npcChecks`（边缘距离、朝向要求和允许结果），用于区分“渲染看起来很近”与实际互动距离。正式包必须包含 `interaction-targeting-v4` 标记；此标记只验证新代码进入产物，不能代替真机验收。
+DEV/STAGING 使用现有 collision debug 开关查看互动区。微信输出 `npcChecks`（边缘距离、朝向要求和允许结果），用于区分“渲染看起来很近”与实际互动距离。正式包必须包含 `interaction-targeting-v5` 标记；此标记只验证新代码进入产物，不能代替真机验收。
 
 V4 互动身体仅用于接近判定，不改变玩家移动碰撞。回归覆盖所有 NPC 侧面 1.4 tile 接近、杂货铺/商行实际柜台前合法站点 `(12,11.29)`、精确外缘与圆角越界。调试范围与实际判定共用 `npcInteractionBody()`，不再只测试没有柜台阻挡的贴身点。
+
+## V5 移动与互动确认
+
+客户端保留实际行走转折点，直线合并，继续使用已有 move API 顺序发送。服务端仍逐段校验碰撞，不放宽碰撞或增加穿墙能力。互动等待在途移动和最新位置均确认后执行，等待期间暂停输入并防止重复点击。移动被明确拒绝时清除待发路径及纠偏量，回到最后确认位置并提示，避免不断重试同一条穿过障碍的直线。`tests/movement-sync.test.ts` 覆盖真实服务端绕障、在途请求后互动、拒绝后恢复和直线请求合并。
