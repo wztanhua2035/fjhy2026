@@ -73,6 +73,8 @@ test('库存和定价预留模式可校验，但运行时安全拒绝未实现�
 }finally{await f.app.close();}});
 test('旧版 world 一次性迁移报价，保留已调价格、下架与店员入口',async()=>{
   const repo=new MemoryRepository(),world=repo.versions[0].config,grocery=world.buildings.find(b=>b.id==='B_GROCERY')!;
+  const trade=world.buildings.find(b=>b.id==='B_TRADE')!;trade.stock=Object.fromEntries(Object.entries(trade.stock).filter(([id])=>['RICE_01','SNACK_01'].includes(id)));
+  for(const offer of Object.values(trade.stock)){offer.buy=offer.baseBuyPrice;offer.sell=offer.baseSellPrice;}
   grocery.stock.RICE_01.buy=19;grocery.stock.RICE_01.enabled=false;
   for(const item of world.items)item.basePrice=1;
   for(const building of world.buildings)for(const offer of Object.values(building.stock)){delete offer.baseBuyPrice;delete offer.baseSellPrice;delete offer.pricingMode;offer.stockMode='infinite';}

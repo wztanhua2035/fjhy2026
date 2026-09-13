@@ -112,6 +112,8 @@ class BaishiWechatScene extends Phaser.Scene {
   private bagUse!:Phaser.GameObjects.Text;
   private shopPrev!:Phaser.GameObjects.Text;
   private shopNext!:Phaser.GameObjects.Text;
+  private shopBuyTab!:Phaser.GameObjects.Text;
+  private shopSellTab!:Phaser.GameObjects.Text;
   private shopToggle!: Phaser.GameObjects.Text;
   private safeResetButton!: Phaser.GameObjects.Text;
   private genderToggle!: Phaser.GameObjects.Text;
@@ -192,7 +194,9 @@ class BaishiWechatScene extends Phaser.Scene {
     this.shopToggle = this.button(WIDTH - insets.right - 92, HEIGHT - insets.bottom - 150, 112, '交易', () => void this.run(async()=>{this.clearStick();if(this.shopOpen)controller.closeShop();else {await controller.openShop();this.shopPage=0;}}));
     this.shopPrev=this.button(WIDTH-510,HEIGHT-90,100,'上一页',()=>{this.shopPage=Math.max(0,this.shopPage-1);this.syncUi();}).setVisible(false);
     this.shopNext=this.button(WIDTH-180,HEIGHT-90,100,'下一页',()=>{this.shopPage++;this.syncUi();}).setVisible(false);
-    this.cameras.main.ignore([this.shopPrev,this.shopNext]);
+    this.shopBuyTab=this.button(WIDTH-440,132,100,'买入',()=>{controller.setShopTab('buy');this.shopPage=0;this.syncUi();}).setVisible(false);
+    this.shopSellTab=this.button(WIDTH-325,132,100,'卖出',()=>{controller.setShopTab('sell');this.shopPage=0;this.syncUi();}).setVisible(false);
+    this.cameras.main.ignore([this.shopPrev,this.shopNext,this.shopBuyTab,this.shopSellTab]);
     this.bagToggle=this.button(insets.left+80,insets.top+80,110,'背包',()=>{this.bagOpen=!this.bagOpen;if(this.bagOpen){this.shopOpen=false;this.clearStick();}this.syncUi();}).setVisible(false);
     this.bagText=this.add.text(insets.left+20,insets.top+115,'',{fontFamily:'Microsoft YaHei, Arial',fontSize:'16px',color:'#4c392b',backgroundColor:'#fff9e9',padding:{x:16,y:12},lineSpacing:5,wordWrap:{width:380},fixedWidth:410}).setDepth(UI_DEPTH_BASE+39).setVisible(false);
     this.bagPrev=this.button(insets.left+80,HEIGHT-insets.bottom-94,95,'上一件',()=>{this.bagSelected=Math.max(0,this.bagSelected-1);this.syncUi();}).setVisible(false);
@@ -317,7 +321,7 @@ class BaishiWechatScene extends Phaser.Scene {
     if (home) {
       this.stickBase.setVisible(false); this.stick.setVisible(false); this.stickHit.setVisible(false); this.primary.setVisible(false); this.shopToggle.setVisible(false); this.safeResetButton.setVisible(false); this.genderToggle.setVisible(false);
       for (const choice of this.creationChoices) choice.setVisible(false);
-      this.shopPrev.setVisible(false);this.shopNext.setVisible(false);this.questToggle.setVisible(false); this.questPanel.setVisible(false); this.shopBackdrop.setVisible(false); this.shopTitle.setVisible(false); this.shopBalance.setVisible(false); this.shopFeedback.setVisible(false);
+      this.shopPrev.setVisible(false);this.shopNext.setVisible(false);this.shopBuyTab.setVisible(false);this.shopSellTab.setVisible(false);this.questToggle.setVisible(false); this.questPanel.setVisible(false); this.shopBackdrop.setVisible(false); this.shopTitle.setVisible(false); this.shopBalance.setVisible(false); this.shopFeedback.setVisible(false);
       for (const row of this.shopRows) Object.values(row).forEach(node => node.setVisible(false));
       this.portraitDim.setVisible(false); this.dialogueUi.sync('', '', false); this.message.setVisible(false); this.hud.setVisible(false); this.clearStick(); return;
     }
@@ -360,25 +364,29 @@ class BaishiWechatScene extends Phaser.Scene {
   private syncShopPanel() {
     const shop=controller.shopPanel(),visible=this.shopOpen&&!controller.dialogue&&!!shop&&controller.canUseShop();
     for(const node of [this.shopBackdrop,this.shopTitle,this.shopBalance,this.shopFeedback,this.shopPrev,this.shopNext])node.setVisible(visible);
+    this.shopBuyTab.setVisible(visible&&shop?.buildingId==='B_TRADE');this.shopSellTab.setVisible(visible&&shop?.buildingId==='B_TRADE');
     for(const row of this.shopRows)Object.values(row).forEach(node=>node.setVisible(false));
     if(!shop||!visible)return;
-    const pageSize=2,pages=Math.max(1,Math.ceil(shop.items.length/pageSize));this.shopPage=Math.min(this.shopPage,pages-1);
+    const items=shop.buildingId==='B_TRADE'?shop.items.filter(item=>controller.shopTab==='buy'?item.buyPrice>0:item.sellPrice>0&&item.owned>0):shop.items;
+    const pageSize=2,pages=Math.max(1,Math.ceil(items.length/pageSize));this.shopPage=Math.min(this.shopPage,pages-1);
     const left=WIDTH-590,top=90;
     this.shopBackdrop.setPosition(left,top).setSize(510,HEIGHT-130);
     this.shopTitle.setPosition(left+12,top+12).setText(shop.title);
+    this.shopBuyTab.setPosition(left+80,top+45).setAlpha(controller.shopTab==='buy'?1:.6);
+    this.shopSellTab.setPosition(left+190,top+45).setAlpha(controller.shopTab==='sell'?1:.6);
     this.shopBalance.setPosition(left+490,top+20).setColor('#4c392b').setText(`铜钱 ${shop.balance} 文`);
-    this.shopFeedback.setPosition(left+15,HEIGHT-190).setText(controller.message).setWordWrapWidth(470);
+    this.shopFeedback.setPosition(left+15,HEIGHT-190).setText(!items.length&&controller.shopTab==='sell'?'目前没有商行收购的物品。':controller.message).setWordWrapWidth(470);
     this.shopPrev.setText(`上一页 ${this.shopPage+1}/${pages}`);this.shopNext.setText('下一页');
     this.ensureShopRows(pageSize);
-    shop.items.slice(this.shopPage*pageSize,(this.shopPage+1)*pageSize).forEach((item,index)=>{
-      const row=this.shopRows[index],y=top+70+index*108,q=controller.shopQuantities[item.id]??1;
+    items.slice(this.shopPage*pageSize,(this.shopPage+1)*pageSize).forEach((item,index)=>{
+      const row=this.shopRows[index],y=top+90+index*108,q=controller.shopQuantities[item.id]??1;
       row.icon.setPosition(left+15,y).setText(item.icon).setVisible(true);
-      row.title.setPosition(left+60,y).setText(`${item.name} · ${item.buyPrice}文 · 持有 ${item.owned}`).setVisible(true);
+      row.title.setPosition(left+60,y).setText(`${item.name} · 收购 ${item.sellPrice}文 · 持有 ${item.owned}`).setVisible(true);
       row.detail.setPosition(left+60,y+23).setText(item.description??'').setVisible(true);
       row.minus.setPosition(left+85,y+67);row.count.setPosition(left+120,y+57).setText(String(q)).setVisible(true);row.plus.setPosition(left+165,y+67);
       row.buy.setPosition(left+285,y+67).setText('购买');row.sell.setPosition(left+405,y+67).setText(`卖 ${item.sellPrice}`);
       const handlers:[Phaser.GameObjects.Text,()=>void][]=[[row.minus,()=>controller.setShopQuantity(item.id,-1)],[row.plus,()=>controller.setShopQuantity(item.id,1)],[row.buy,()=>void this.run(()=>controller.trade('buy',item.id,q))],[row.sell,()=>void this.run(()=>controller.trade('sell',item.id,q))]];
-      for(const [button,handler] of handlers){button.setVisible(true).removeAllListeners('pointerdown');const unavailable=(button===row.buy&&item.buyPrice===0)||(button===row.sell&&item.sellPrice===0);if(controller.busy||controller.pending||unavailable)button.disableInteractive().setAlpha(.5);else button.setInteractive().setAlpha(1).on('pointerdown',handler);}
+      for(const [button,handler] of handlers){button.setVisible(true).removeAllListeners('pointerdown');const unavailable=(button===row.buy&&item.buyPrice===0)||(button===row.sell&&(item.sellPrice===0||item.owned<q));if(controller.busy||controller.pending||unavailable)button.disableInteractive().setAlpha(.5);else button.setInteractive().setAlpha(1).on('pointerdown',handler);}
     });
   }
   update(_: number, delta: number) {

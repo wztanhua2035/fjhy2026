@@ -51,7 +51,7 @@ export interface MarketState { marketId:string; supplyDemandIndex?:Record<string
 export interface ItemConfig { id:string; name:string; icon?:string; giftable:boolean; stackMax:number; stackable?:boolean; questOnly?:boolean; questItem?:boolean; keyItem?:boolean; droppable?:boolean; sellableByNature?:boolean; category?:ItemCategory|'HOUSEHOLD'; description?:string; usable?:boolean; useActionLabel?:string; effectType?:'NONE'|'ENERGY'|'STATUS'|'QUEST'|'UNLOCK'|'CUSTOM'; effectValue?:number; effectMeta?:Record<string,string|number|boolean>; iconResourceId?:string; sortOrder?:number; enabled?:boolean; /** Legacy published worlds only; shop listings own all current prices. */ basePrice?:number }
 export interface AppearanceDefinition { id: string; partType: string; name: string; genderScope: Gender | 'ALL'; assetKey: string; price: number; colors: string[]; enabled: boolean; starter: boolean }
 export type QuestStepType = 'BUY'|'SELL'|'ACQUIRE'|'DELIVER'|'REPORT';
-export interface QuestStepConfig { type: QuestStepType; target: string; count: number; title?: string; objective?: string; npcId?: string; completionDialogue?: string }
+export interface QuestStepConfig { type: QuestStepType; target: string; count: number; shopId?:string; title?: string; objective?: string; npcId?: string; completionDialogue?: string }
 export interface QuestConfig { id: string; name: string; steps: QuestStepConfig[]; reward: number; enabled: boolean }
 export interface QuestRuntime extends QuestConfig { state: 'available'|'accepted'|'in_progress'|'completed'; progress: Record<string,number>; stepProgress: number[]; rewardClaimed: boolean }
 export interface QuestTrackerItem { id: string; name: string; state: QuestRuntime['state']; stepIndex: number; stepCount: number; currentStep: string; currentObjective: string; rewardSummary: string; completed: boolean }
@@ -70,5 +70,6 @@ export interface GhostProfile { playerId: string; nickname: string; appearance: 
 export interface MailboxPayload { items: {itemId: string; quantity: number}[]; cash: number }
 export interface SceneView { scene: SceneConfig; plots: PlotConfig[]; buildings: BuildingConfig[]; items: ItemConfig[]; npcs: NPCConfig[]; phase: string; playerPosition?: { sceneId: string; x: number; y: number } }
 export interface ShopItemView { id: string; name: string; icon: string; owned: number; buyPrice: number; sellPrice: number; dailyLimit: number; description?: string; stackMax?: number }
+export interface ShopTradeResult { transactionId:string; playerId:string; shopId:string; itemId:string; side:'BUY'|'SELL'; quantity:number; actualUnitPrice:number; total:number; timestamp:string }
 export interface ShopPanelView { buildingId: string; title: string; balance: number; items: ShopItemView[] }
 export interface Bootstrap { player: PlayerState; serverTime: string; worldVersion: number; configVersion: number; assetVersion: number; assetManifest: string; colors: Record<string,string>; appearances: AppearanceDefinition[]; features: Record<string,boolean> }

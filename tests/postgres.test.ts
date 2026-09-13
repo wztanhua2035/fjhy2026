@@ -4,6 +4,7 @@ import {randomUUID} from 'node:crypto';
 import {PrismaClient} from '@prisma/client';
 import {PostgresRepository} from '../apps/server/src/repository.js';
 import {GameService} from '../apps/server/src/service.js';
+import {ensureTradeShop} from '../apps/server/src/sync-trade.js';
 test('PostgreSQL 多连接并发幂等、事务与重启持久化',{skip:!process.env.TEST_DATABASE_URL},async()=>{
  const url=process.env.TEST_DATABASE_URL!;assert.ok(url.includes('test'),'集成测试只允许显式命名的 test 数据库');
  const db=new PrismaClient({datasourceUrl:url}),repo=new PostgresRepository(db),s=new GameService(repo);const p=await repo.login(`test-${randomUUID()}`);
@@ -12,5 +13,12 @@ test('PostgreSQL 多连接并发幂等、事务与重启持久化',{skip:!proces
  await assert.rejects(()=>s.action(p.id,'buy',{...buy,requestId:randomUUID(),quantity:20}));assert.equal((await repo.player(p.id)).cash,108);
  const water={requestId:randomUUID(),buildingId:'B_GROCERY',itemId:'WATER_01',quantity:3};await Promise.all(Array.from({length:8},()=>s.action(p.id,'buy',water)));assert.equal((await repo.player(p.id)).cash,90);assert.equal((await repo.player(p.id)).inventory.WATER_01,3);
  const second=new PostgresRepository(new PrismaClient({datasourceUrl:url}));try{assert.equal((await second.player(p.id)).inventory.RICE_01,1);assert.equal((await second.player(p.id)).inventory.WATER_01,3);assert.equal((await second.player(p.id)).cash,90);}finally{await second.close();}
+ await ensureTradeShop(repo);await db.player.update({where:{id:p.id},data:{sceneId:'INTERIOR_B_TRADE'}});
+ const before=(await repo.player(p.id)).cash;
+ const attempts=await Promise.allSettled(Array.from({length:2},()=>s.action(p.id,'sell',{requestId:randomUUID(),buildingId:'B_TRADE',itemId:'WATER_01',quantity:2})));
+ assert.equal(attempts.filter(result=>result.status==='fulfilled').length,1);assert.equal(attempts.filter(result=>result.status==='rejected').length,1);
+ assert.equal((await repo.player(p.id)).inventory.WATER_01,1);
+ assert.equal((await repo.player(p.id)).cash,before+8);
+ assert.equal(await db.playerLedger.count({where:{playerId:p.id,type:'SHOP_SELL'}}),1);
  }finally{await repo.close();}
 });

@@ -1,10 +1,10 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { Repository } from './repository.js';
-import type { PlayerState, WorldConfig } from '../../../packages/shared-types/index.js';
+import type { PlayerState, WorldConfig, ShopTradeResult } from '../../../packages/shared-types/index.js';
 import { ensure, canStand, recoverSafePosition, positionBlockers, isOpen, starterAppearance, createStarterAppearance, formalizeAppearance, publicPlayer, sceneView, plotEntrances, inEntranceArea, questStepProgress, questStepLedgerType, questStepReference, portalInteractionZone } from '../../../packages/game-rules/index.js';
 import { starterLooks } from '../../../packages/game-config/appearance-v1.js';
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, guestRoomObjectDialogue } from '../../../packages/game-config/inn-opening.js';
-import {applyItemEffect,fixedShopPrice,itemStackLimit,requireSupportedStockMode} from '../../../packages/game-rules/inventory.js';
+import {applyItemEffect,resolveShopPrice,itemStackLimit,requireSupportedStockMode} from '../../../packages/game-rules/inventory.js';
 export interface RequestGameContext { debugOpenAll?: boolean }
 function money(p:PlayerState,amount:number,type:string,referenceId:string,requestId:string){
   ensure(Number.isSafeInteger(p.cash+amount)&&p.cash+amount>=0&&p.cash+amount<=1e12,'INSUFFICIENT_CASH','铜钱不足或超出余额上限');
@@ -16,9 +16,9 @@ export class GameService {
     const world=await this.repo.world();
     const hash=createHash('sha256').update(JSON.stringify({action,body,debugOpenAll:!!context.debugOpenAll})).digest('hex');
     return this.repo.mutate(playerId,body.requestId,hash,p=>{
-      let questDialogue:string|undefined;
+      let questDialogue:string|undefined,trade:ShopTradeResult|undefined;
       ensure(p.status==='ACTIVE','BANNED','账号不可用',403);
-      if(action==='buy'||action==='sell')ensure(Number.isSafeInteger(body.quantity)&&body.quantity>=1&&body.quantity<=99,'INVALID_QUANTITY','购买数量必须为 1 至 99 的整数',400);
+      if(action==='buy'||action==='sell')ensure(Number.isSafeInteger(body.quantity)&&body.quantity>=1&&body.quantity<=99,'INVALID_QUANTITY','交易数量必须为 1 至 99 的整数',400);
       if(action!=='create')ensure(p.appearance,'CHARACTER_REQUIRED','请先创建角色',409);
       if(p.appearance&&p.sceneId===INN_LOBBY_SCENE_ID&&!p.storyFlags?.[INTRO_INN_KEEPER_DONE]&&action!=='introComplete')ensure(false,'INTRO_IN_PROGRESS','请先听陈掌柜说完开场的话',409);
       switch(action){
@@ -81,16 +81,23 @@ export class GameService {
         }
         case 'buy':case 'sell':{
           const shop=this.shop(world,p,body.buildingId,context),stock=shop.stock[body.itemId],item=world.items.find(i=>i.id===body.itemId);ensure(stock&&item,'SHOP_ITEM_NOT_LISTED','该店不经营此商品');ensure(item.enabled!==false,'ITEM_DISABLED','该物品已停用');ensure(stock.enabled!==false,'SHOP_ITEM_DISABLED','该商品已下架');ensure(!item.questOnly&&!item.questItem&&!item.keyItem&&(action==='buy'||item.sellableByNature!==false),'ITEM_NOT_SELLABLE','任务或重要物品不可买卖');
-          ensure(action==='buy'?stock.canBuy!==false:stock.canSell!==false,'SHOP_ITEM_DISABLED','该店未开放此项交易');requireSupportedStockMode(stock);
-          const price=fixedShopPrice(stock,action);
+          ensure(action==='buy'?stock.canBuy!==false:stock.canSell!==false,action==='buy'?'ITEM_BUY_DISABLED':'ITEM_SELL_DISABLED',action==='buy'?'该店暂不出售此商品':'该店暂不收购此商品');requireSupportedStockMode(stock);
+          const price=resolveShopPrice(stock,action);
           const day=new Date(this.now().getTime()+8*3600000).toISOString().slice(0,10),key=`${day}:${shop.id}:${body.itemId}:${action}`;
           p.tradeCounts=Object.fromEntries(Object.entries(p.tradeCounts).filter(([k])=>k.startsWith(day)));
           ensure(['infinite','INFINITE'].includes(stock.stockMode??'INFINITE')||(p.tradeCounts[key]??0)+body.quantity<=stock.dailyLimit,'DAILY_LIMIT','今日交易额度已用完');
           const held=p.inventory[item.id]??0;
-          if(action==='buy'){ensure(held+body.quantity<=itemStackLimit(item)&&Object.values(p.inventory).reduce((a,b)=>a+b,0)+body.quantity<=100,'BAG_FULL','行囊容量不足');money(p,-price*body.quantity,'SHOP_BUY',`${shop.id}:${item.id}`,body.requestId);p.inventory[item.id]=held+body.quantity;}
-          else{ensure(held>=body.quantity,'INSUFFICIENT_ITEM_QUANTITY','库存不足');money(p,price*body.quantity,'SHOP_SELL',`${shop.id}:${item.id}`,body.requestId);if(held===body.quantity)delete p.inventory[item.id];else p.inventory[item.id]=held-body.quantity;}
+          const referenceId=`${shop.id}:${item.id}${body.quantity>1?`:Q${body.quantity}`:''}`;
+          if(action==='buy'){ensure(held+body.quantity<=itemStackLimit(item)&&Object.values(p.inventory).reduce((a,b)=>a+b,0)+body.quantity<=100,'BAG_FULL','行囊容量不足');money(p,-price*body.quantity,'SHOP_BUY',referenceId,body.requestId);p.inventory[item.id]=held+body.quantity;}
+          else{ensure(held>=body.quantity,held?'INSUFFICIENT_ITEM_QUANTITY':'ITEM_NOT_OWNED',held?'库存不足，持有数量不够':'库存不足，行囊中没有此物品');money(p,price*body.quantity,'SHOP_SELL',referenceId,body.requestId);if(held===body.quantity)delete p.inventory[item.id];else p.inventory[item.id]=held-body.quantity;}
+          const transaction=p.ledger[p.ledger.length-1];trade={transactionId:transaction.id,playerId:p.id,shopId:shop.id,itemId:item.id,side:action==='buy'?'BUY':'SELL',quantity:body.quantity,actualUnitPrice:price,total:price*body.quantity,timestamp:transaction.createdAt};
           p.tradeCounts[key]=(p.tradeCounts[key]??0)+body.quantity;
-          if(action==='sell'&&body.itemId==='RICE_01'&&!p.ledger.some(l=>l.type==='QUEST_REWARD'&&l.referenceId==='Q_001')&&p.ledger.some(l=>l.type==='SHOP_BUY'&&l.referenceId.includes('RICE_01'))){money(p,20,'QUEST_REWARD','Q_001',body.requestId);questDialogue='任务完成：第一桶金，获得 20 文奖励';}
+          for(const quest of world.quests.filter(q=>q.enabled&&!p.ledger.some(l=>l.type==='QUEST_REWARD'&&l.referenceId===q.id))){
+            const progress=questStepProgress(quest,p.ledger);
+            if(progress.every((value,index)=>value>=quest.steps[index].count)&&quest.steps.some(step=>step.type===trade!.side&&step.target===trade!.itemId&&(!step.shopId||step.shopId===trade!.shopId))){
+              money(p,quest.reward,'QUEST_REWARD',quest.id,body.requestId);questDialogue=`任务完成：${quest.name}，获得 ${quest.reward} 文奖励`;
+            }
+          }
           break;
         }
         case 'useItem':{
@@ -134,8 +141,8 @@ export class GameService {
           const ap=p.appearance!;if(a.partType==='HAIR'){ap.hairStyleId=a.id;ap.hairId=starterLooks.some(look=>look.id===a.id)?a.id:undefined;if(body.colorId)ap.hairColorId=body.colorId;}if(a.partType==='OUTFIT'){ap.outfitId=a.id;ap.topStyleId=a.id;}if(a.partType==='TOP'){ap.topStyleId=a.id;ap.topColorId=body.colorId;}if(a.partType==='BOTTOM'){ap.bottomStyleId=a.id;ap.bottomColorId=body.colorId;}if(a.partType==='SHOES')ap.shoesId=a.id;break;
         }
       }
-      return {player:publicPlayer(p),dialogue:questDialogue};
+      return {player:publicPlayer(p),dialogue:questDialogue,...(trade?{trade}:{})};
     });
   }
-  shop(world:WorldConfig,p:PlayerState,id:string,context:RequestGameContext={}){const b=world.buildings.find(b=>b.id===id&&b.enabled);ensure(b&&b.interiorSceneId===p.sceneId,'WRONG_SHOP','请先进入对应店铺');ensure(isOpen(b.openingHours,this.now(),context.debugOpenAll),'CLOSED','店铺已打烊');return b;}
+  shop(world:WorldConfig,p:PlayerState,id:string,context:RequestGameContext={}){const b=world.buildings.find(b=>b.id===id);ensure(b,'SHOP_NOT_FOUND','店铺不存在');ensure(b.enabled,'SHOP_DISABLED','店铺暂未营业');ensure(b.interiorSceneId===p.sceneId,'WRONG_SHOP','请先进入对应店铺');ensure(isOpen(b.openingHours,this.now(),context.debugOpenAll),'CLOSED','店铺已打烊');return b;}
 }

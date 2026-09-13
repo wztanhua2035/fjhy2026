@@ -43,8 +43,15 @@ const buildings: BuildingConfig[] = [
   ['B_SALON', '青丝美发室', 'SALON'], ['B_CLOTH', '春衫衣坊', 'CLOTH']
 ].map(([id,name,buildingType],i):BuildingConfig=>({id,name,displayName:name,description:{B_INN:'白石街上的温暖落脚处',B_GROCERY:'街坊日常所需的小店',B_TRADE:'收购与交易的商行',B_SALON:'传统街景里的现代美发室',B_CLOTH:'陈列完整穿搭的精品衣坊'}[id],signMode:'custom_image',signResourceId:({B_INN:'SIGN_BAISHI_INN_V1',B_GROCERY:'SIGN_BAISHI_GROCERY_V1',B_TRADE:'SIGN_BAISHI_TRADE_V1',B_SALON:'SIGN_BAISHI_SALON_V1',B_CLOTH:'SIGN_BAISHI_CLOTH_V1'} as Record<string,string>)[id],signTemplateId:id==='B_TRADE'?'horizontal-lacquer':'horizontal-wood',signMeta:{layout:'horizontal',maxChars:8},buildingType,assetKey:`buildings/${id}`,interiorSceneId:`INTERIOR_${id}`,
   openingHours: i<3 ? ['00:00','00:00'] : ['08:00','20:30'], enabled:true,buyable:false,baseValue:0,
-  ...(i===1?groceryBinding:{}),
-  stock: i===1 ? groceryStock : i===2 ? {RICE_01:{buy:18,sell:16,baseBuyPrice:18,baseSellPrice:16,canBuy:true,canSell:true,stockMode:'INFINITE',pricingMode:'FIXED',dailyLimit:30},SNACK_01:{buy:10,sell:7,baseBuyPrice:10,baseSellPrice:7,canBuy:true,canSell:true,stockMode:'INFINITE',pricingMode:'FIXED',dailyLimit:20}} : {}
+  ...(i===1?groceryBinding:i===2?{clerkNpcId:'NPC_TRADE_CLERK',servicePointId:'TRADE_SERVICE'}:{}),
+  stock: i===1 ? groceryStock : i===2 ? {
+    RICE_01:{baseBuyPrice:18,baseSellPrice:16,canBuy:true,canSell:true,stockMode:'INFINITE',pricingMode:'FIXED',dailyLimit:999,enabled:true,sortOrder:1},
+    SNACK_01:{baseBuyPrice:10,baseSellPrice:7,canBuy:true,canSell:true,stockMode:'INFINITE',pricingMode:'FIXED',dailyLimit:999,enabled:true,sortOrder:2},
+    WATER_01:{baseBuyPrice:9,baseSellPrice:4,canBuy:true,canSell:true,stockMode:'INFINITE',pricingMode:'FIXED',dailyLimit:999,enabled:true,sortOrder:3},
+    MILK_01:{baseSellPrice:9,canBuy:false,canSell:true,stockMode:'INFINITE',pricingMode:'FIXED',dailyLimit:999,enabled:true,sortOrder:4},
+    TISSUE_01:{baseBuyPrice:28,baseSellPrice:13,canBuy:true,canSell:true,stockMode:'INFINITE',pricingMode:'FIXED',dailyLimit:999,enabled:true,sortOrder:5},
+    UMBRELLA_01:{baseSellPrice:38,canBuy:false,canSell:true,stockMode:'INFINITE',pricingMode:'FIXED',dailyLimit:999,enabled:true,sortOrder:6}
+  } : {}
 }));
 const zone=(id:string,kind:InteriorZone['kind'],x:number,y:number,width:number,height:number,solid=false,label?:string):InteriorZone=>({id,kind,x,y,width,height,solid,...(label?{label}:{})});
 const interiorZones: Record<string,InteriorZone[]> = {
@@ -159,8 +166,8 @@ export const initialWorld: WorldConfig = {
   items:[...groceryItems,{id:'ERRAND_PACKAGE_01',name:'掌柜的急件',icon:'件',giftable:false,stackMax:1,stackable:false,questOnly:true,questItem:true,category:'QUEST',usable:false,droppable:false},{id:'CLOTH_SAMPLE_01',name:'新布样',icon:'布',giftable:false,stackMax:1,stackable:false,questOnly:true,questItem:true,category:'QUEST',usable:false,droppable:false}],
   colors:{INK:'#343948',CHESTNUT:'#875742',CREAM:'#eee0bf',SAGE:'#86ac92',BLUE:'#789fc5',ROSE:'#cf8890',SKIN_LIGHT:'#f5d8ba',SKIN_WHEAT:'#e9b78e',SKIN_HONEY:'#d6a180',SKIN_DEEP:'#a96f52'},
   quests:[{id:'Q_001',name:'第一桶金',steps:[
-    {type:'BUY',target:'RICE_01',count:1,title:'购买鸣山大米',objective:'前往街坊杂货铺购买 1 份鸣山大米。'},
-    {type:'SELL',target:'RICE_01',count:1,title:'出售鸣山大米',objective:'将鸣山大米带回白石商行出售。'}
+    {type:'BUY',target:'RICE_01',shopId:'B_GROCERY',count:1,title:'购买鸣山大米',objective:'前往街坊杂货铺购买 1 份鸣山大米。'},
+    {type:'SELL',target:'RICE_01',shopId:'B_TRADE',count:1,title:'出售鸣山大米',objective:'将鸣山大米带回白石商行出售。'}
   ],reward:20,enabled:true},{id:'Q_002',name:'掌柜的急差',steps:[{type:'ACQUIRE',target:'ERRAND_PACKAGE_01',npcId:'NPC_GROCERY_CLERK',count:1,title:'领取掌柜的急件',objective:'向街坊杂货铺店员领取掌柜的急件。',completionDialogue:'已领取：掌柜的急件。请带回横阳客栈交给陈掌柜。'},{type:'DELIVER',target:'ERRAND_PACKAGE_01',npcId:'NPC_001',count:1,title:'交付掌柜的急件',objective:'返回横阳客栈，将急件交给陈掌柜。'}],reward:12,enabled:true},{id:'Q_003',name:'雨前送样',steps:[{type:'ACQUIRE',target:'CLOTH_SAMPLE_01',npcId:'NPC_CLOTH_SHOPKEEPER',count:1,title:'领取新布样',objective:'与春衫掌柜交谈，领取需要确认配色的新布样。',completionDialogue:'这批新布刚到，我还拿不准颜色。你若顺路，帮我送一块给青丝美发师看看。'},{type:'DELIVER',target:'CLOTH_SAMPLE_01',npcId:'NPC_SALON_HAIRDRESSER',count:1,title:'把布样交给青丝美发师',objective:'前往青丝美发室，把新布样交给青丝美发师。',completionDialogue:'这个颜色不错，不过若再压一点青，会更衬人。你替我把这句话带给春衫掌柜吧。'},{type:'REPORT',target:'NPC_CLOTH_SHOPKEEPER',npcId:'NPC_CLOTH_SHOPKEEPER',count:1,title:'回春衫衣坊向掌柜汇报',objective:'返回春衫衣坊，把“青里再压一点”的意见告诉春衫掌柜。',completionDialogue:'青里再压一点……我明白了。辛苦你跑这一趟，这块布做出来一定好看。'}],reward:15,enabled:true}],
   roads:[{id:'ROAD_BAISHI',name:'白石街',connects:['ROAD_RENMIN','ROAD_HUISHUI','ROAD_JIEFANG','ROAD_PINGRUI','AREA_DONGMEN']},
     {id:'ROAD_JIEFANG',name:'解放街',connects:['AREA_FENGHU','ROAD_RENMIN_NORTH','ROAD_YAHE','ROAD_BAISHI','ROAD_XIANQIAN','GATE_TONGFU','AREA_PONAN']},

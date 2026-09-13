@@ -23,7 +23,7 @@ export function ShopEditor({json,onChange}:{json:string;onChange:(json:string)=>
     ]}/>
     <h3>Shop Listing · 店铺报价</h3><p>新增报价默认下架，填写后再启用。市场行情另行开发。</p>
     {world.buildings.filter(b=>Object.keys(b.stock).length).map(b=><section key={b.id}><h3>{b.name} · {b.id}</h3><Table rowKey="id" pagination={false} dataSource={Object.entries(b.stock).map(([id,stock])=>({id,...stock}))} columns={[
-      {title:'商品',render:(_,r)=>world.items.find(i=>i.id===r.id)?.name??r.id},
+      {title:'商品 ID / 名称',render:(_,r)=><>{r.id}<br/>{world.items.find(i=>i.id===r.id)?.name??r.id}</>},
       {title:'出售基价',render:(_,r)=><InputNumber min={1} max={1000000} precision={0} value={r.baseBuyPrice??r.buy} onChange={v=>v!==null&&setOffer(b.stock[r.id],'baseBuyPrice',v)}/>},
       {title:'收购基价',render:(_,r)=><InputNumber min={1} max={1000000} precision={0} value={r.baseSellPrice??r.sell} onChange={v=>v!==null&&setOffer(b.stock[r.id],'baseSellPrice',v)}/>},
       {title:'出售',render:(_,r)=><Switch checked={r.canBuy!==false} onChange={v=>setOffer(b.stock[r.id],'canBuy',v)}/>},
@@ -31,6 +31,7 @@ export function ShopEditor({json,onChange}:{json:string;onChange:(json:string)=>
       {title:'库存模式',render:(_,r)=><Select value={r.stockMode??'INFINITE'} options={['INFINITE','PLAYER_PRIVATE','GLOBAL_LIMITED'].map(value=>({value,disabled:value!=='INFINITE'}))} onChange={v=>setOffer(b.stock[r.id],'stockMode',v)}/>},
       {title:'定价模式',render:(_,r)=><Select value={r.pricingMode??'FIXED'} options={[{value:'FIXED'},{value:'MARKET_DYNAMIC',disabled:true}]} onChange={v=>setOffer(b.stock[r.id],'pricingMode',v)}/>},
       {title:'上架',render:(_,r)=><Switch checked={r.enabled!==false} onChange={v=>setOffer(b.stock[r.id],'enabled',v)}/>}
+      ,{title:'排序',render:(_,r)=><InputNumber precision={0} value={r.sortOrder??0} onChange={v=>v!==null&&setOffer(b.stock[r.id],'sortOrder',v)}/>}
     ]}/></section>)}
     <h3>Market · 市场行情</h3><p>本轮仅预留数据边界；动态价格和全服限量库存尚未开放。</p>
   </>;

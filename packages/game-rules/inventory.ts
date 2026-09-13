@@ -11,13 +11,14 @@ export function inventoryEntries(player:PlayerState,items:ItemConfig[]){
     return {id,quantity,name:item?.name??'未知物品',icon:item?.icon??'物',iconResourceId:item?.iconResourceId,category:item?itemCategory(item):'SPECIAL' as ItemCategory,description:item?.description??'',usable:!!item?.usable&&!item.questOnly&&!item.questItem&&!item.keyItem,stackLimit:item?itemStackLimit(item):1,sortOrder:item?.sortOrder??0};
   }).sort((a,b)=>itemCategories.indexOf(a.category)-itemCategories.indexOf(b.category)||a.sortOrder-b.sortOrder||a.id.localeCompare(b.id));
 }
-export function fixedShopPrice(offer:ShopListing,side:'buy'|'sell'){
+export function resolveShopPrice(offer:ShopListing,side:'buy'|'sell'){
   ensure((offer.pricingMode??'FIXED')==='FIXED','INVALID_PRICING_MODE','当前商品报价暂不可用');
   // A legacy operator may still edit buy/sell directly in a published draft.
   const price=side==='buy'?(offer.buy??offer.baseBuyPrice):(offer.sell??offer.baseSellPrice);
   ensure(typeof price==='number'&&Number.isSafeInteger(price)&&price>0,'INVALID_PRICE','商品报价无效');
   return price!;
 }
+export const fixedShopPrice=resolveShopPrice;
 export function requireSupportedStockMode(offer:ShopListing){
   ensure(['INFINITE','infinite'].includes(offer.stockMode??'INFINITE'),'INVALID_STOCK_MODE','当前商品库存模式暂不可用');
 }

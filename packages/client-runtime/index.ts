@@ -49,12 +49,13 @@ export class GameController {
   x=12;y=15;busy=false;offline=false;message='欢迎来到横阳';dialogue:string|null=null;dialogueSpeaker:string|null=null;pending:{path:string;body:any}|null=null;private interactionLabel='';private activeInteraction:InteractionCandidate|null=null;private lastSync=0;private syncInFlight:Promise<unknown>|null=null;private correctionX=0;private correctionY=0;
   private movePath:{x:number;y:number}[]=[];
   private interacting=false;
-  shopOpen=false; private trading=false;
+  shopOpen=false; shopTab:'buy'|'sell'='buy'; private trading=false;
   shopQuantities:Record<string,number>={};
   itemName(id:string){return this.view?.items?.find(i=>i.id===id)?.name??id;}
   inventoryItems(){return this.player?inventoryEntries(this.player,this.view?.items??[]):[];}
   async useItem(itemId:string){const result=await this.write('/v1/inventory/use',{itemId,quantity:1});this.message=`已使用：${this.itemName(itemId)}`;this.onChange();return result;}
-  setShopQuantity(id:string,delta:number){this.shopQuantities[id]=Math.max(1,Math.min(99,(this.shopQuantities[id]??1)+delta));this.onChange();}
+  setShopQuantity(id:string,delta:number){const owned=this.shopPanel()?.items.find(item=>item.id===id)?.owned??0;const max=this.shopTab==='sell'&&this.view?.scene.buildingId==='B_TRADE'?Math.max(1,owned):99;this.shopQuantities[id]=Math.max(1,Math.min(max,(this.shopQuantities[id]??1)+delta));this.onChange();}
+  setShopTab(tab:'buy'|'sell'){this.shopTab=tab;this.onChange();}
   async openShop(){if(!this.canUseShop())return;await this.sync();const id=this.view?.scene.buildingId;const catalog=await this.transport(`/v1/economy/catalog/${id}`,undefined,this.token);if(!this.view||this.view.scene.buildingId!==id)return;this.view.buildings=this.view.buildings.map(b=>b.id===id?catalog.building:b);this.view.items=[...this.view.items.filter(i=>!catalog.items.some((n:any)=>n.id===i.id)),...catalog.items];this.shopOpen=true;this.onChange();}
   closeShop(){this.shopOpen=false;this.onChange();}
   canUseShop(){if(this.dialogue||this.introPending)return false;const b=this.view?.buildings.find(b=>b.id===this.view?.scene.buildingId);if(!b)return false;const z=this.view?.scene.interior?.zones.find(z=>z.id===b.servicePointId);const p=this.footWorldPosition;return !!(z&&p.x>=z.x&&p.x<=z.x+z.width&&p.y>=z.y&&p.y<=z.y+z.height)||!!this.view?.npcs.some(n=>(!b.clerkNpcId||n.id===b.clerkNpcId)&&canInteractWithNpc(this.direction,p,n).allowed);}
@@ -202,12 +203,14 @@ export class GameController {
     try {
       await this.sync();await this.sync();
       const result:any=await this.write(`/v1/economy/${action}`,{buildingId:this.view!.scene.buildingId,itemId,quantity});
-      const entry=result?.player?.ledger.slice().reverse().find((e:any)=>e.type===(action==='buy'?'SHOP_BUY':'SHOP_SELL'));
-      this.message=[action==='buy'?'购买成功':'出售成功',`${this.itemName(itemId)} ×${quantity}`,`${action==='buy'?'支出':'收入'}：${Math.abs(entry?.amount??0)}文`].join('\n');
+      const actual=result?.trade,entry=result?.player?.ledger.slice().reverse().find((e:any)=>e.type===(action==='buy'?'SHOP_BUY':'SHOP_SELL'));
+      this.message=[action==='buy'?'购买成功':'出售成功',`${this.itemName(itemId)} ×${actual?.quantity??quantity}`,`${action==='buy'?'支出':'收入'}：${actual?.total??Math.abs(entry?.amount??0)}文`].join('\n');
       this.dialogue=null;this.dialogueSpeaker=null;
+      const shopId=this.view?.scene.buildingId;
+      if(shopId)try{const catalog=await this.transport(`/v1/economy/catalog/${shopId}`,undefined,this.token);if(this.view?.scene.buildingId===shopId){this.view.buildings=this.view.buildings.map(b=>b.id===shopId?catalog.building:b);this.view.items=[...this.view.items.filter(i=>!catalog.items.some((n:any)=>n.id===i.id)),...catalog.items];}}catch{/* A settled trade must not be presented as failed if a quote refresh times out. */}
     } finally {this.trading=false;this.onChange();}
   }
-  shopPanel():ShopPanelView|null{const view=this.view,player=this.player,building=view?.buildings.find(candidate=>candidate.id===view.scene.buildingId);if(!view||!player||!building||!Object.keys(building.stock).length)return null;return {buildingId:building.id,title:building.name,balance:player.cash,items:Object.entries(building.stock).flatMap(([id,stock])=>{const item=view.items.find(candidate=>candidate.id===id);return item&&item.enabled!==false&&stock.enabled!==false&&!item.questOnly&&!item.questItem&&!item.keyItem&&stock.pricingMode!=='MARKET_DYNAMIC'&&['INFINITE','infinite'].includes(stock.stockMode??'INFINITE')&&(stock.canBuy!==false||stock.canSell!==false)?[{description:item.description,stackMax:item.stackMax,id,name:item.name,icon:item.icon??'品',owned:player.inventory[id]??0,buyPrice:stock.canBuy===false?0:fixedShopPrice(stock,'buy'),sellPrice:stock.canSell===false?0:fixedShopPrice(stock,'sell'),dailyLimit:stock.dailyLimit}]:[];})};}
+  shopPanel():ShopPanelView|null{const view=this.view,player=this.player,building=view?.buildings.find(candidate=>candidate.id===view.scene.buildingId);if(!view||!player||!building||!Object.keys(building.stock).length)return null;return {buildingId:building.id,title:building.name,balance:player.cash,items:Object.entries(building.stock).sort(([a],[b])=>(building.stock[a].sortOrder??0)-(building.stock[b].sortOrder??0)).flatMap(([id,stock])=>{const item=view.items.find(candidate=>candidate.id===id);return item&&item.enabled!==false&&stock.enabled!==false&&!item.questOnly&&!item.questItem&&!item.keyItem&&stock.pricingMode!=='MARKET_DYNAMIC'&&['INFINITE','infinite'].includes(stock.stockMode??'INFINITE')&&(stock.canBuy!==false||stock.canSell!==false)?[{description:item.description,stackMax:item.stackMax,id,name:item.name,icon:item.icon??'品',owned:player.inventory[id]??0,buyPrice:stock.canBuy===false?0:fixedShopPrice(stock,'buy'),sellPrice:stock.canSell===false?0:fixedShopPrice(stock,'sell'),dailyLimit:stock.dailyLimit}]:[];})};}
   render(p:Painter,width:number,height:number,drawTerrain=true,drawStructures=true,drawNpcs=true,skipNpcIds:string[]=[],skipPlayer=false,drawCollision=true,drawInteractionDebug=false){
     const v=this.view;if(!v)return;if(drawTerrain)p.rect(0,0,width,height,'#b7cba5');
     const tile=32,ox=width/2-this.x*tile,oy=height/2-this.y*tile;

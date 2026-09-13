@@ -1,4 +1,5 @@
 import {ensureGroceryShop} from './sync-grocery.js';
+import {ensureTradeShop} from './sync-trade.js';
 import { PrismaClient } from '@prisma/client';
 import { buildApp } from './app.js';
 import { PostgresRepository } from './repository.js';
@@ -13,6 +14,7 @@ if(process.env.SYNC_BAISHI_CONTENT==='true') {
 if(env.appEnv==='STAGING') console.log('Staging guest room scene',await ensureGuestRoomScene(repo));
 if(env.appEnv==='STAGING') console.log('Staging Baishi alley',await ensureBaishiAlley(repo));
 if(env.appEnv==='STAGING')console.log('Staging grocery shop',await ensureGroceryShop(repo));
+if(env.appEnv==='STAGING')console.log('Staging trade shop',await ensureTradeShop(repo));
 const app=await buildApp(repo,env,{logger:true});
 await app.listen({port:env.port,host:'0.0.0.0'});
 for(const signal of ['SIGINT','SIGTERM'])process.on(signal,async()=>{await app.close();process.exit(0);});
