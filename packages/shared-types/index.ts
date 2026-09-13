@@ -18,7 +18,8 @@ export interface PlotConfig extends Rect {
 export interface BuildingConfig {
   id: string; name: string; buildingType: string; assetKey: string; interiorSceneId: string;
   openingHours: [string, string]; enabled: boolean; buyable: boolean; baseValue: number;
-  stock: Record<string, { buy: number; sell: number; dailyLimit: number; enabled?: boolean; stockMode?: 'infinite' }>;
+  /** Per-shop offers, keyed by stable item ID. Legacy buy/sell remain readable. */
+  stock: Record<string, ShopListing>;
   /** Editable presentation only. Gameplay continues to use the stable building id. */
   clerkNpcId?: string; servicePointId?: string;
   displayName?: string;
@@ -41,7 +42,13 @@ export interface SceneConfig {
   mapAsset: string; roads: Rect[]; collision: Rect[]; portals: Portal[]; buildingId?: string;
   spawnX: number; spawnY: number; interior?: { zones: InteriorZone[] };
 }
-export interface ItemConfig { id: string; name: string; icon?: string; basePrice: number; giftable: boolean; stackMax: number; questOnly?: boolean; category?: string; description?: string; usable?: boolean; effectType?: string; effectValue?: number; iconResourceId?: string; enabled?: boolean }
+export type ItemCategory = 'FOOD'|'DRINK'|'DAILY'|'MATERIAL'|'QUEST'|'KEY'|'GIFT'|'CLOTHING'|'SPECIAL';
+export type StockMode = 'INFINITE'|'PLAYER_PRIVATE'|'GLOBAL_LIMITED'|'infinite';
+export type PricingMode = 'FIXED'|'MARKET_DYNAMIC';
+export interface ShopListing { enabled?:boolean; canBuy?:boolean; canSell?:boolean; baseBuyPrice?:number; baseSellPrice?:number; buy?:number; sell?:number; dailyLimit:number; stockMode?:StockMode; pricingMode?:PricingMode; sortOrder?:number; stockConfig?:Record<string,number>; pricingConfig?:Record<string,number> }
+/** Reserved for a later market service; never persisted in ItemConfig or player inventory. */
+export interface MarketState { marketId:string; supplyDemandIndex?:Record<string,number>; globalLimitedStock?:Record<string,number> }
+export interface ItemConfig { id:string; name:string; icon?:string; giftable:boolean; stackMax:number; stackable?:boolean; questOnly?:boolean; questItem?:boolean; keyItem?:boolean; droppable?:boolean; sellableByNature?:boolean; category?:ItemCategory|'HOUSEHOLD'; description?:string; usable?:boolean; useActionLabel?:string; effectType?:'NONE'|'ENERGY'|'STATUS'|'QUEST'|'UNLOCK'|'CUSTOM'; effectValue?:number; effectMeta?:Record<string,string|number|boolean>; iconResourceId?:string; sortOrder?:number; enabled?:boolean; /** Legacy published worlds only; shop listings own all current prices. */ basePrice?:number }
 export interface AppearanceDefinition { id: string; partType: string; name: string; genderScope: Gender | 'ALL'; assetKey: string; price: number; colors: string[]; enabled: boolean; starter: boolean }
 export type QuestStepType = 'BUY'|'SELL'|'ACQUIRE'|'DELIVER'|'REPORT';
 export interface QuestStepConfig { type: QuestStepType; target: string; count: number; title?: string; objective?: string; npcId?: string; completionDialogue?: string }

@@ -44,7 +44,7 @@ const buildings: BuildingConfig[] = [
 ].map(([id,name,buildingType],i):BuildingConfig=>({id,name,displayName:name,description:{B_INN:'白石街上的温暖落脚处',B_GROCERY:'街坊日常所需的小店',B_TRADE:'收购与交易的商行',B_SALON:'传统街景里的现代美发室',B_CLOTH:'陈列完整穿搭的精品衣坊'}[id],signMode:'custom_image',signResourceId:({B_INN:'SIGN_BAISHI_INN_V1',B_GROCERY:'SIGN_BAISHI_GROCERY_V1',B_TRADE:'SIGN_BAISHI_TRADE_V1',B_SALON:'SIGN_BAISHI_SALON_V1',B_CLOTH:'SIGN_BAISHI_CLOTH_V1'} as Record<string,string>)[id],signTemplateId:id==='B_TRADE'?'horizontal-lacquer':'horizontal-wood',signMeta:{layout:'horizontal',maxChars:8},buildingType,assetKey:`buildings/${id}`,interiorSceneId:`INTERIOR_${id}`,
   openingHours: i<3 ? ['00:00','00:00'] : ['08:00','20:30'], enabled:true,buyable:false,baseValue:0,
   ...(i===1?groceryBinding:{}),
-  stock: i===1 ? groceryStock : i===2 ? {RICE_01:{buy:18,sell:16,dailyLimit:30},SNACK_01:{buy:10,sell:7,dailyLimit:20}} : {}
+  stock: i===1 ? groceryStock : i===2 ? {RICE_01:{buy:18,sell:16,baseBuyPrice:18,baseSellPrice:16,canBuy:true,canSell:true,stockMode:'INFINITE',pricingMode:'FIXED',dailyLimit:30},SNACK_01:{buy:10,sell:7,baseBuyPrice:10,baseSellPrice:7,canBuy:true,canSell:true,stockMode:'INFINITE',pricingMode:'FIXED',dailyLimit:20}} : {}
 }));
 const zone=(id:string,kind:InteriorZone['kind'],x:number,y:number,width:number,height:number,solid=false,label?:string):InteriorZone=>({id,kind,x,y,width,height,solid,...(label?{label}:{})});
 const interiorZones: Record<string,InteriorZone[]> = {
@@ -156,7 +156,7 @@ export const initialWorld: WorldConfig = {
       ['周叔','MALE','MALE_03','HAIR_MALE_07','INK','TOP_MALE_05','SAGE','BOTTOM_MALE_03','CREAM','SHOES_MALE_03'],
       ['小禾','FEMALE','FEMALE_06','HAIR_FEMALE_08','SAGE','TOP_FEMALE_05','CREAM','BOTTOM_FEMALE_04','ROSE','SHOES_FEMALE_03']
     ].map(([name,gender,baseAvatarId,hairStyleId,hairColorId,topStyleId,topColorId,bottomStyleId,bottomColorId,shoesId],i)=>({id:`NPC_00${i+2}`,name,nameLocked:false,enabled:true,sceneId:street,x:16+i*7,y:22.5,priority:50-i,hours:['00:00','00:00'] as [string,string],dialogue:['白石街的店铺各有行价，货比三家总没错。'],route:[{x:16+i*7,y:22.5},{x:18+i*7,y:22.5}],appearance:{gender:gender as 'MALE'|'FEMALE',baseAvatarId,hairStyleId,hairColorId,topStyleId,topColorId,bottomStyleId,bottomColorId,shoesId,accessoryIds:[]}}))],
-  items:[...groceryItems,{id:'ERRAND_PACKAGE_01',name:'掌柜的急件',icon:'件',basePrice:1,giftable:false,stackMax:1,questOnly:true},{id:'CLOTH_SAMPLE_01',name:'新布样',icon:'布',basePrice:1,giftable:false,stackMax:1,questOnly:true}],
+  items:[...groceryItems,{id:'ERRAND_PACKAGE_01',name:'掌柜的急件',icon:'件',giftable:false,stackMax:1,stackable:false,questOnly:true,questItem:true,category:'QUEST',usable:false,droppable:false},{id:'CLOTH_SAMPLE_01',name:'新布样',icon:'布',giftable:false,stackMax:1,stackable:false,questOnly:true,questItem:true,category:'QUEST',usable:false,droppable:false}],
   colors:{INK:'#343948',CHESTNUT:'#875742',CREAM:'#eee0bf',SAGE:'#86ac92',BLUE:'#789fc5',ROSE:'#cf8890',SKIN_LIGHT:'#f5d8ba',SKIN_WHEAT:'#e9b78e',SKIN_HONEY:'#d6a180',SKIN_DEEP:'#a96f52'},
   quests:[{id:'Q_001',name:'第一桶金',steps:[
     {type:'BUY',target:'RICE_01',count:1,title:'购买鸣山大米',objective:'前往街坊杂货铺购买 1 份鸣山大米。'},

@@ -1,5 +1,6 @@
 import type { Appearance, FormalNpcAppearance, Bootstrap, GhostProfile, PlayerState, QuestRuntime, QuestTrackerItem, SceneView, ShopPanelView } from '../shared-types/index.js';
 import {inEntranceArea,npcCollisionRect,questStepProgress,portalInteractionZone} from '../game-rules/index.js';
+import {inventoryEntries,fixedShopPrice} from '../game-rules/inventory.js';
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, innOpeningDialogue } from '../game-config/inn-opening.js';
 import { furnitureInteractionLabels, serviceInteractionNpcs } from '../game-config/interactions.js';
 import { canInteractWithNpc, npcInteractionBody, interactionDefaults, interactionLabel, scoredInteraction, selectInteraction, type InteractionCandidate, type InteractionRect } from './interaction-targeting.js';
@@ -51,6 +52,8 @@ export class GameController {
   shopOpen=false; private trading=false;
   shopQuantities:Record<string,number>={};
   itemName(id:string){return this.view?.items?.find(i=>i.id===id)?.name??id;}
+  inventoryItems(){return this.player?inventoryEntries(this.player,this.view?.items??[]):[];}
+  async useItem(itemId:string){const result=await this.write('/v1/inventory/use',{itemId,quantity:1});this.message=`已使用：${this.itemName(itemId)}`;this.onChange();return result;}
   setShopQuantity(id:string,delta:number){this.shopQuantities[id]=Math.max(1,Math.min(99,(this.shopQuantities[id]??1)+delta));this.onChange();}
   async openShop(){if(!this.canUseShop())return;await this.sync();const id=this.view?.scene.buildingId;const catalog=await this.transport(`/v1/economy/catalog/${id}`,undefined,this.token);if(!this.view||this.view.scene.buildingId!==id)return;this.view.buildings=this.view.buildings.map(b=>b.id===id?catalog.building:b);this.view.items=[...this.view.items.filter(i=>!catalog.items.some((n:any)=>n.id===i.id)),...catalog.items];this.shopOpen=true;this.onChange();}
   closeShop(){this.shopOpen=false;this.onChange();}
@@ -204,7 +207,7 @@ export class GameController {
       this.dialogue=null;this.dialogueSpeaker=null;
     } finally {this.trading=false;this.onChange();}
   }
-  shopPanel():ShopPanelView|null{const view=this.view,player=this.player,building=view?.buildings.find(candidate=>candidate.id===view.scene.buildingId);if(!view||!player||!building||!Object.keys(building.stock).length)return null;return {buildingId:building.id,title:building.name,balance:player.cash,items:Object.entries(building.stock).flatMap(([id,stock])=>{const item=view.items.find(candidate=>candidate.id===id);return item&&item.enabled!==false&&stock.enabled!==false&&!item.questOnly?[{description:item.description,stackMax:item.stackMax,id,name:item.name,icon:item.icon??'品',owned:player.inventory[id]??0,buyPrice:stock.buy,sellPrice:stock.sell,dailyLimit:stock.dailyLimit}]:[];})};}
+  shopPanel():ShopPanelView|null{const view=this.view,player=this.player,building=view?.buildings.find(candidate=>candidate.id===view.scene.buildingId);if(!view||!player||!building||!Object.keys(building.stock).length)return null;return {buildingId:building.id,title:building.name,balance:player.cash,items:Object.entries(building.stock).flatMap(([id,stock])=>{const item=view.items.find(candidate=>candidate.id===id);return item&&item.enabled!==false&&stock.enabled!==false&&!item.questOnly&&!item.questItem&&!item.keyItem&&stock.pricingMode!=='MARKET_DYNAMIC'&&['INFINITE','infinite'].includes(stock.stockMode??'INFINITE')&&(stock.canBuy!==false||stock.canSell!==false)?[{description:item.description,stackMax:item.stackMax,id,name:item.name,icon:item.icon??'品',owned:player.inventory[id]??0,buyPrice:stock.canBuy===false?0:fixedShopPrice(stock,'buy'),sellPrice:stock.canSell===false?0:fixedShopPrice(stock,'sell'),dailyLimit:stock.dailyLimit}]:[];})};}
   render(p:Painter,width:number,height:number,drawTerrain=true,drawStructures=true,drawNpcs=true,skipNpcIds:string[]=[],skipPlayer=false,drawCollision=true,drawInteractionDebug=false){
     const v=this.view;if(!v)return;if(drawTerrain)p.rect(0,0,width,height,'#b7cba5');
     const tile=32,ox=width/2-this.x*tile,oy=height/2-this.y*tile;

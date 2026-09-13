@@ -4,6 +4,7 @@ import type { PlayerState, WorldConfig } from '../../../packages/shared-types/in
 import { ensure, canStand, recoverSafePosition, positionBlockers, isOpen, starterAppearance, createStarterAppearance, formalizeAppearance, publicPlayer, sceneView, plotEntrances, inEntranceArea, questStepProgress, questStepLedgerType, questStepReference, portalInteractionZone } from '../../../packages/game-rules/index.js';
 import { starterLooks } from '../../../packages/game-config/appearance-v1.js';
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, guestRoomObjectDialogue } from '../../../packages/game-config/inn-opening.js';
+import {applyItemEffect,fixedShopPrice,itemStackLimit,requireSupportedStockMode} from '../../../packages/game-rules/inventory.js';
 export interface RequestGameContext { debugOpenAll?: boolean }
 function money(p:PlayerState,amount:number,type:string,referenceId:string,requestId:string){
   ensure(Number.isSafeInteger(p.cash+amount)&&p.cash+amount>=0&&p.cash+amount<=1e12,'INSUFFICIENT_CASH','铜钱不足或超出余额上限');
@@ -17,6 +18,7 @@ export class GameService {
     return this.repo.mutate(playerId,body.requestId,hash,p=>{
       let questDialogue:string|undefined;
       ensure(p.status==='ACTIVE','BANNED','账号不可用',403);
+      if(action==='buy'||action==='sell')ensure(Number.isSafeInteger(body.quantity)&&body.quantity>=1&&body.quantity<=99,'INVALID_QUANTITY','购买数量必须为 1 至 99 的整数',400);
       if(action!=='create')ensure(p.appearance,'CHARACTER_REQUIRED','请先创建角色',409);
       if(p.appearance&&p.sceneId===INN_LOBBY_SCENE_ID&&!p.storyFlags?.[INTRO_INN_KEEPER_DONE]&&action!=='introComplete')ensure(false,'INTRO_IN_PROGRESS','请先听陈掌柜说完开场的话',409);
       switch(action){
@@ -78,16 +80,27 @@ export class GameService {
           const safe=recoverSafePosition(world,p.sceneId,scene.spawnX,scene.spawnY);p.x=safe.x;p.y=safe.y;break;
         }
         case 'buy':case 'sell':{
-          ensure(Number.isSafeInteger(body.quantity)&&body.quantity>=1&&body.quantity<=99,'INVALID_QUANTITY','购买数量必须为 1 至 99 的整数');
-          const shop=this.shop(world,p,body.buildingId,context),stock=shop.stock[body.itemId],item=world.items.find(i=>i.id===body.itemId);ensure(stock&&item,'NOT_SOLD','该店不经营此商品');ensure(item.enabled!==false&&stock.enabled!==false,'NOT_LISTED','该商品已下架');ensure(!item.questOnly,'QUEST_ITEM','任务物品不可买卖');
+          const shop=this.shop(world,p,body.buildingId,context),stock=shop.stock[body.itemId],item=world.items.find(i=>i.id===body.itemId);ensure(stock&&item,'SHOP_ITEM_NOT_LISTED','该店不经营此商品');ensure(item.enabled!==false,'ITEM_DISABLED','该物品已停用');ensure(stock.enabled!==false,'SHOP_ITEM_DISABLED','该商品已下架');ensure(!item.questOnly&&!item.questItem&&!item.keyItem&&(action==='buy'||item.sellableByNature!==false),'ITEM_NOT_SELLABLE','任务或重要物品不可买卖');
+          ensure(action==='buy'?stock.canBuy!==false:stock.canSell!==false,'SHOP_ITEM_DISABLED','该店未开放此项交易');requireSupportedStockMode(stock);
+          const price=fixedShopPrice(stock,action);
           const day=new Date(this.now().getTime()+8*3600000).toISOString().slice(0,10),key=`${day}:${shop.id}:${body.itemId}:${action}`;
           p.tradeCounts=Object.fromEntries(Object.entries(p.tradeCounts).filter(([k])=>k.startsWith(day)));
-          ensure(stock.stockMode==='infinite'||(p.tradeCounts[key]??0)+body.quantity<=stock.dailyLimit,'DAILY_LIMIT','今日交易额度已用完');
+          ensure(['infinite','INFINITE'].includes(stock.stockMode??'INFINITE')||(p.tradeCounts[key]??0)+body.quantity<=stock.dailyLimit,'DAILY_LIMIT','今日交易额度已用完');
           const held=p.inventory[item.id]??0;
-          if(action==='buy'){ensure(held+body.quantity<=item.stackMax&&Object.values(p.inventory).reduce((a,b)=>a+b,0)+body.quantity<=100,'BAG_FULL','行囊容量不足');money(p,-stock.buy*body.quantity,'SHOP_BUY',`${shop.id}:${item.id}`,body.requestId);p.inventory[item.id]=held+body.quantity;}
-          else{ensure(held>=body.quantity,'INSUFFICIENT_ITEM','库存不足');money(p,stock.sell*body.quantity,'SHOP_SELL',`${shop.id}:${item.id}`,body.requestId);if(held===body.quantity)delete p.inventory[item.id];else p.inventory[item.id]=held-body.quantity;}
+          if(action==='buy'){ensure(held+body.quantity<=itemStackLimit(item)&&Object.values(p.inventory).reduce((a,b)=>a+b,0)+body.quantity<=100,'BAG_FULL','行囊容量不足');money(p,-price*body.quantity,'SHOP_BUY',`${shop.id}:${item.id}`,body.requestId);p.inventory[item.id]=held+body.quantity;}
+          else{ensure(held>=body.quantity,'INSUFFICIENT_ITEM_QUANTITY','库存不足');money(p,price*body.quantity,'SHOP_SELL',`${shop.id}:${item.id}`,body.requestId);if(held===body.quantity)delete p.inventory[item.id];else p.inventory[item.id]=held-body.quantity;}
           p.tradeCounts[key]=(p.tradeCounts[key]??0)+body.quantity;
           if(action==='sell'&&body.itemId==='RICE_01'&&!p.ledger.some(l=>l.type==='QUEST_REWARD'&&l.referenceId==='Q_001')&&p.ledger.some(l=>l.type==='SHOP_BUY'&&l.referenceId.includes('RICE_01'))){money(p,20,'QUEST_REWARD','Q_001',body.requestId);questDialogue='任务完成：第一桶金，获得 20 文奖励';}
+          break;
+        }
+        case 'useItem':{
+          ensure(Number.isSafeInteger(body.quantity)&&body.quantity===1,'INVALID_QUANTITY','每次只能使用一件物品',400);
+          const item=world.items.find(i=>i.id===body.itemId);ensure(item,'UNKNOWN_ITEM','物品不存在');
+          ensure(item.enabled!==false,'ITEM_DISABLED','该物品已停用');
+          const held=p.inventory[item.id]??0;ensure(held>=1,'ITEM_NOT_OWNED','行囊中没有此物品');
+          applyItemEffect(p,item);
+          if(held===1)delete p.inventory[item.id];else p.inventory[item.id]=held-1;
+          p.ledger.push({id:randomUUID(),type:'ITEM_USE',amount:0,before:p.cash,after:p.cash,referenceId:item.id,requestId:body.requestId,createdAt:new Date().toISOString()});
           break;
         }
         case 'acceptQuest':{

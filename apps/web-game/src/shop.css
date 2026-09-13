@@ -11,3 +11,12 @@
 #shop-panel{bottom:140px;max-height:65dvh;overflow:auto;width:min(460px,60vw)}
 .shop-item>div:last-child{display:flex;flex-wrap:wrap;align-items:center;max-width:140px}
 .shop-item button{min-height:34px;min-width:32px}
+/* Functional inventory V1.1; visual styling remains deliberately lightweight. */
+#inventory{pointer-events:auto;z-index:5;max-width:min(390px,46vw)}
+#inventory>button{border:0;border-radius:8px;background:#527c69;color:#fff;padding:8px 14px;cursor:pointer}
+.inventory-panel{margin-top:8px;width:min(370px,42vw);max-height:min(360px,70vh);overflow:auto;padding:12px;border-radius:10px;background:#fffaf0;box-shadow:0 8px 24px #26352d40;color:#31483a}
+.inventory-panel h3{margin:0 0 8px}.inventory-panel p{margin:6px 0;line-height:1.45}
+.inventory-list{display:grid;gap:5px;max-height:145px;overflow:auto}
+.inventory-list button,.inventory-detail button{padding:7px;border:1px solid #aac5ac;border-radius:6px;background:#f3f8ef;text-align:left;cursor:pointer}
+.inventory-list button.selected{background:#dbe9d9;border-color:#527c69}
+.inventory-detail{border-top:1px solid #d9e2d4;margin-top:9px;padding-top:9px}

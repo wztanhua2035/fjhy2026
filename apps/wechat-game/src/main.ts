@@ -8,6 +8,7 @@ import { mobileLayout } from './layout';
 import { baishiCompatibility } from './compatibility';
 import { mobileTypography } from './typography';
 import { MobileDialogueUi } from './dialogue-ui';
+import {itemCategoryNames} from '../../../packages/game-rules/inventory.js';
 declare const wx: any;
 
 declare const __WECHAT_API_BASE_URL__: string;
@@ -103,8 +104,12 @@ class BaishiWechatScene extends Phaser.Scene {
   private set shopOpen(value:boolean){controller.shopOpen=value;}
   private shopPage=0;
   private bagOpen=false;
+  private bagSelected=0;
   private bagToggle!:Phaser.GameObjects.Text;
   private bagText!:Phaser.GameObjects.Text;
+  private bagPrev!:Phaser.GameObjects.Text;
+  private bagNext!:Phaser.GameObjects.Text;
+  private bagUse!:Phaser.GameObjects.Text;
   private shopPrev!:Phaser.GameObjects.Text;
   private shopNext!:Phaser.GameObjects.Text;
   private shopToggle!: Phaser.GameObjects.Text;
@@ -188,9 +193,12 @@ class BaishiWechatScene extends Phaser.Scene {
     this.shopPrev=this.button(WIDTH-510,HEIGHT-90,100,'上一页',()=>{this.shopPage=Math.max(0,this.shopPage-1);this.syncUi();}).setVisible(false);
     this.shopNext=this.button(WIDTH-180,HEIGHT-90,100,'下一页',()=>{this.shopPage++;this.syncUi();}).setVisible(false);
     this.cameras.main.ignore([this.shopPrev,this.shopNext]);
-    this.bagToggle=this.button(insets.left+80,insets.top+80,110,'行囊',()=>{this.bagOpen=!this.bagOpen;this.syncUi();}).setVisible(false);
-    this.bagText=this.add.text(insets.left+20,insets.top+115,'',{fontFamily:'Microsoft YaHei, Arial',fontSize:'18px',color:'#4c392b',backgroundColor:'#fff9e9',padding:{x:16,y:12},lineSpacing:6,wordWrap:{width:320}}).setDepth(UI_DEPTH_BASE+39).setVisible(false);
-    this.cameras.main.ignore([this.bagToggle,this.bagText]);
+    this.bagToggle=this.button(insets.left+80,insets.top+80,110,'背包',()=>{this.bagOpen=!this.bagOpen;if(this.bagOpen){this.shopOpen=false;this.clearStick();}this.syncUi();}).setVisible(false);
+    this.bagText=this.add.text(insets.left+20,insets.top+115,'',{fontFamily:'Microsoft YaHei, Arial',fontSize:'16px',color:'#4c392b',backgroundColor:'#fff9e9',padding:{x:16,y:12},lineSpacing:5,wordWrap:{width:380},fixedWidth:410}).setDepth(UI_DEPTH_BASE+39).setVisible(false);
+    this.bagPrev=this.button(insets.left+80,HEIGHT-insets.bottom-94,95,'上一件',()=>{this.bagSelected=Math.max(0,this.bagSelected-1);this.syncUi();}).setVisible(false);
+    this.bagNext=this.button(insets.left+190,HEIGHT-insets.bottom-94,95,'下一件',()=>{this.bagSelected++;this.syncUi();}).setVisible(false);
+    this.bagUse=this.button(insets.left+300,HEIGHT-insets.bottom-94,95,'使用',()=>{const item=controller.inventoryItems()[this.bagSelected];if(item?.usable)void this.run(()=>controller.useItem(item.id));}).setVisible(false);
+    this.cameras.main.ignore([this.bagToggle,this.bagText,this.bagPrev,this.bagNext,this.bagUse]);
     this.safeResetButton = this.button(insets.left + 100, insets.top + 108, 176, '恢复到安全点', () => void this.run(() => controller.write('/v1/player/debug-safe-reset', {})));
     this.safeResetButton.setVisible(false);
     this.genderToggle = this.button(insets.left + 105, HEIGHT - insets.bottom - 75, 150, '上一步', () => { this.creationStep = Math.max(0, this.creationStep - 1); this.syncUi(); });
@@ -300,7 +308,12 @@ class BaishiWechatScene extends Phaser.Scene {
     this.restartCancel.setVisible(home && this.confirmingRestart);
     this.restartAccept.setVisible(home && this.confirmingRestart);
     this.bagToggle.setVisible(!home&&hasPlayer&&!controller.dialogue&&!this.shopOpen);
-    this.bagText.setVisible(!home&&hasPlayer&&!controller.dialogue&&!this.shopOpen&&this.bagOpen).setText(Object.entries(player?.inventory??{}).map(([id,n])=>`${controller.itemName(id)} ×${n}`).join('\n')||'行囊：空');
+    const bagItems=controller.inventoryItems(),showBag=!home&&hasPlayer&&!controller.dialogue&&!this.shopOpen&&this.bagOpen;
+    this.bagSelected=Math.min(this.bagSelected,Math.max(0,bagItems.length-1));
+    const selected=bagItems[this.bagSelected];
+    const bagPage=Math.floor(this.bagSelected/8)*8;
+    this.bagText.setVisible(showBag).setText(bagItems.length?`背包 ${bagItems.length} 种\n${bagItems.slice(bagPage,bagPage+8).map((item,index)=>`${index+bagPage===this.bagSelected?'▶':'　'}${item.icon} ${item.name} ×${item.quantity}`).join('\n')}${bagItems.length>8?`\n第 ${Math.floor(bagPage/8)+1} 页`:''}\n\n${selected?.name??''} · ${selected?itemCategoryNames[selected.category]:''}\n${selected?.description??''}\n${selected?.usable?'可使用':'暂不可使用'}`:'行囊里暂时没有东西。');
+    this.bagPrev.setVisible(showBag&&bagItems.length>1);this.bagNext.setVisible(showBag&&bagItems.length>1);this.bagUse.setVisible(showBag&&!!selected?.usable&&!controller.busy&&!controller.pending);
     if (home) {
       this.stickBase.setVisible(false); this.stick.setVisible(false); this.stickHit.setVisible(false); this.primary.setVisible(false); this.shopToggle.setVisible(false); this.safeResetButton.setVisible(false); this.genderToggle.setVisible(false);
       for (const choice of this.creationChoices) choice.setVisible(false);
@@ -320,7 +333,7 @@ class BaishiWechatScene extends Phaser.Scene {
     this.safeResetButton.setVisible(hasPlayer && allowWechatDebug(__WECHAT_DEV_SAFE_RESET__, wx.getAccountInfoSync?.().miniProgram?.envVersion));
     if (this.shopOpen) this.shopToggle.setPosition(WIDTH - 80, 125); else this.shopToggle.setPosition(WIDTH - safeInsets(WIDTH, HEIGHT).right - 92, HEIGHT - safeInsets(WIDTH, HEIGHT).bottom - 150);
     if (dialogue || isShop) this.clearStick();
-    this.stickBase.setVisible(hasPlayer && !dialogue); this.stick.setVisible(hasPlayer && !dialogue); this.stickHit.setVisible(hasPlayer && !dialogue);
+    this.stickBase.setVisible(hasPlayer && !dialogue && !showBag); this.stick.setVisible(hasPlayer && !dialogue && !showBag); this.stickHit.setVisible(hasPlayer && !dialogue && !showBag);
     if (controller.boot && !hasPlayer) this.syncCreationUi();
     else { this.primary.removeAllListeners('pointerdown').on('pointerdown', () => void this.run(() => controller.interact())); this.primary.setText(controller.nearby()?.label?.replace(/^进入/, '进 ') ?? '互动'); this.primary.setVisible(hasPlayer && !isShop && !dialogue); }
     this.hud.setText(hasPlayer ? `${controller.view?.scene.name ?? '横阳'} · ${player!.cash} 文` : '富甲横阳 · 白石街真机体验');
@@ -365,13 +378,13 @@ class BaishiWechatScene extends Phaser.Scene {
       row.minus.setPosition(left+85,y+67);row.count.setPosition(left+120,y+57).setText(String(q)).setVisible(true);row.plus.setPosition(left+165,y+67);
       row.buy.setPosition(left+285,y+67).setText('购买');row.sell.setPosition(left+405,y+67).setText(`卖 ${item.sellPrice}`);
       const handlers:[Phaser.GameObjects.Text,()=>void][]=[[row.minus,()=>controller.setShopQuantity(item.id,-1)],[row.plus,()=>controller.setShopQuantity(item.id,1)],[row.buy,()=>void this.run(()=>controller.trade('buy',item.id,q))],[row.sell,()=>void this.run(()=>controller.trade('sell',item.id,q))]];
-      for(const [button,handler] of handlers){button.setVisible(true).removeAllListeners('pointerdown');if(controller.busy||controller.pending)button.disableInteractive().setAlpha(.5);else button.setInteractive().setAlpha(1).on('pointerdown',handler);}
+      for(const [button,handler] of handlers){button.setVisible(true).removeAllListeners('pointerdown');const unavailable=(button===row.buy&&item.buyPrice===0)||(button===row.sell&&item.sellPrice===0);if(controller.busy||controller.pending||unavailable)button.disableInteractive().setAlpha(.5);else button.setInteractive().setAlpha(1).on('pointerdown',handler);}
     });
   }
   update(_: number, delta: number) {
     if (!this.ready) return;
     this.fpsElapsed += delta; this.fpsFrames++; if (this.fpsElapsed >= 500) { this.fps = Math.round(this.fpsFrames * 1000 / this.fpsElapsed); this.fpsElapsed = 0; this.fpsFrames = 0; }
-    controller.tick(Math.min(delta / 1000, .05), this.homeMode || this.contentError || controller.dialogue || this.shopOpen ? 0 : this.move.x, this.homeMode || this.contentError || controller.dialogue || this.shopOpen ? 0 : this.move.y);
+    controller.tick(Math.min(delta / 1000, .05), this.homeMode || this.contentError || controller.dialogue || this.shopOpen || this.bagOpen ? 0 : this.move.x, this.homeMode || this.contentError || controller.dialogue || this.shopOpen || this.bagOpen ? 0 : this.move.y);
     this.frame.setText(`${this.fps} FPS`);
     this.render();
   }

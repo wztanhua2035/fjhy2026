@@ -14,6 +14,7 @@ import { ensure, GameError, sceneView, publicPlayer, questStepProgress } from '.
 import { starterLooks, starterSkinTones } from '../../../packages/game-config/appearance-v1.js';
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID } from '../../../packages/game-config/inn-opening.js';
 import { initialWorld } from '../../../packages/game-config/index.js';
+import {inventoryEntries} from '../../../packages/game-rules/inventory.js';
 declare module '@fastify/jwt' {interface FastifyJWT {payload:{sub:string};user:{sub:string}}}
 const requestId=z.string().uuid(),id=z.string().min(1).max(80);
 const schemas={
@@ -23,8 +24,9 @@ const schemas={
   ]),
   move:z.object({requestId,x:z.number().finite(),y:z.number().finite(),path:z.array(z.object({x:z.number().finite(),y:z.number().finite()}).strict()).min(1).max(256).optional()}).strict(),
   enter:z.object({requestId,plotId:id,entranceId:id.optional()}).strict(),portal:z.object({requestId,portalId:id}).strict(),
-  buy:z.object({requestId,buildingId:id,itemId:id,quantity:z.number().int().min(1).max(99)}).strict(),
-  sell:z.object({requestId,buildingId:id,itemId:id,quantity:z.number().int().min(1).max(99)}).strict(),
+  buy:z.object({requestId,buildingId:id,itemId:id,quantity:z.number()}).strict(),
+  sell:z.object({requestId,buildingId:id,itemId:id,quantity:z.number()}).strict(),
+  useItem:z.object({requestId,itemId:id,quantity:z.number()}).strict(),
   talk:z.object({requestId,npcId:id}).strict(),
   introComplete:z.object({requestId}).strict(),inspect:z.object({requestId,zoneId:id}).strict(),
   purchaseAppearance:z.object({requestId,buildingId:id,appearanceId:id}).strict(),
@@ -97,9 +99,10 @@ if(status>=500){
     const w=await repo.world(),p=await repo.player(req.user.sub);
     ensure(p.appearance,'CHARACTER_REQUIRED','请先创建角色',409);
     const building=game.shop(w,p,(req.params as {buildingId:string}).buildingId,requestGameContext(req));
-    return {building,items:w.items.filter(i=>building.stock[i.id]&&!i.questOnly)};
+    return {building,items:w.items.filter(i=>building.stock[i.id]&&!i.questOnly&&!i.questItem&&!i.keyItem)};
   });
-  const routes:Record<keyof typeof schemas,string>={create:'/v1/player/appearance/create',move:'/v1/player/move',enter:'/v1/world/enter',portal:'/v1/world/portal',buy:'/v1/economy/buy',sell:'/v1/economy/sell',talk:'/v1/npc/talk',introComplete:'/v1/intro/complete',inspect:'/v1/world/inspect',purchaseAppearance:'/v1/appearance/purchase',changeAppearance:'/v1/appearance/change'};
+  app.get('/v1/inventory',async req=>{const [world,player]=await Promise.all([repo.world(),repo.player(req.user.sub)]);return {inventory:player.inventory,items:inventoryEntries(player,world.items)};});
+  const routes:Record<keyof typeof schemas,string>={create:'/v1/player/appearance/create',move:'/v1/player/move',enter:'/v1/world/enter',portal:'/v1/world/portal',buy:'/v1/economy/buy',sell:'/v1/economy/sell',useItem:'/v1/inventory/use',talk:'/v1/npc/talk',introComplete:'/v1/intro/complete',inspect:'/v1/world/inspect',purchaseAppearance:'/v1/appearance/purchase',changeAppearance:'/v1/appearance/change'};
   for(const action of Object.keys(routes) as (keyof typeof schemas)[])app.post(routes[action],async req=>game.action(req.user.sub,action,schemas[action].parse(req.body),requestGameContext(req)));
   app.post('/v1/player/debug-safe-reset',async req=>{ensure(env.appEnv==='DEV'&&env.mode!=='production','NOT_FOUND','接口不存在',404);return game.action(req.user.sub,'safeReset',z.object({requestId}).strict().parse(req.body));});
   app.get('/v1/player/appearance',async req=>{const p=await repo.player(req.user.sub);return {appearance:p.appearance,owned:p.cosmetics};});

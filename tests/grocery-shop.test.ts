@@ -24,8 +24,8 @@ test('商品目录、数量购买、余额、背包和重登恢复',async()=>{
  }finally{await f.app.close();}
 });
 for(const [label,body,code] of [
- ['零数量',{quantity:0},'INVALID_INPUT'],['负数',{quantity:-1},'INVALID_INPUT'],['小数',{quantity:1.5},'INVALID_INPUT'],['超量',{quantity:100},'INVALID_INPUT'],
- ['未知商品',{itemId:'UNKNOWN_01'},'NOT_SOLD'],['不属于店铺',{itemId:'ERRAND_PACKAGE_01'},'NOT_SOLD'],['伪造价格',{totalPrice:0},'INVALID_INPUT'],['钱不足',{quantity:99},'INSUFFICIENT_CASH'],['店铺错误',{buildingId:'B_TRADE'},'WRONG_SHOP']
+ ['零数量',{quantity:0},'INVALID_QUANTITY'],['负数',{quantity:-1},'INVALID_QUANTITY'],['小数',{quantity:1.5},'INVALID_QUANTITY'],['超量',{quantity:100},'INVALID_QUANTITY'],
+ ['未知商品',{itemId:'UNKNOWN_01'},'SHOP_ITEM_NOT_LISTED'],['不属于店铺',{itemId:'ERRAND_PACKAGE_01'},'SHOP_ITEM_NOT_LISTED'],['伪造价格',{totalPrice:0},'INVALID_INPUT'],['钱不足',{quantity:99},'INSUFFICIENT_CASH'],['店铺错误',{buildingId:'B_TRADE'},'WRONG_SHOP']
 ] as const)test(label,async()=>{const f=await fixture();try{const r=await f.buy(body);assert.equal(r.json().code,code);assert.equal((await f.repo.player(f.p.id)).cash,120);assert.deepEqual((await f.repo.player(f.p.id)).inventory,{});}finally{await f.app.close();}});
 test('叠加上限与背包上限失败不扣款',async()=>{const f=await fixture();try{f.p.inventory.WATER_01=99;assert.equal((await f.buy()).json().code,'BAG_FULL');f.p.inventory={RICE_01:99,MILK_01:1};assert.equal((await f.buy()).json().code,'BAG_FULL');assert.equal((await f.repo.player(f.p.id)).cash,120);}finally{await f.app.close();}});
 test('相同 requestId 并发只交易一次，改变内容冲突',async()=>{const f=await fixture();try{const requestId=randomUUID(),results=await Promise.all(Array.from({length:8},()=>f.buy({requestId})));for(const r of results)assert.deepEqual(r.json(),results[0].json());assert.equal((await f.repo.player(f.p.id)).cash,114);assert.equal((await f.repo.player(f.p.id)).inventory.WATER_01,1);assert.equal((await f.buy({requestId,quantity:2})).json().code,'REQUEST_CONFLICT');}finally{await f.app.close();}});
@@ -34,7 +34,7 @@ test('后台发布改价、全局下架与店铺下架，下一次读取立即�
  const admin={authorization:`Bearer ${env.adminToken}`};const draft=(await f.app.inject({method:'POST',url:'/admin/releases',headers:admin,payload:{config:w,basedOn:w.configVersion}})).json();assert.ok(draft.id);
  for(const status of ['TEST','PUBLISHED'])assert.equal((await f.app.inject({method:'POST',url:`/admin/releases/${draft.id}/transition`,headers:admin,payload:{status}})).statusCode,200);
  assert.equal((await f.app.inject({url:'/v1/economy/catalog/B_GROCERY',headers:f.headers})).json().building.stock.WATER_01.buy,17);assert.equal((await f.buy()).json().player.cash,103);
- const live=f.repo.versions.find(v=>v.status==='PUBLISHED')!.config;live.items.find(i=>i.id==='WATER_01')!.enabled=false;assert.equal((await f.buy()).json().code,'NOT_LISTED');live.items.find(i=>i.id==='WATER_01')!.enabled=true;live.buildings.find(b=>b.id==='B_GROCERY')!.stock.WATER_01.enabled=false;assert.equal((await f.buy()).json().code,'NOT_LISTED');
+ const live=f.repo.versions.find(v=>v.status==='PUBLISHED')!.config;live.items.find(i=>i.id==='WATER_01')!.enabled=false;assert.equal((await f.buy()).json().code,'ITEM_DISABLED');live.items.find(i=>i.id==='WATER_01')!.enabled=true;live.buildings.find(b=>b.id==='B_GROCERY')!.stock.WATER_01.enabled=false;assert.equal((await f.buy()).json().code,'SHOP_ITEM_DISABLED');
  }finally{await f.app.close();}});
 test('无限库存忽略旧每日额度；大米 BUY 与 SELL 任务兼容',async()=>{const f=await fixture();try{
  const stock=f.repo.versions[0].config.buildings.find(b=>b.id==='B_GROCERY')!.stock;stock.RICE_01.dailyLimit=1;
