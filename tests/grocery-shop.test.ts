@@ -43,6 +43,17 @@ test('无限库存忽略旧每日额度；大米 BUY 与 SELL 任务兼容',asyn
  f.repo.players.get(f.p.id)!.sceneId='INTERIOR_B_TRADE';const sold=await f.post('/v1/economy/sell',{requestId:randomUUID(),buildingId:'B_TRADE',itemId:'RICE_01',quantity:1});assert.equal(sold.statusCode,200);assert.equal(sold.json().player.cash,132);assert.ok(sold.json().player.ledger.some((l:any)=>l.type==='QUEST_REWARD'&&l.referenceId==='Q_001'));
  }finally{await f.app.close();}});
 test('旧配置迁移仅执行一次，运营改价与下架不会被重置',async()=>{const repo=new MemoryRepository(),w=repo.versions[0].config,b=w.buildings.find(b=>b.id==='B_GROCERY')!;delete b.servicePointId;delete b.clerkNpcId;w.items=w.items.filter(i=>!['WATER_01','MILK_01'].includes(i.id));delete b.stock.WATER_01;delete b.stock.MILK_01;b.stock.RICE_01.buy=19;assert.equal((await ensureGroceryShop(repo)).published,true);const live=repo.versions.find(v=>v.status==='PUBLISHED')!.config;assert.equal(live.buildings.find(b=>b.id==='B_GROCERY')!.stock.RICE_01.buy,19);live.buildings.find(b=>b.id==='B_GROCERY')!.stock.WATER_01.enabled=false;assert.equal((await ensureGroceryShop(repo)).published,false);});
+test('staging 旧室内没有语义服务区时迁移不阻断启动，仍可经店员购买且只发布一次',async()=>{
+ const repo=new MemoryRepository(),old=repo.versions[0].config,scene=old.scenes.find(s=>s.id==='INTERIOR_B_GROCERY')!,building=old.buildings.find(b=>b.id==='B_GROCERY')!;
+ delete scene.interior;scene.collision=[{x:0,y:0,width:1,height:1}];delete building.servicePointId;delete building.clerkNpcId;
+ old.items=old.items.filter(item=>item.id!=='WATER_01');delete building.stock.WATER_01;
+ assert.equal((await ensureGroceryShop(repo)).published,true);
+ const live=await repo.world(),shop=live.buildings.find(b=>b.id==='B_GROCERY')!;
+ assert.equal(shop.servicePointId,undefined);assert.equal(shop.clerkNpcId,'NPC_GROCERY_CLERK');
+ assert.deepEqual(live.scenes.find(s=>s.id===scene.id)!.collision,scene.collision);
+ assert.equal((await ensureGroceryShop(repo)).published,false);
+ const app=await buildApp(repo,env);try{assert.equal((await app.inject({url:'/healthz'})).statusCode,200);assert.equal((await app.inject({url:'/readyz'})).statusCode,200);}finally{await app.close();}
+});
 test('后台保护稳定 ID、非法价格和图标绝对 URL',async()=>{const repo=new MemoryRepository(),w=await repo.world();const renamed=structuredClone(w);renamed.items[0].id='RENAMED';assert.throws(()=>validateWorld(renamed,w));const bad=structuredClone(w);bad.items[0].iconResourceId='https://vendor/image.png';assert.throws(()=>validateWorld(bad,w));w.buildings[1].stock.RICE_01.buy=-1;assert.throws(()=>validateWorld(w));});
 test('共享控制器：柜台打开、最新价格、数量、快速连点与简洁结果',async()=>{const f=await fixture();try{
  const controller=new GameController(async(url,body)=>{const r=await f.app.inject({url,method:body?'POST':'GET',headers:f.headers,payload:body as any});if(r.statusCode>=400)throw Object.assign(new Error(r.json().message),{status:r.statusCode});return r.json();});await controller.refresh();assert.equal(controller.canUseShop(),true);await controller.openShop();assert.equal(controller.shopPanel()?.items.length,10);controller.setShopQuantity('WATER_01',2);assert.equal(controller.shopQuantities.WATER_01,3);await Promise.all([controller.trade('buy','WATER_01',3),controller.trade('buy','WATER_01',3)]);assert.equal(controller.player?.cash,102);assert.equal(controller.message.split('\n').length,3);assert.equal(controller.itemName('WATER_01'),'饮用水');
