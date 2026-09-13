@@ -18,8 +18,9 @@ export interface PlotConfig extends Rect {
 export interface BuildingConfig {
   id: string; name: string; buildingType: string; assetKey: string; interiorSceneId: string;
   openingHours: [string, string]; enabled: boolean; buyable: boolean; baseValue: number;
-  stock: Record<string, { buy: number; sell: number; dailyLimit: number }>;
+  stock: Record<string, { buy: number; sell: number; dailyLimit: number; enabled?: boolean; stockMode?: 'infinite' }>;
   /** Editable presentation only. Gameplay continues to use the stable building id. */
+  clerkNpcId?: string; servicePointId?: string;
   displayName?: string;
   description?: string;
   signMode?: 'custom_image' | 'dynamic_template';
@@ -40,7 +41,7 @@ export interface SceneConfig {
   mapAsset: string; roads: Rect[]; collision: Rect[]; portals: Portal[]; buildingId?: string;
   spawnX: number; spawnY: number; interior?: { zones: InteriorZone[] };
 }
-export interface ItemConfig { id: string; name: string; icon?: string; basePrice: number; giftable: boolean; stackMax: number; questOnly?: boolean }
+export interface ItemConfig { id: string; name: string; icon?: string; basePrice: number; giftable: boolean; stackMax: number; questOnly?: boolean; category?: string; description?: string; usable?: boolean; effectType?: string; effectValue?: number; iconResourceId?: string; enabled?: boolean }
 export interface AppearanceDefinition { id: string; partType: string; name: string; genderScope: Gender | 'ALL'; assetKey: string; price: number; colors: string[]; enabled: boolean; starter: boolean }
 export type QuestStepType = 'BUY'|'SELL'|'ACQUIRE'|'DELIVER'|'REPORT';
 export interface QuestStepConfig { type: QuestStepType; target: string; count: number; title?: string; objective?: string; npcId?: string; completionDialogue?: string }
@@ -61,6 +62,6 @@ export interface PlayerState {
 export interface GhostProfile { playerId: string; nickname: string; appearance: Appearance; title: string; updatedAt: string }
 export interface MailboxPayload { items: {itemId: string; quantity: number}[]; cash: number }
 export interface SceneView { scene: SceneConfig; plots: PlotConfig[]; buildings: BuildingConfig[]; items: ItemConfig[]; npcs: NPCConfig[]; phase: string; playerPosition?: { sceneId: string; x: number; y: number } }
-export interface ShopItemView { id: string; name: string; icon: string; owned: number; buyPrice: number; sellPrice: number; dailyLimit: number }
+export interface ShopItemView { id: string; name: string; icon: string; owned: number; buyPrice: number; sellPrice: number; dailyLimit: number; description?: string; stackMax?: number }
 export interface ShopPanelView { buildingId: string; title: string; balance: number; items: ShopItemView[] }
 export interface Bootstrap { player: PlayerState; serverTime: string; worldVersion: number; configVersion: number; assetVersion: number; assetManifest: string; colors: Record<string,string>; appearances: AppearanceDefinition[]; features: Record<string,boolean> }

@@ -81,7 +81,7 @@ class BaishiWechatScene extends Phaser.Scene {
   private shopTitle!: Phaser.GameObjects.Text;
   private shopBalance!: Phaser.GameObjects.Text;
   private shopFeedback!: Phaser.GameObjects.Text;
-  private shopRows: { icon: Phaser.GameObjects.Text; title: Phaser.GameObjects.Text; detail: Phaser.GameObjects.Text; buy: Phaser.GameObjects.Text; sell: Phaser.GameObjects.Text }[] = [];
+  private shopRows: { icon: Phaser.GameObjects.Text; title: Phaser.GameObjects.Text; detail: Phaser.GameObjects.Text; buy: Phaser.GameObjects.Text; sell: Phaser.GameObjects.Text; minus: Phaser.GameObjects.Text; plus: Phaser.GameObjects.Text; count: Phaser.GameObjects.Text }[] = [];
   private frame!: Phaser.GameObjects.Text;
   private questPanel!: Phaser.GameObjects.Text;
   private questToggle!: Phaser.GameObjects.Text;
@@ -99,7 +99,14 @@ class BaishiWechatScene extends Phaser.Scene {
   constructor() { super('baishi-wechat'); }
   private ready = false;
   private contentError = '';
-  private shopOpen = false;
+  private get shopOpen(){return controller.shopOpen;}
+  private set shopOpen(value:boolean){controller.shopOpen=value;}
+  private shopPage=0;
+  private bagOpen=false;
+  private bagToggle!:Phaser.GameObjects.Text;
+  private bagText!:Phaser.GameObjects.Text;
+  private shopPrev!:Phaser.GameObjects.Text;
+  private shopNext!:Phaser.GameObjects.Text;
   private shopToggle!: Phaser.GameObjects.Text;
   private safeResetButton!: Phaser.GameObjects.Text;
   private genderToggle!: Phaser.GameObjects.Text;
@@ -177,7 +184,13 @@ class BaishiWechatScene extends Phaser.Scene {
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => { if (p.isDown && p.id === this.stickPointer) this.setStick(p); });
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => { if (p.id === this.stickPointer) this.clearStick(); });
     platform.onLifecycle(state => { if (state === 'hide') this.clearStick(); });
-    this.shopToggle = this.button(WIDTH - insets.right - 92, HEIGHT - insets.bottom - 150, 112, '交易', () => { this.shopOpen = !this.shopOpen; this.clearStick(); this.syncUi(); });
+    this.shopToggle = this.button(WIDTH - insets.right - 92, HEIGHT - insets.bottom - 150, 112, '交易', () => void this.run(async()=>{this.clearStick();if(this.shopOpen)controller.closeShop();else {await controller.openShop();this.shopPage=0;}}));
+    this.shopPrev=this.button(WIDTH-510,HEIGHT-90,100,'上一页',()=>{this.shopPage=Math.max(0,this.shopPage-1);this.syncUi();}).setVisible(false);
+    this.shopNext=this.button(WIDTH-180,HEIGHT-90,100,'下一页',()=>{this.shopPage++;this.syncUi();}).setVisible(false);
+    this.cameras.main.ignore([this.shopPrev,this.shopNext]);
+    this.bagToggle=this.button(insets.left+80,insets.top+80,110,'行囊',()=>{this.bagOpen=!this.bagOpen;this.syncUi();}).setVisible(false);
+    this.bagText=this.add.text(insets.left+20,insets.top+115,'',{fontFamily:'Microsoft YaHei, Arial',fontSize:'18px',color:'#4c392b',backgroundColor:'#fff9e9',padding:{x:16,y:12},lineSpacing:6,wordWrap:{width:320}}).setDepth(UI_DEPTH_BASE+39).setVisible(false);
+    this.cameras.main.ignore([this.bagToggle,this.bagText]);
     this.safeResetButton = this.button(insets.left + 100, insets.top + 108, 176, '恢复到安全点', () => void this.run(() => controller.write('/v1/player/debug-safe-reset', {})));
     this.safeResetButton.setVisible(false);
     this.genderToggle = this.button(insets.left + 105, HEIGHT - insets.bottom - 75, 150, '上一步', () => { this.creationStep = Math.max(0, this.creationStep - 1); this.syncUi(); });
@@ -286,24 +299,26 @@ class BaishiWechatScene extends Phaser.Scene {
     this.homeRestart.setVisible(home && hasPlayer && !this.confirmingRestart);
     this.restartCancel.setVisible(home && this.confirmingRestart);
     this.restartAccept.setVisible(home && this.confirmingRestart);
+    this.bagToggle.setVisible(!home&&hasPlayer&&!controller.dialogue&&!this.shopOpen);
+    this.bagText.setVisible(!home&&hasPlayer&&!controller.dialogue&&!this.shopOpen&&this.bagOpen).setText(Object.entries(player?.inventory??{}).map(([id,n])=>`${controller.itemName(id)} ×${n}`).join('\n')||'行囊：空');
     if (home) {
       this.stickBase.setVisible(false); this.stick.setVisible(false); this.stickHit.setVisible(false); this.primary.setVisible(false); this.shopToggle.setVisible(false); this.safeResetButton.setVisible(false); this.genderToggle.setVisible(false);
       for (const choice of this.creationChoices) choice.setVisible(false);
-      this.questToggle.setVisible(false); this.questPanel.setVisible(false); this.shopBackdrop.setVisible(false); this.shopTitle.setVisible(false); this.shopBalance.setVisible(false); this.shopFeedback.setVisible(false);
+      this.shopPrev.setVisible(false);this.shopNext.setVisible(false);this.questToggle.setVisible(false); this.questPanel.setVisible(false); this.shopBackdrop.setVisible(false); this.shopTitle.setVisible(false); this.shopBalance.setVisible(false); this.shopFeedback.setVisible(false);
       for (const row of this.shopRows) Object.values(row).forEach(node => node.setVisible(false));
       this.portraitDim.setVisible(false); this.dialogueUi.sync('', '', false); this.message.setVisible(false); this.hud.setVisible(false); this.clearStick(); return;
     }
     this.message.setVisible(true); this.hud.setVisible(true);
     this.stickBase.setVisible(hasPlayer); this.stick.setVisible(hasPlayer); this.stickHit.setVisible(hasPlayer);
     const dialogue = !!controller.dialogue && !!controller.dialogueSpeaker;
-    const canShop = !dialogue && !!controller.shopPanel() && controller.canUseNpcServices();
+    const canShop = !dialogue && !!controller.shopPanel() && controller.canUseShop();
     this.genderToggle.setVisible(false);
     for (const button of this.creationChoices) button.setVisible(false);
-    if (!canShop || controller.offline || controller.pending) this.shopOpen = false;
+    if (!canShop || controller.offline) this.shopOpen = false;
     const isShop = canShop && this.shopOpen;
-    this.shopToggle.setVisible(canShop).setText(this.shopOpen ? '收起交易' : '交易');
+    this.shopToggle.setVisible(canShop).setText(this.shopOpen ? '收起商品' : '看看商品');
     this.safeResetButton.setVisible(hasPlayer && allowWechatDebug(__WECHAT_DEV_SAFE_RESET__, wx.getAccountInfoSync?.().miniProgram?.envVersion));
-    if (this.shopOpen) this.shopToggle.setPosition(WIDTH - 530, 248); else this.shopToggle.setPosition(WIDTH - safeInsets(WIDTH, HEIGHT).right - 92, HEIGHT - safeInsets(WIDTH, HEIGHT).bottom - 150);
+    if (this.shopOpen) this.shopToggle.setPosition(WIDTH - 80, 125); else this.shopToggle.setPosition(WIDTH - safeInsets(WIDTH, HEIGHT).right - 92, HEIGHT - safeInsets(WIDTH, HEIGHT).bottom - 150);
     if (dialogue || isShop) this.clearStick();
     this.stickBase.setVisible(hasPlayer && !dialogue); this.stick.setVisible(hasPlayer && !dialogue); this.stickHit.setVisible(hasPlayer && !dialogue);
     if (controller.boot && !hasPlayer) this.syncCreationUi();
@@ -328,8 +343,31 @@ class BaishiWechatScene extends Phaser.Scene {
     this.questToggle?.setText(`任务 ${this.questCollapsed ? '▼' : '▲'}`);
     this.questPanel?.setText(task ? formatCyclingQuestTracker(formatQuestTracker(task), this.questIndex, tasks.length) : '暂无进行中的任务').setVisible(!!controller.player?.appearance && !this.questCollapsed && !this.shopOpen && !controller.dialogue);
   }
-  private ensureShopRows(count: number) { while (this.shopRows.length < count) { const icon = this.add.text(WIDTH - 448, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '18px', color: '#6a472c', backgroundColor: '#f1d58d', fixedWidth: 34, fixedHeight: 34, align: 'center', padding: { top: 6 } }).setDepth(UI_DEPTH_BASE + 39); const title = this.add.text(WIDTH - 405, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '15px', color: '#4c392b' }).setDepth(UI_DEPTH_BASE + 39); const detail = this.add.text(WIDTH - 405, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '14px', color: '#806f5c' }).setDepth(UI_DEPTH_BASE + 39); const buy = this.button(WIDTH - 186, 0, 76, '买入', () => {}); const sell = this.button(WIDTH - 110, 0, 76, '出售', () => {}); this.cameras.main.ignore([icon, title, detail, buy, sell]); this.shopRows.push({ icon, title, detail, buy, sell }); } }
-  private syncShopPanel() { const shop = controller.shopPanel(), nearClerk = controller.canUseNpcServices(), visible = this.shopOpen && !controller.dialogue && !!shop && nearClerk; this.shopBackdrop.setVisible(visible); this.shopTitle.setVisible(visible); this.shopBalance.setVisible(visible); this.shopFeedback.setVisible(visible); for (const row of this.shopRows) Object.values(row).forEach(node => node.setVisible(false)); if (!shop || !visible) return; const height = 62 + shop.items.length * 64 + 34; this.shopBackdrop.setSize(388, height); this.shopTitle.setText(`  ${shop.title}`); this.shopBalance.setText(`铜钱 ${shop.balance} 文`); this.shopFeedback.setPosition(WIDTH - 450, 224 + height - 28).setText(controller.message || ''); this.ensureShopRows(shop.items.length); shop.items.forEach((item, index) => { const row = this.shopRows[index], y = 286 + index * 64; row.icon.setPosition(WIDTH - 448, y).setText(item.icon).setVisible(true); row.title.setPosition(WIDTH - 405, y).setText(item.name).setVisible(true); row.detail.setPosition(WIDTH - 405, y + 24).setText(`背包持有 ×${item.owned}`).setVisible(true); row.buy.setPosition(WIDTH - 186, y + 18).setText(`买入 ${item.buyPrice}`).setVisible(true).setInteractive(); row.sell.setPosition(WIDTH - 110, y + 18).setText(`出售 ${item.sellPrice}`).setVisible(true).setInteractive(); row.buy.removeAllListeners('pointerdown').on('pointerdown', () => void this.run(() => controller.trade('buy', item.id))); row.sell.removeAllListeners('pointerdown').on('pointerdown', () => void this.run(() => controller.trade('sell', item.id))); }); }
+  private ensureShopRows(count: number) { while (this.shopRows.length < count) { const icon = this.add.text(WIDTH - 448, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '18px', color: '#6a472c', backgroundColor: '#f1d58d', fixedWidth: 34, fixedHeight: 34, align: 'center', padding: { top: 6 } }).setDepth(UI_DEPTH_BASE + 39); const title = this.add.text(WIDTH - 405, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '15px', color: '#4c392b' }).setDepth(UI_DEPTH_BASE + 39); const detail = this.add.text(WIDTH - 405, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '14px', color: '#806f5c' }).setDepth(UI_DEPTH_BASE + 39); const buy = this.button(WIDTH - 186, 0, 76, '买入', () => {}); const sell = this.button(WIDTH - 110, 0, 76, '出售', () => {}); const minus=this.button(0,0,42,'−',()=>{}),plus=this.button(0,0,42,'+',()=>{}),count=this.add.text(0,0,'1',{fontSize:'18px',color:'#4c392b'}).setDepth(UI_DEPTH_BASE+40);this.cameras.main.ignore([icon,title,detail,buy,sell,minus,plus,count]);this.shopRows.push({icon,title,detail,buy,sell,minus,plus,count}); } }
+  private syncShopPanel() {
+    const shop=controller.shopPanel(),visible=this.shopOpen&&!controller.dialogue&&!!shop&&controller.canUseShop();
+    for(const node of [this.shopBackdrop,this.shopTitle,this.shopBalance,this.shopFeedback,this.shopPrev,this.shopNext])node.setVisible(visible);
+    for(const row of this.shopRows)Object.values(row).forEach(node=>node.setVisible(false));
+    if(!shop||!visible)return;
+    const pageSize=2,pages=Math.max(1,Math.ceil(shop.items.length/pageSize));this.shopPage=Math.min(this.shopPage,pages-1);
+    const left=WIDTH-590,top=90;
+    this.shopBackdrop.setPosition(left,top).setSize(510,HEIGHT-130);
+    this.shopTitle.setPosition(left+12,top+12).setText(shop.title);
+    this.shopBalance.setPosition(left+490,top+20).setColor('#4c392b').setText(`铜钱 ${shop.balance} 文`);
+    this.shopFeedback.setPosition(left+15,HEIGHT-190).setText(controller.message).setWordWrapWidth(470);
+    this.shopPrev.setText(`上一页 ${this.shopPage+1}/${pages}`);this.shopNext.setText('下一页');
+    this.ensureShopRows(pageSize);
+    shop.items.slice(this.shopPage*pageSize,(this.shopPage+1)*pageSize).forEach((item,index)=>{
+      const row=this.shopRows[index],y=top+70+index*108,q=controller.shopQuantities[item.id]??1;
+      row.icon.setPosition(left+15,y).setText(item.icon).setVisible(true);
+      row.title.setPosition(left+60,y).setText(`${item.name} · ${item.buyPrice}文 · 持有 ${item.owned}`).setVisible(true);
+      row.detail.setPosition(left+60,y+23).setText(item.description??'').setVisible(true);
+      row.minus.setPosition(left+85,y+67);row.count.setPosition(left+120,y+57).setText(String(q)).setVisible(true);row.plus.setPosition(left+165,y+67);
+      row.buy.setPosition(left+285,y+67).setText('购买');row.sell.setPosition(left+405,y+67).setText(`卖 ${item.sellPrice}`);
+      const handlers:[Phaser.GameObjects.Text,()=>void][]=[[row.minus,()=>controller.setShopQuantity(item.id,-1)],[row.plus,()=>controller.setShopQuantity(item.id,1)],[row.buy,()=>void this.run(()=>controller.trade('buy',item.id,q))],[row.sell,()=>void this.run(()=>controller.trade('sell',item.id,q))]];
+      for(const [button,handler] of handlers){button.setVisible(true).removeAllListeners('pointerdown');if(controller.busy||controller.pending)button.disableInteractive().setAlpha(.5);else button.setInteractive().setAlpha(1).on('pointerdown',handler);}
+    });
+  }
   update(_: number, delta: number) {
     if (!this.ready) return;
     this.fpsElapsed += delta; this.fpsFrames++; if (this.fpsElapsed >= 500) { this.fps = Math.round(this.fpsFrames * 1000 / this.fpsElapsed); this.fpsElapsed = 0; this.fpsFrames = 0; }

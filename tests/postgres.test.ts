@@ -10,6 +10,7 @@ test('PostgreSQL 多连接并发幂等、事务与重启持久化',{skip:!proces
  try{const body={requestId:randomUUID(),gender:'MALE',baseAvatarId:'MALE_01',hairColorId:'INK',topColorId:'BLUE',bottomColorId:'CREAM'};await Promise.all(Array.from({length:8},()=>s.action(p.id,'create',body)));assert.equal((await repo.player(p.id)).cash,120);assert.equal(await db.playerLedger.count({where:{playerId:p.id}}),1);
  await db.player.update({where:{id:p.id},data:{sceneId:'INTERIOR_B_GROCERY'}});const buy={requestId:randomUUID(),buildingId:'B_GROCERY',itemId:'RICE_01',quantity:1};await Promise.all(Array.from({length:8},()=>s.action(p.id,'buy',buy)));assert.equal((await repo.player(p.id)).cash,108);assert.equal(await db.playerLedger.count({where:{playerId:p.id}}),2);
  await assert.rejects(()=>s.action(p.id,'buy',{...buy,requestId:randomUUID(),quantity:20}));assert.equal((await repo.player(p.id)).cash,108);
- const second=new PostgresRepository(new PrismaClient({datasourceUrl:url}));try{assert.equal((await second.player(p.id)).inventory.RICE_01,1);}finally{await second.close();}
+ const water={requestId:randomUUID(),buildingId:'B_GROCERY',itemId:'WATER_01',quantity:3};await Promise.all(Array.from({length:8},()=>s.action(p.id,'buy',water)));assert.equal((await repo.player(p.id)).cash,90);assert.equal((await repo.player(p.id)).inventory.WATER_01,3);
+ const second=new PostgresRepository(new PrismaClient({datasourceUrl:url}));try{assert.equal((await second.player(p.id)).inventory.RICE_01,1);assert.equal((await second.player(p.id)).inventory.WATER_01,3);assert.equal((await second.player(p.id)).cash,90);}finally{await second.close();}
  }finally{await repo.close();}
 });

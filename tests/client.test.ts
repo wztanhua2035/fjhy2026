@@ -22,10 +22,10 @@ test('第一桶金买卖反馈使用服务端账本金额并更新目标',async(
   const reward={id:'reward',type:'QUEST_REWARD',amount:20,before:124,after:144,referenceId:'Q_001',requestId:'r2',createdAt:''};
   let stage:'buy'|'sell'='buy';
   let c:GameController;c=new GameController(async path=>{assert.match(path,/economy/);return stage==='buy'?{player:{...c.player,cash:108,inventory:{RICE_01:1},ledger:[accepted,buy]}}:{player:{...c.player,cash:144,inventory:{},ledger:[accepted,buy,sell,reward]},dialogue:'任务完成：第一桶金，获得 20 文奖励'};});
-  c.token='token';c.boot={player:{id:'p',nickname:'旅人',cash:120,stamina:100,status:'ACTIVE',sceneId:'INTERIOR_B_GROCERY',x:12,y:9,appearance:{} as any,inventory:{},cosmetics:[],ledger:[accepted],tradeCounts:{},metNpcs:[]},serverTime:'',worldVersion:1,configVersion:1,assetVersion:1,assetManifest:'',colors:{},appearances:[],features:{}};c.view={scene:{id:'INTERIOR_B_GROCERY',buildingId:'B_GROCERY'},plots:[],buildings:[{id:'B_GROCERY',name:'街坊杂货铺'}],npcs:[]} as any;c.x=12;c.y=9;
-  await c.trade('buy','RICE_01');assert.match(c.message,/获得：鸣山大米 ×1/);assert.match(c.message,/花费：12 文/);assert.match(c.message,/120 → 108/);assert.match(c.message,/带回白石商行出售/);assert.match(c.message,/街坊杂货铺已记住你/);
+  c.token='token';c.boot={player:{id:'p',nickname:'旅人',cash:120,stamina:100,status:'ACTIVE',sceneId:'INTERIOR_B_GROCERY',x:12,y:9,appearance:{} as any,inventory:{},cosmetics:[],ledger:[accepted],tradeCounts:{},metNpcs:[]},serverTime:'',worldVersion:1,configVersion:1,assetVersion:1,assetManifest:'',colors:{},appearances:[],features:{}};c.view={scene:{id:'INTERIOR_B_GROCERY',buildingId:'B_GROCERY'},plots:[],buildings:[{id:'B_GROCERY',name:'街坊杂货铺'}],npcs:[],items:[{id:'RICE_01',name:'鸣山大米'}]} as any;c.x=12;c.y=9;
+  await c.trade('buy','RICE_01');assert.equal(c.message,'购买成功\n鸣山大米 ×1\n支出：12文');
   stage='sell';c.boot.player.sceneId='INTERIOR_B_TRADE';c.view!.scene.id='INTERIOR_B_TRADE';c.view!.scene.buildingId='B_TRADE';
-  await c.trade('sell','RICE_01');assert.match(c.message,/出售：鸣山大米 ×1/);assert.match(c.message,/获得：16 文/);assert.match(c.message,/任务完成：第一桶金/);assert.match(c.message,/任务奖励：20 文/);assert.match(c.message,/108 → 144/);
+  await c.trade('sell','RICE_01');assert.equal(c.message,'出售成功\n鸣山大米 ×1\n收入：16文');
 });
 
 test('任务追踪器从 Quest 配置生成步骤、目标、奖励和完成状态',()=>{
@@ -55,7 +55,7 @@ test('通用商店视图从场景配置生成商品、余额、持有量和双�
   const c=new GameController(async()=>({}));
   c.boot={player:{id:'p',nickname:'旅人',cash:108,stamina:100,status:'ACTIVE',sceneId:'INTERIOR_B_GROCERY',x:12,y:9,appearance:{} as any,inventory:{RICE_01:1},cosmetics:[],ledger:[],tradeCounts:{},metNpcs:[]},serverTime:'',worldVersion:1,configVersion:1,assetVersion:1,assetManifest:'',colors:{},appearances:[],features:{}};
   c.view={scene:{id:'INTERIOR_B_GROCERY',buildingId:'B_GROCERY'},plots:[],npcs:[],items:[{id:'RICE_01',name:'鸣山大米',icon:'米',basePrice:12,giftable:true,stackMax:99}],buildings:[{id:'B_GROCERY',name:'街坊杂货铺',buildingType:'SHOP',assetKey:'',interiorSceneId:'INTERIOR_B_GROCERY',openingHours:['00:00','00:00'],enabled:true,buyable:false,baseValue:0,stock:{RICE_01:{buy:12,sell:8,dailyLimit:30}}}]} as any;
-  const shop=c.shopPanel();assert.equal(shop?.title,'街坊杂货铺');assert.equal(shop?.balance,108);assert.deepEqual(shop?.items[0],{id:'RICE_01',name:'鸣山大米',icon:'米',owned:1,buyPrice:12,sellPrice:8,dailyLimit:30});
+  const shop=c.shopPanel();assert.equal(shop?.title,'街坊杂货铺');assert.equal(shop?.balance,108);assert.deepEqual(shop?.items[0],{id:'RICE_01',name:'鸣山大米',icon:'米',owned:1,buyPrice:12,sellPrice:8,dailyLimit:30,description:undefined,stackMax:99});
 });
 
 test('五名核心 NPC 首次与再次交谈显示轻量认识关系反馈',async()=>{for(const npc of [{id:'NPC_001',name:'陈掌柜'},{id:'NPC_TRADE_CLERK',name:'白石商行伙计'},{id:'NPC_GROCERY_CLERK',name:'街坊杂货铺店员'},{id:'NPC_SALON_HAIRDRESSER',name:'青丝美发师'},{id:'NPC_CLOTH_SHOPKEEPER',name:'春衫掌柜'}]){let c:GameController;c=new GameController(async()=>({player:{...c.player,metNpcs:[npc.id]},dialogue:'欢迎光临'}));c.token='token';c.boot={player:{id:'p',nickname:'旅人',cash:120,stamina:100,status:'ACTIVE',sceneId:'TEST_INTERIOR',x:12,y:9,appearance:{} as any,inventory:{},cosmetics:[],ledger:[],tradeCounts:{},metNpcs:[]},serverTime:'',worldVersion:1,configVersion:1,assetVersion:1,assetManifest:'',colors:{},appearances:[],features:{}};c.view={scene:{id:'TEST_INTERIOR'},plots:[],buildings:[],npcs:[npc]} as any;await c.write('/v1/npc/talk',{npcId:npc.id});assert.match(c.message,new RegExp('初次结识：'+npc.name));assert.match(c.message,/关系状态：已认识/);await c.write('/v1/npc/talk',{npcId:npc.id});assert.doesNotMatch(c.message,/初次结识/);assert.match(c.message,/关系状态：已认识/);}});

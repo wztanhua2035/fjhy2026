@@ -7,3 +7,7 @@
 .shop-item>div:last-child { display:grid; gap:5px; } .shop-item button { border:1px solid #8ba486; border-radius:6px; padding:5px 7px; background:#f5fbef; color:#426344; font:11px "Microsoft YaHei",sans-serif; cursor:pointer; } .shop-item button:last-child { border-color:#c29167; background:#fff2df; color:#835536; } .shop-item button:disabled { opacity:.5; cursor:default; }
 #shop-feedback { min-height:20px; margin:0; padding:7px 12px; border-top:1px solid #e7d5b7; background:#fbf2df; color:#7a6046; font-size:11px; white-space:pre-line; line-height:1.5; }
 @media (orientation:landscape) and (max-height:600px) { #shop-panel { width:min(330px,45vw); bottom:max(64px,calc(env(safe-area-inset-bottom) + 44px)); } .shop-item { padding:6px 0; } }
+#shop-toggle{position:absolute;right:18px;bottom:86px;pointer-events:auto;padding:12px 18px;border:0;border-radius:8px;background:#527c69;color:white;font:inherit}
+#shop-panel{bottom:140px;max-height:65dvh;overflow:auto;width:min(460px,60vw)}
+.shop-item>div:last-child{display:flex;flex-wrap:wrap;align-items:center;max-width:140px}
+.shop-item button{min-height:34px;min-width:32px}

@@ -48,13 +48,20 @@ export class GameController {
   x=12;y=15;busy=false;offline=false;message='欢迎来到横阳';dialogue:string|null=null;dialogueSpeaker:string|null=null;pending:{path:string;body:any}|null=null;private interactionLabel='';private activeInteraction:InteractionCandidate|null=null;private lastSync=0;private syncInFlight:Promise<unknown>|null=null;private correctionX=0;private correctionY=0;
   private movePath:{x:number;y:number}[]=[];
   private interacting=false;
+  shopOpen=false; private trading=false;
+  shopQuantities:Record<string,number>={};
+  itemName(id:string){return this.view?.items?.find(i=>i.id===id)?.name??id;}
+  setShopQuantity(id:string,delta:number){this.shopQuantities[id]=Math.max(1,Math.min(99,(this.shopQuantities[id]??1)+delta));this.onChange();}
+  async openShop(){if(!this.canUseShop())return;await this.sync();const id=this.view?.scene.buildingId;const catalog=await this.transport(`/v1/economy/catalog/${id}`,undefined,this.token);if(!this.view||this.view.scene.buildingId!==id)return;this.view.buildings=this.view.buildings.map(b=>b.id===id?catalog.building:b);this.view.items=[...this.view.items.filter(i=>!catalog.items.some((n:any)=>n.id===i.id)),...catalog.items];this.shopOpen=true;this.onChange();}
+  closeShop(){this.shopOpen=false;this.onChange();}
+  canUseShop(){if(this.dialogue||this.introPending)return false;const b=this.view?.buildings.find(b=>b.id===this.view?.scene.buildingId);if(!b)return false;const z=this.view?.scene.interior?.zones.find(z=>z.id===b.servicePointId);const p=this.footWorldPosition;return !!(z&&p.x>=z.x&&p.x<=z.x+z.width&&p.y>=z.y&&p.y<=z.y+z.height)||!!this.view?.npcs.some(n=>(!b.clerkNpcId||n.id===b.clerkNpcId)&&canInteractWithNpc(this.direction,p,n).allowed);}
   private moveRetryAt=0;
   onChange=()=>{};
   constructor(public transport:Transport){}
   get player(){return this.boot?.player??null;}
   homeActions(){return this.player?.appearance?['继续游戏','重新开始'] as const:['开始游戏'] as const;}
   async restart(){await this.write('/v1/player/restart',{confirm:true});this.view=null;this.ghosts=[];this.quests=[];this.dialogue=null;this.dialogueSpeaker=null;this.introIndex=-1;await this.refresh();}
-  logout(){this.movePath=[];this.correctionX=0;this.correctionY=0;this.token='';this.boot=null;this.view=null;this.ghosts=[];this.quests=[];this.pending=null;this.busy=false;this.offline=false;this.x=12;this.y=15;this.interactionCooldown=0;this.message='已退出，可以重新登录验证存档';this.dialogue=null;this.dialogueSpeaker=null;this.introIndex=-1;this.onChange();}
+  logout(){this.shopOpen=false;this.shopQuantities={};this.movePath=[];this.correctionX=0;this.correctionY=0;this.token='';this.boot=null;this.view=null;this.ghosts=[];this.quests=[];this.pending=null;this.busy=false;this.offline=false;this.x=12;this.y=15;this.interactionCooldown=0;this.message='已退出，可以重新登录验证存档';this.dialogue=null;this.dialogueSpeaker=null;this.introIndex=-1;this.onChange();}
   async loginDev(account:string){const data=await this.transport('/v1/auth/dev',{account});this.token=data.token;await this.refresh();}
   async loginWechat(code:string){const data=await this.transport('/v1/auth/wechat',{code});this.token=data.token;await this.refresh();}
   async refresh(){this.boot=await this.transport('/v1/bootstrap',undefined,this.token);const taskData=await this.transport('/v1/quests',undefined,this.token);this.quests=taskData.quests??[];this.x=this.player!.x;this.y=this.player!.y;if(this.player!.appearance)await this.loadScene();this.startIntroIfNeeded();this.onChange();}
@@ -62,7 +69,7 @@ export class GameController {
   private startIntroIfNeeded(){if(!this.introPending||this.introIndex>=0)return;this.introIndex=0;this.showIntroLine();}
   private showIntroLine(){const line=innOpeningDialogue[this.introIndex];this.dialogue=line.text;this.dialogueSpeaker=line.speaker;this.message=line.text;this.onChange();}
   async advanceDialogue(){if(this.introIndex>=0){if(this.introIndex<innOpeningDialogue.length-1){this.introIndex++;this.showIntroLine();return;}await this.write('/v1/intro/complete',{});this.introIndex=-1;}this.dialogue=null;this.dialogueSpeaker=null;this.message='';this.onChange();}
-  async loadScene(){this.movePath=[];this.correctionX=0;this.correctionY=0;this.view=await this.transport(`/v1/world/scenes/${this.player!.sceneId}`,undefined,this.token);const position=this.view?.playerPosition;if(position&&position.sceneId===this.player!.sceneId){this.boot!.player.x=position.x;this.boot!.player.y=position.y;this.x=position.x;this.y=position.y;}this.ghosts=[];this.transport(`/v1/scenes/${this.player!.sceneId}/ghosts`,undefined,this.token).then(data=>{this.ghosts=data.ghosts;this.onChange();}).catch(()=>{});}
+  async loadScene(){this.shopOpen=false;this.movePath=[];this.correctionX=0;this.correctionY=0;this.view=await this.transport(`/v1/world/scenes/${this.player!.sceneId}`,undefined,this.token);const position=this.view?.playerPosition;if(position&&position.sceneId===this.player!.sceneId){this.boot!.player.x=position.x;this.boot!.player.y=position.y;this.x=position.x;this.y=position.y;}this.ghosts=[];this.transport(`/v1/scenes/${this.player!.sceneId}/ghosts`,undefined,this.token).then(data=>{this.ghosts=data.ghosts;this.onChange();}).catch(()=>{});}
   async write(path:string,body:any){
     if(this.busy)throw new Error('操作正在确认，请稍候');if(this.pending)throw new Error('上次操作尚未确认，请先重试');
     if(this.offline)throw new Error('离线期间暂停交易，请先重新连接');
@@ -76,7 +83,7 @@ export class GameController {
   async create(gender:'MALE'|'FEMALE',selection:{skinToneId?:string;hairId?:string;outfitId?:string}):Promise<void>;
   async create(gender:'MALE'|'FEMALE',baseAvatarId:string,skinColorId:string,hairColorId:string,topColorId:string,bottomColorId:string):Promise<void>;
   async create(gender:'MALE'|'FEMALE',selection:string|{skinToneId?:string;hairId?:string;outfitId?:string},skinColorId?:string,hairColorId?:string,topColorId?:string,bottomColorId?:string){await this.write('/v1/player/appearance/create',typeof selection==='string'?{gender,baseAvatarId:selection,skinColorId,hairColorId,topColorId,bottomColorId}:{gender,...selection});}
-  tick(dt:number,dx:number,dy:number){if(!this.view||!this.player?.appearance)return;if(this.dialogue||this.introPending||this.interacting){dx=0;dy=0;}this.interactionCooldown=Math.max(0,this.interactionCooldown-dt);
+  tick(dt:number,dx:number,dy:number){if(!this.view||!this.player?.appearance)return;if(this.dialogue||this.introPending||this.interacting||this.shopOpen||this.trading){dx=0;dy=0;}this.interactionCooldown=Math.max(0,this.interactionCooldown-dt);
     this.walkTime+=dt;this.moving=!!(dx||dy)&&(!this.busy||this.offline);
     const correctionFactor=1-Math.exp(-dt*10);
     const correctionStepX=this.correctionX*correctionFactor,correctionStepY=this.correctionY*correctionFactor;
@@ -161,6 +168,9 @@ export class GameController {
       const candidate=scoredInteraction({id:`furniture:${zone.id}`,type:'furniture',label:furnitureInteractionLabels[zone.id]??interactionLabel('furniture',zone.label),path:'/v1/world/inspect',body:{zoneId:zone.id},anchor:zone.interactionPoint,radius:interactionDefaults.furnitureRadius,point});
       if(candidate)candidates.push(candidate);
     }
+    const shop=view.buildings.find(b=>b.id===view.scene.buildingId);
+    const service=view.scene.interior?.zones.find(z=>z.id===shop?.servicePointId);
+    if(service){const candidate=scoredInteraction({id:`service:${service.id}`,type:'service',label:'看看商品',path:'shop',body:{},anchor:{x:service.x+service.width/2,y:service.y+service.height/2},zone:service,point});if(candidate)candidates.push(candidate);}
     for(const npc of view.npcs){
       const anchor={x:npc.x,y:npc.y},physical=canInteractWithNpc(this.direction,point,anchor);
       if(!physical.allowed)continue;
@@ -182,22 +192,19 @@ export class GameController {
   }
   canUseNpcServices(){return !this.dialogue&&!this.introPending&&!!this.view?.npcs.some(n=>canInteractWithNpc(this.direction,this.footWorldPosition,n).allowed);}
   nearby(){const candidates=this.interactionCandidates();const next=selectInteraction(candidates,this.activeInteraction?.id);this.activeInteraction=next;return next;}
-  async interact(){if(this.interacting)return;const target=this.nearby();if(!target){this.message="请靠近互动目标";this.onChange();return;}this.interacting=true;this.message="正在确认位置…";this.onChange();try{const entrance=target.path==='/v1/world/enter'?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===target.body.entranceId):undefined;const portal=target.path==='/v1/world/portal'?this.view?.scene.portals.find(p=>p.id===target.body.portalId):undefined;const returned=portal?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===portal.returnEntranceId):undefined;await this.sync();await this.sync();if(this.nearby()?.id!==target.id)throw new Error("位置已校准，请重新靠近互动目标");await this.write(target.path,target.body);if(entrance){this.direction=entrance.direction==='south'?'up':entrance.direction==='west'?'right':entrance.direction==='east'?'left':'down';this.message='进入建筑…';}else if(portal){if(returned)this.direction=returned.direction==='south'?'down':returned.direction==='west'?'left':returned.direction==='east'?'right':'up';this.interactionCooldown=.8;if(!this.dialogue)this.message='已到达'+(this.view?.scene.name??'场景');}this.onChange();}finally{this.interacting=false;this.onChange();}}
+  async interact(){if(this.interacting||this.shopOpen)return;const target=this.nearby();if(!target){this.message="请靠近互动目标";this.onChange();return;}this.interacting=true;this.message="正在确认位置…";this.onChange();try{const entrance=target.path==='/v1/world/enter'?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===target.body.entranceId):undefined;const portal=target.path==='/v1/world/portal'?this.view?.scene.portals.find(p=>p.id===target.body.portalId):undefined;const returned=portal?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===portal.returnEntranceId):undefined;await this.sync();await this.sync();if(this.nearby()?.id!==target.id)throw new Error("位置已校准，请重新靠近互动目标");if(target.path==='shop'){await this.openShop();return;}await this.write(target.path,target.body);if(entrance){this.direction=entrance.direction==='south'?'up':entrance.direction==='west'?'right':entrance.direction==='east'?'left':'down';this.message='进入建筑…';}else if(portal){if(returned)this.direction=returned.direction==='south'?'down':returned.direction==='west'?'left':returned.direction==='east'?'right':'up';this.interactionCooldown=.8;if(!this.dialogue)this.message='已到达'+(this.view?.scene.name??'场景');}this.onChange();}finally{this.interacting=false;this.onChange();}}
   async trade(action:'buy'|'sell',itemId:string,quantity=1){
-    await this.sync();
-    const building=this.view!.buildings.find(candidate=>candidate.id===this.view!.scene.buildingId);const firstTrade=!(this.player?.ledger??[]).some(entry=>(entry.type==='SHOP_BUY'||entry.type==='SHOP_SELL')&&entry.referenceId.startsWith((building?.id??'')+':'));
-    const knownEntries=new Set(this.player?.ledger.map(entry=>entry.id)??[]);
-    const result:any=await this.write(`/v1/economy/${action}`,{buildingId:this.view!.scene.buildingId,itemId,quantity});
-    const entries=(result?.player?.ledger??[]).filter((entry:any)=>!knownEntries.has(entry.id));
-    const tradeEntry=entries.find((entry:any)=>entry.type===(action==='buy'?'SHOP_BUY':'SHOP_SELL'));
-    const rewardEntry=entries.find((entry:any)=>entry.type==='QUEST_REWARD'&&entry.referenceId==='Q_001');
-    const itemName=itemId==='RICE_01'?'鸣山大米':itemId,relationshipNote=firstTrade&&building?'商号往来：'+building.name+'已记住你。':'';
-    if(action==='buy')this.message=['购买成功',`获得：${itemName} ×${quantity}`,`花费：${Math.abs(tradeEntry?.amount??0)} 文`,`铜钱：${tradeEntry?.before??this.player?.cash} → ${tradeEntry?.after??this.player?.cash}`,`当前目标：将${itemName}带回白石商行出售。`].join('\n');
-    else this.message=['出售成功',`出售：${itemName} ×${quantity}`,`获得：${tradeEntry?.amount??0} 文`,`关键步骤完成：已将${itemName}卖给白石商行。`,...(rewardEntry?['任务完成：第一桶金',`任务奖励：${rewardEntry.amount} 文`]:[]),`铜钱：${tradeEntry?.before??this.player?.cash} → ${rewardEntry?.after??tradeEntry?.after??this.player?.cash}`].join('\n');
-    if(relationshipNote)this.message+='\n'+relationshipNote;
-    this.dialogue=null;this.dialogueSpeaker=null;this.onChange();
+    if(this.trading||this.busy||this.pending)return;
+    this.trading=true;
+    try {
+      await this.sync();await this.sync();
+      const result:any=await this.write(`/v1/economy/${action}`,{buildingId:this.view!.scene.buildingId,itemId,quantity});
+      const entry=result?.player?.ledger.slice().reverse().find((e:any)=>e.type===(action==='buy'?'SHOP_BUY':'SHOP_SELL'));
+      this.message=[action==='buy'?'购买成功':'出售成功',`${this.itemName(itemId)} ×${quantity}`,`${action==='buy'?'支出':'收入'}：${Math.abs(entry?.amount??0)}文`].join('\n');
+      this.dialogue=null;this.dialogueSpeaker=null;
+    } finally {this.trading=false;this.onChange();}
   }
-  shopPanel():ShopPanelView|null{const view=this.view,player=this.player,building=view?.buildings.find(candidate=>candidate.id===view.scene.buildingId);if(!view||!player||!building||!Object.keys(building.stock).length)return null;return {buildingId:building.id,title:building.name,balance:player.cash,items:Object.entries(building.stock).flatMap(([id,stock])=>{const item=view.items.find(candidate=>candidate.id===id);return item?[{id,name:item.name,icon:item.icon??'品',owned:player.inventory[id]??0,buyPrice:stock.buy,sellPrice:stock.sell,dailyLimit:stock.dailyLimit}]:[];})};}
+  shopPanel():ShopPanelView|null{const view=this.view,player=this.player,building=view?.buildings.find(candidate=>candidate.id===view.scene.buildingId);if(!view||!player||!building||!Object.keys(building.stock).length)return null;return {buildingId:building.id,title:building.name,balance:player.cash,items:Object.entries(building.stock).flatMap(([id,stock])=>{const item=view.items.find(candidate=>candidate.id===id);return item&&item.enabled!==false&&stock.enabled!==false&&!item.questOnly?[{description:item.description,stackMax:item.stackMax,id,name:item.name,icon:item.icon??'品',owned:player.inventory[id]??0,buyPrice:stock.buy,sellPrice:stock.sell,dailyLimit:stock.dailyLimit}]:[];})};}
   render(p:Painter,width:number,height:number,drawTerrain=true,drawStructures=true,drawNpcs=true,skipNpcIds:string[]=[],skipPlayer=false,drawCollision=true,drawInteractionDebug=false){
     const v=this.view;if(!v)return;if(drawTerrain)p.rect(0,0,width,height,'#b7cba5');
     const tile=32,ox=width/2-this.x*tile,oy=height/2-this.y*tile;

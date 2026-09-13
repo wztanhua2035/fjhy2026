@@ -78,10 +78,11 @@ export class GameService {
           const safe=recoverSafePosition(world,p.sceneId,scene.spawnX,scene.spawnY);p.x=safe.x;p.y=safe.y;break;
         }
         case 'buy':case 'sell':{
-          const shop=this.shop(world,p,body.buildingId,context),stock=shop.stock[body.itemId],item=world.items.find(i=>i.id===body.itemId);ensure(stock&&item,'NOT_SOLD','该店不经营此商品');ensure(!item.questOnly,'QUEST_ITEM','任务物品不可买卖');
+          ensure(Number.isSafeInteger(body.quantity)&&body.quantity>=1&&body.quantity<=99,'INVALID_QUANTITY','购买数量必须为 1 至 99 的整数');
+          const shop=this.shop(world,p,body.buildingId,context),stock=shop.stock[body.itemId],item=world.items.find(i=>i.id===body.itemId);ensure(stock&&item,'NOT_SOLD','该店不经营此商品');ensure(item.enabled!==false&&stock.enabled!==false,'NOT_LISTED','该商品已下架');ensure(!item.questOnly,'QUEST_ITEM','任务物品不可买卖');
           const day=new Date(this.now().getTime()+8*3600000).toISOString().slice(0,10),key=`${day}:${shop.id}:${body.itemId}:${action}`;
           p.tradeCounts=Object.fromEntries(Object.entries(p.tradeCounts).filter(([k])=>k.startsWith(day)));
-          ensure((p.tradeCounts[key]??0)+body.quantity<=stock.dailyLimit,'DAILY_LIMIT','今日交易额度已用完');
+          ensure(stock.stockMode==='infinite'||(p.tradeCounts[key]??0)+body.quantity<=stock.dailyLimit,'DAILY_LIMIT','今日交易额度已用完');
           const held=p.inventory[item.id]??0;
           if(action==='buy'){ensure(held+body.quantity<=item.stackMax&&Object.values(p.inventory).reduce((a,b)=>a+b,0)+body.quantity<=100,'BAG_FULL','行囊容量不足');money(p,-stock.buy*body.quantity,'SHOP_BUY',`${shop.id}:${item.id}`,body.requestId);p.inventory[item.id]=held+body.quantity;}
           else{ensure(held>=body.quantity,'INSUFFICIENT_ITEM','库存不足');money(p,stock.sell*body.quantity,'SHOP_SELL',`${shop.id}:${item.id}`,body.requestId);if(held===body.quantity)delete p.inventory[item.id];else p.inventory[item.id]=held-body.quantity;}
