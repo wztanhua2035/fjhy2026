@@ -60,3 +60,27 @@ export async function ensureGuestRoomScene(repo: Repository) {
   const release = await repo.transition(draft.id, 'PUBLISHED');
   return { published: true, version: release.version, added: [needsGuest && guest.id, needsDoor && door.id].filter(Boolean) };
 }
+
+/** Publish only the two street collision edges and the matching occupied plot. */
+export async function ensureBaishiAlley(repo: Repository) {
+  const previous = await repo.world();
+  const street = previous.scenes.find(scene => scene.id === 'STREET_BAISHI_01');
+  const plot = previous.plots.find(item => item.id === 'P_BAISHI_005');
+  if (!street || !plot) return { published: false, reason: 'street or plot missing' };
+  const left = street.collision.find(r => r.x === 28 && r.y === 27 && r.height === 10 && (r.width === 12 || r.width === 11.5));
+  const right = street.collision.find(r => (r.x === 41 && r.width === 7 || r.x === 42 && r.width === 6) && r.y === 27 && r.height === 12);
+  if (!left || !right || plot.x !== 28 || plot.y !== 27 || plot.height !== 10 || ![12, 11.5].includes(plot.width))
+    return { published: false, reason: 'unexpected street geometry' };
+  if (left.width === 11.5 && right.x === 42 && plot.width === 11.5)
+    return { published: false, version: previous.configVersion };
+  const scenes = previous.scenes.map(scene => scene.id === street.id
+    ? { ...scene, collision: scene.collision.map(r => r === left ? { ...r, width: 11.5 } : r === right ? { ...r, x: 42, width: 6 } : r) }
+    : scene);
+  const plots = previous.plots.map(item => item.id === plot.id ? { ...item, width: 11.5 } : item);
+  const config = { ...previous, scenes, plots };
+  validateWorld(config, previous);
+  const draft = await repo.draft(config, previous.configVersion);
+  await repo.transition(draft.id, 'TEST');
+  const release = await repo.transition(draft.id, 'PUBLISHED');
+  return { published: true, version: release.version };
+}

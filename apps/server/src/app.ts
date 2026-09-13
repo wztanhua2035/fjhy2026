@@ -70,7 +70,7 @@ if(status>=500){
   app.get('/diagnostics/scenes/:id',async req=>{
     ensure(['DEV','STAGING'].includes(env.appEnv),'NOT_FOUND','接口不存在',404);
     const requestedId=(req.params as {id:string}).id;
-    ensure([GUEST_ROOM_SCENE_ID,INN_LOBBY_SCENE_ID].includes(requestedId),'NOT_FOUND','接口不存在',404);
+    ensure([GUEST_ROOM_SCENE_ID,INN_LOBBY_SCENE_ID,'STREET_BAISHI_01'].includes(requestedId),'NOT_FOUND','接口不存在',404);
     const world=await repo.world();
     const scene=sceneView(world,requestedId,game.now()).scene;
     return {movementProtocol:"bounded-path-v1",requestedId,sourcePresent:initialWorld.scenes.some(s=>s.id===requestedId),configVersion:world.configVersion,

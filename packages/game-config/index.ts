@@ -120,7 +120,7 @@ const guestRoomZones: InteriorZone[] = [
 const scenes: SceneConfig[] = [{id:street,name:'白石街',townId:'TOWN_CENTER',width:48,height:48,tileSize:32,mapAsset:'maps/baishi.tmx',
   // Follows the approved composition: compact main street, centre lane, canal and bridge.
   roads:[{x:0,y:20,width:48,height:5},{x:21,y:20,width:5,height:19},{x:0,y:45,width:48,height:3}],
-  collision:[{x:0,y:39,width:22,height:6},{x:26,y:39,width:22,height:6},{x:0,y:0,width:15,height:4},{x:16,y:0,width:18,height:5},{x:35,y:0,width:13,height:4},{x:2,y:27,width:11,height:12},{x:14,y:29,width:6,height:9},{x:28,y:27,width:12,height:10},{x:41,y:27,width:7,height:12},...baishiStreetObjectCollision],portals:[],spawnX:23,spawnY:23},
+  collision:[{x:0,y:39,width:22,height:6},{x:26,y:39,width:22,height:6},{x:0,y:0,width:15,height:4},{x:16,y:0,width:18,height:5},{x:35,y:0,width:13,height:4},{x:2,y:27,width:11,height:12},{x:14,y:29,width:6,height:9},{x:28,y:27,width:11.5,height:10},{x:42,y:27,width:6,height:12},...baishiStreetObjectCollision],portals:[],spawnX:23,spawnY:23},
  ...buildings.map((b,i)=>({id:b.interiorSceneId,name:b.name,townId:'TOWN_CENTER',width:24,height:20,tileSize:32,mapAsset:'maps/interior.tmx',roads:[],
   collision:interiorZones[b.id].filter(z=>z.solid).map(({x,y,width,height})=>({x,y,width,height})),interior:{zones:interiorZones[b.id]},buildingId:b.id,spawnX:12,spawnY:15,
     portals:[{id:`EXIT_${b.id}`,x:12,y:18,interactionArea:{x:10.2,y:17,width:3.6,height:2},toSceneId:street,spawnX:8.5+i*6,spawnY:21,returnEntranceId:['ENT_BAISHI_INN_S','ENT_BAISHI_GROCERY_S','ENT_BAISHI_TRADE_S','ENT_BAISHI_SALON_W','ENT_BAISHI_CLOTH_S'][i]},...(b.id==='B_INN'?[{id:'ENTER_INN_GUEST_ROOM',x:3,y:7.2,interactionArea:{x:1.8,y:5.1,width:2.6,height:3.2},toSceneId:GUEST_ROOM_SCENE_ID,spawnX:7,spawnY:8.4}]:[])]}))];
@@ -140,7 +140,7 @@ const baishiPlots: PlotConfig[] = [
   {id:'P_BAISHI_002',x:16,y:9,width:10,height:10,entranceX:21,entranceY:20,entrances:[entrance('ENT_BAISHI_GROCERY_S',21,20,'south','INTERIOR_B_GROCERY')],buildingId:'B_GROCERY'},
   {id:'P_BAISHI_003',x:27,y:7,width:10,height:12,entranceX:32.5,entranceY:20,entrances:[entrance('ENT_BAISHI_TRADE_S',32.5,20,'south','INTERIOR_B_TRADE')],buildingId:'B_TRADE'},
   {id:'P_BAISHI_004',x:39,y:5,width:9,height:14,entranceX:44,entranceY:20,entrances:[entrance('ENT_BAISHI_SALON_W',44,20,'south','INTERIOR_B_SALON')],buildingId:'B_SALON'},
-  {id:'P_BAISHI_005',x:28,y:27,width:12,height:10,entranceX:34,entranceY:37.6,entrances:[{...entrance('ENT_BAISHI_CLOTH_S',34,37.6,'south','INTERIOR_B_CLOTH'),interactionArea:{x:32.75,y:37.15,width:2.5,height:1.6}}],buildingId:'B_CLOTH'},
+  {id:'P_BAISHI_005',x:28,y:27,width:11.5,height:10,entranceX:34,entranceY:37.6,entrances:[{...entrance('ENT_BAISHI_CLOTH_S',34,37.6,'south','INTERIOR_B_CLOTH'),interactionArea:{x:32.75,y:37.15,width:2.5,height:1.6}}],buildingId:'B_CLOTH'},
   ...[{id:'P_BAISHI_006',x:2,y:27,width:11,height:12},{id:'P_BAISHI_007',x:14,y:29,width:6,height:9},{id:'P_BAISHI_008',x:28,y:27,width:12,height:11},{id:'P_BAISHI_009',x:41,y:27,width:7,height:12},{id:'P_BAISHI_010',x:41,y:5,width:7,height:14}].map(p=>({...p,entranceX:p.x+1,entranceY:p.y+p.height+1,buildingId:null}))
 ].map(p=>({townId:'TOWN_CENTER',districtId:'DIST_BAISHI',sceneId:street,plotType:'M',facing:'SOUTH',status:p.buildingId?'NPC_OCCUPIED':'RESERVED',allowedBuildingTypes:['SHOP','INN','SALON','CLOTH'],version:1,...p}));
 export const initialWorld: WorldConfig = {
