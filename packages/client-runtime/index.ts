@@ -48,6 +48,7 @@ export class GameController {
   x=12;y=15;busy=false;offline=false;message='欢迎来到横阳';dialogue:string|null=null;dialogueSpeaker:string|null=null;pending:{path:string;body:any}|null=null;private interactionLabel='';private activeInteraction:InteractionCandidate|null=null;private lastSync=0;private syncInFlight:Promise<unknown>|null=null;private correctionX=0;private correctionY=0;
   private movePath:{x:number;y:number}[]=[];
   private interacting=false;
+  private moveRetryAt=0;
   onChange=()=>{};
   constructor(public transport:Transport){}
   get player(){return this.boot?.player??null;}
@@ -82,14 +83,15 @@ export class GameController {
     if(this.stand(this.x+correctionStepX,this.y)&&this.stand(this.x,this.y+correctionStepY)){this.x+=correctionStepX;this.y+=correctionStepY;this.correctionX-=correctionStepX;this.correctionY-=correctionStepY;}
     if((!this.busy||this.offline)&&(dx||dy)){
       const norm=Math.hypot(dx,dy);dx/=norm;dy/=norm;const nx=this.x+dx*dt*5,ny=this.y+dy*dt*5;
-      if(this.offline||Math.hypot(nx-this.player.x,ny-this.player.y)<5){if(this.traversable(this.x,this.y,nx,ny)){this.recordMove(nx,ny);this.x=nx;this.y=ny;}}
+      if(!this.offline&&this.movePath.length<256&&this.queuedDistance()+Math.hypot(nx-this.x,ny-this.y)<4.5&&Math.hypot(nx-this.player.x,ny-this.player.y)<5){if(this.traversable(this.x,this.y,nx,ny)){this.recordMove(nx,ny);this.x=nx;this.y=ny;}}
       this.direction=Math.abs(dx)>Math.abs(dy)?dx>0?'right':'left':dy>0?'down':'up';
     }
-    this.lastSync+=dt;if(this.lastSync>.4&&!this.busy&&!this.syncInFlight&&!this.offline&&Math.hypot(this.x-this.player.x,this.y-this.player.y)>.05){this.lastSync=0;void this.sync().catch(()=>{});}
+    this.lastSync+=dt;if(this.lastSync>.8&&!this.busy&&!this.syncInFlight&&!this.offline&&Date.now()>=this.moveRetryAt&&Math.hypot(this.x-this.player.x,this.y-this.player.y)>.05){this.lastSync=0;void this.sync().catch(()=>{});}
     const interactionLabel=this.nearby()?.label??'互动';if(interactionLabel!==this.interactionLabel){this.interactionLabel=interactionLabel;this.onChange();}
   }
   stand(x:number,y:number){const v=this.view!;const staticBlocks=[...v.scene.collision,...v.plots.filter(p=>p.buildingId)];const npcBlocks=v.npcs.filter(n=>n.enabled).map(npcCollisionRect);return x>=1&&y>=1&&x<=v.scene.width-1&&y<=v.scene.height-1&&!staticBlocks.some(r=>x>r.x-.18&&x<r.x+r.width+.18&&y>r.y-.18&&y<r.y+r.height+.18)&&!npcBlocks.some(r=>x>r.x&&x<r.x+r.width&&y>r.y&&y<r.y+r.height);}
   traversable(fromX:number,fromY:number,toX:number,toY:number){for(let i=1;i<=8;i++){const t=i/8;if(!this.stand(fromX+(toX-fromX)*t,fromY+(toY-fromY)*t))return false;}return true;}
+  private queuedDistance(){let x=this.player?.x??this.x,y=this.player?.y??this.y,total=0;for(const p of this.movePath){total+=Math.hypot(p.x-x,p.y-y);x=p.x;y=p.y;}return total;}
   private recordMove(x:number,y:number){
     const last=this.movePath.at(-1),previous=this.movePath.at(-2);
     // Merge only straight forward movement. Keep every turn for server validation.
@@ -99,23 +101,25 @@ export class GameController {
   }
   async sync(){
     if(this.syncInFlight)return this.syncInFlight;
+    if(Date.now()<this.moveRetryAt)throw new Error("请求较频繁，请稍后再试");
     if(!this.player)return;
     if(!this.movePath.length&&this.x===this.player.x&&this.y===this.player.y)return;
-    const points=this.movePath.splice(0);
+    const points=this.movePath.splice(0,256);
     if(!points.length)points.push({x:this.x,y:this.y});
     const player=this.player,sceneId=player.sceneId;
     const request=(async()=>{
       try{
-        for(const point of points){
-          const result=await this.transport('/v1/player/move',{...point,requestId:uuid()},this.token);
-          if(this.player?.id!==player.id||this.player.sceneId!==sceneId)return;
-          if(result.player){this.boot!.player=result.player;this.offline=false;
-            if(result.positionRestored){this.movePath=[];this.x=result.player.x;this.y=result.player.y;this.correctionX=0;this.correctionY=0;return result;}
-            this.correctionX+=result.player.x-point.x;this.correctionY+=result.player.y-point.y;
-          }
+        const point=points[points.length-1];
+        // One bounded request per update, never one request per joystick frame.
+        const result=await this.transport('/v1/player/move',{...point,...(this.boot?.features?.movementPath?{path:points}:{}),requestId:uuid()},this.token);
+        if(this.player?.id!==player.id||this.player.sceneId!==sceneId)return;
+        if(result.player){this.boot!.player=result.player;this.offline=false;
+          if(result.positionRestored){this.movePath=[];this.x=result.player.x;this.y=result.player.y;this.correctionX=0;this.correctionY=0;return result;}
+          this.correctionX+=result.player.x-point.x;this.correctionY+=result.player.y-point.y;
         }
       }catch(error:any){
         if(this.player?.id===player.id&&this.player.sceneId===sceneId){
+          if(error.status===429)this.moveRetryAt=Date.now()+60000;
           this.movePath=[];this.x=this.player.x;this.y=this.player.y;this.correctionX=0;this.correctionY=0;
           this.offline=!error.status;this.message=error.status?`位置同步未通过：${error.message}`:'移动同步中断，请重新连接';
         }
@@ -178,7 +182,7 @@ export class GameController {
   }
   canUseNpcServices(){return !this.dialogue&&!this.introPending&&!!this.view?.npcs.some(n=>canInteractWithNpc(this.direction,this.footWorldPosition,n).allowed);}
   nearby(){const candidates=this.interactionCandidates();const next=selectInteraction(candidates,this.activeInteraction?.id);this.activeInteraction=next;return next;}
-  async interact(){if(this.interacting)return;const target=this.nearby();if(!target){this.message="请靠近互动目标";this.onChange();return;}this.interacting=true;try{const entrance=target.path==='/v1/world/enter'?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===target.body.entranceId):undefined;const portal=target.path==='/v1/world/portal'?this.view?.scene.portals.find(p=>p.id===target.body.portalId):undefined;const returned=portal?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===portal.returnEntranceId):undefined;await this.sync();await this.sync();if(this.nearby()?.id!==target.id)throw new Error("位置已校准，请重新靠近互动目标");await this.write(target.path,target.body);if(entrance){this.direction=entrance.direction==='south'?'up':entrance.direction==='west'?'right':entrance.direction==='east'?'left':'down';this.message='进入建筑…';}else if(portal){if(returned)this.direction=returned.direction==='south'?'down':returned.direction==='west'?'left':returned.direction==='east'?'right':'up';this.interactionCooldown=.8;if(!this.dialogue)this.message='已到达'+(this.view?.scene.name??'场景');}this.onChange();}finally{this.interacting=false;this.onChange();}}
+  async interact(){if(this.interacting)return;const target=this.nearby();if(!target){this.message="请靠近互动目标";this.onChange();return;}this.interacting=true;this.message="正在确认位置…";this.onChange();try{const entrance=target.path==='/v1/world/enter'?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===target.body.entranceId):undefined;const portal=target.path==='/v1/world/portal'?this.view?.scene.portals.find(p=>p.id===target.body.portalId):undefined;const returned=portal?this.view?.plots.flatMap(p=>p.entrances??[]).find(e=>e.id===portal.returnEntranceId):undefined;await this.sync();await this.sync();if(this.nearby()?.id!==target.id)throw new Error("位置已校准，请重新靠近互动目标");await this.write(target.path,target.body);if(entrance){this.direction=entrance.direction==='south'?'up':entrance.direction==='west'?'right':entrance.direction==='east'?'left':'down';this.message='进入建筑…';}else if(portal){if(returned)this.direction=returned.direction==='south'?'down':returned.direction==='west'?'left':returned.direction==='east'?'right':'up';this.interactionCooldown=.8;if(!this.dialogue)this.message='已到达'+(this.view?.scene.name??'场景');}this.onChange();}finally{this.interacting=false;this.onChange();}}
   async trade(action:'buy'|'sell',itemId:string,quantity=1){
     await this.sync();
     const building=this.view!.buildings.find(candidate=>candidate.id===this.view!.scene.buildingId);const firstTrade=!(this.player?.ledger??[]).some(entry=>(entry.type==='SHOP_BUY'||entry.type==='SHOP_SELL')&&entry.referenceId.startsWith((building?.id??'')+':'));

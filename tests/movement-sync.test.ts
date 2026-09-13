@@ -12,7 +12,7 @@ async function fixture(){
  scene.collision=[{x:10.7,y:9.7,width:.3,height:.6}];world.plots=[];world.npcs=[];
  await repo.mutate(p.id,randomUUID(),'fixture',p=>{p.appearance=createStarterAppearance('MALE',{});p.sceneId=scene.id;p.x=10;p.y=10;return {};});
  const c=new GameController(async(path,body)=>service.action(p.id,path.endsWith('/move')?'move':'portal',body));
- c.boot={player:await repo.player(p.id)} as any;c.view=sceneView(world,scene.id,new Date());c.x=10;c.y=10;
+ c.boot={player:await repo.player(p.id),features:{movementPath:true}} as any;c.view=sceneView(world,scene.id,new Date());c.x=10;c.y=10;
  (c as any).lastSync=-100;
  return {c,repo,p,service};
 }
@@ -46,4 +46,28 @@ test('直线行走合并同步点，避免逐帧请求服务器',async()=>{
  const {c}=await fixture();c.view!.scene.collision=[];let count=0;
  c.transport=async(_path,body:any)=>{count++;return {player:{...c.player,x:body.x,y:body.y}};};
  for(let i=0;i<20;i++)c.tick(.01,0,-1);await c.sync();assert.ok(count<=2);assert.ok(Math.abs(c.player!.y-9)<1e-8);
+});
+
+
+test('手机摇杆连续微调一分钟的请求预算',async()=>{
+ const {c}=await fixture();c.view!.scene.collision=[];(c as any).lastSync=0;let count=0;
+ c.transport=async(_path,body:any)=>{count++;return {player:{...c.player,x:body.x,y:body.y}};};
+ for(let i=0;i<3600;i++){c.tick(1/60,Math.cos(i*.04),Math.sin(i*.04));await new Promise<void>(r=>setImmediate(r));}
+ await c.sync();console.log('MOVE_REQUESTS_PER_MINUTE',count);assert.ok(count<=80,`requests=${count}`);
+});
+
+
+test('429 后后台移动及重复点击不持续请求，提示明确',async()=>{
+ const {c}=await fixture();let count=0;c.x=10.2;
+ c.transport=async()=>{count++;throw Object.assign(new Error('操作较频繁，请稍后重试'),{status:429});};
+ await assert.rejects(c.sync());
+ for(let i=0;i<100;i++)c.tick(.01,0,-1);
+ await assert.rejects(c.sync(),/较频繁/);assert.equal(count,1);
+});
+
+test('弱网期间多帧转向只保留有界路径，确认后一次发送剩余路径',async()=>{
+ const {c}=await fixture();c.view!.scene.collision=[];let resolve!:(r:any)=>void;let calls=0;
+ c.x=10.1;c.transport=async(_path,body:any)=>{calls++;if(calls===1)return new Promise(r=>{resolve=r;});assert.ok(body.path.length<=256);return {player:{...c.player,x:body.x,y:body.y}};};
+ const pending=c.sync();for(let i=0;i<600;i++)c.tick(1/60,Math.cos(i*.04),Math.sin(i*.04));assert.equal(calls,1);
+ resolve({player:{...c.player,x:10.1,y:10}});await pending;await c.sync();assert.equal(calls,2);
 });

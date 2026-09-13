@@ -37,9 +37,18 @@ export class GameService {
             console.info('PLAYER_POSITION_RESTORED',{playerId,x:before.x,y:before.y,sceneId:before.sceneId,hits:before.hits,after:safe});
             return {player:publicPlayer(p),positionRestored:true};
           }
-          ensure(Math.hypot(p.x-body.x,p.y-body.y)<=8,'MOVE_TOO_FAR','移动过远，请同步位置');
-          const steps=32;for(let i=1;i<=steps;i++)ensure(canStand(world,p.sceneId,p.x+(body.x-p.x)*i/steps,p.y+(body.y-p.y)*i/steps),'COLLISION','前方无法通行');
-          p.x=body.x;p.y=body.y;break;
+          const points=body.path??[{x:body.x,y:body.y}];
+          ensure(points.length>0&&points.length<=256,'INVALID_PATH','移动路径无效');
+          const end=points[points.length-1];ensure(end.x===body.x&&end.y===body.y,'INVALID_PATH','移动终点不一致');
+          let x=p.x,y=p.y,total=0;
+          for(const point of points){
+            ensure(Number.isFinite(point.x)&&Number.isFinite(point.y),'INVALID_PATH','移动路径无效');
+            total+=Math.hypot(point.x-x,point.y-y);ensure(total<=8+1e-8,'MOVE_TOO_FAR','移动过远，请同步位置');
+            const steps=Math.max(1,Math.ceil(Math.hypot(point.x-x,point.y-y)/.05));
+            for(let i=1;i<=steps;i++)ensure(canStand(world,p.sceneId,x+(point.x-x)*i/steps,y+(point.y-y)*i/steps),'COLLISION','前方无法通行');
+            x=point.x;y=point.y;
+          }
+          p.x=x;p.y=y;break;
         }
         case 'enter':{
           const plot=world.plots.find(t=>t.id===body.plotId&&t.sceneId===p.sceneId),b=world.buildings.find(b=>b.id===plot?.buildingId&&b.enabled);

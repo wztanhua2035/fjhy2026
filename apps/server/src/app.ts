@@ -21,7 +21,7 @@ const schemas={
     z.object({requestId,gender:z.enum(['MALE','FEMALE']),skinToneId:id.optional(),hairId:id.optional(),outfitId:id.optional()}).strict(),
     z.object({requestId,gender:z.enum(['MALE','FEMALE']),baseAvatarId:id,skinColorId:id.optional(),hairColorId:id,topColorId:id,bottomColorId:id}).strict()
   ]),
-  move:z.object({requestId,x:z.number().finite(),y:z.number().finite()}).strict(),
+  move:z.object({requestId,x:z.number().finite(),y:z.number().finite(),path:z.array(z.object({x:z.number().finite(),y:z.number().finite()}).strict()).min(1).max(256).optional()}).strict(),
   enter:z.object({requestId,plotId:id,entranceId:id.optional()}).strict(),portal:z.object({requestId,portalId:id}).strict(),
   buy:z.object({requestId,buildingId:id,itemId:id,quantity:z.number().int().min(1).max(99)}).strict(),
   sell:z.object({requestId,buildingId:id,itemId:id,quantity:z.number().int().min(1).max(99)}).strict(),
@@ -42,6 +42,7 @@ export async function buildApp(repo:Repository,env:Environment,options:{logger?:
     if(err instanceof ZodError)return reply.code(400).send({code:'INVALID_INPUT',message:'输入格式不正确',issues:err.issues.map(i=>({path:i.path,message:i.message}))});
     if(err instanceof GameError)return reply.code(err.status).send({code:err.code,message:err.message});
     const status=(err as any).statusCode??500;
+    if(status===429)return reply.code(429).send({code:'RATE_LIMITED',message:'操作较频繁，请稍后重试',retryAfterMs:60000});
   
 if(status>=500){
   app.log.error({
@@ -72,7 +73,7 @@ if(status>=500){
     ensure([GUEST_ROOM_SCENE_ID,INN_LOBBY_SCENE_ID].includes(requestedId),'NOT_FOUND','接口不存在',404);
     const world=await repo.world();
     const scene=sceneView(world,requestedId,game.now()).scene;
-    return {requestedId,sourcePresent:initialWorld.scenes.some(s=>s.id===requestedId),configVersion:world.configVersion,
+    return {movementProtocol:"bounded-path-v1",requestedId,sourcePresent:initialWorld.scenes.some(s=>s.id===requestedId),configVersion:world.configVersion,
       scene:{id:scene.id,width:scene.width,height:scene.height,spawnX:scene.spawnX,spawnY:scene.spawnY,collision:scene.collision,portals:scene.portals,interior:scene.interior},
       npcs:world.npcs.filter(n=>n.sceneId===requestedId).map(n=>({id:n.id,x:n.x,y:n.y}))};
   });
@@ -87,7 +88,7 @@ if(status>=500){
     return login(result.openid);
   });
   app.post('/v1/auth/dev',async req=>{ensure(env.allowDevAuth&&env.appEnv==='DEV'&&env.mode!=='production','NOT_FOUND','接口不存在',404);const {account}=z.object({account:z.string().regex(/^[a-z0-9_-]{1,32}$/)}).strict().parse(req.body);return login(`dev:${account}`);});
-  app.get('/v1/bootstrap',async req=>{const w=await repo.world(),p=await repo.repairPosition(req.user.sub,w);return {player:publicPlayer(p),serverTime:game.now().toISOString(),worldVersion:w.worldVersion,configVersion:w.configVersion,assetVersion:w.assetVersion,assetManifest:`${env.assetBase}/${w.assetVersion}/manifest.json`,colors:{...w.colors,...Object.fromEntries(starterSkinTones.map(s=>[s.id,s.hex]))},appearances:[...w.appearances.filter(a=>a.enabled&&!starterLooks.some(s=>s.id===a.id)),...starterLooks],features:{trade:true,appearance:true,ghostPreview:true,gifts:false,property:false,quests:true,rank:false}};});
+  app.get('/v1/bootstrap',async req=>{const w=await repo.world(),p=await repo.repairPosition(req.user.sub,w);return {player:publicPlayer(p),serverTime:game.now().toISOString(),worldVersion:w.worldVersion,configVersion:w.configVersion,assetVersion:w.assetVersion,assetManifest:`${env.assetBase}/${w.assetVersion}/manifest.json`,colors:{...w.colors,...Object.fromEntries(starterSkinTones.map(s=>[s.id,s.hex]))},appearances:[...w.appearances.filter(a=>a.enabled&&!starterLooks.some(s=>s.id===a.id)),...starterLooks],features:{movementPath:true,trade:true,appearance:true,ghostPreview:true,gifts:false,property:false,quests:true,rank:false}};});
   app.post('/v1/player/restart',async req=>{const body=z.object({requestId,confirm:z.literal(true)}).strict().parse(req.body);return {player:publicPlayer(await repo.restartGame(req.user.sub,body.requestId))};});
   app.get('/v1/world/scenes/:id',async req=>{const w=await repo.world(),p=await repo.repairPosition(req.user.sub,w);ensure(p.appearance,'CHARACTER_REQUIRED','请先创建角色',409);return {...sceneView(w,(req.params as any).id,game.now(),requestGameContext(req).debugOpenAll),playerPosition:{sceneId:p.sceneId,x:p.x,y:p.y}};});
   app.get('/v1/scenes/:id/ghosts',async req=>{const p=await repo.player(req.user.sub);ensure(p.appearance&&p.sceneId===(req.params as any).id,'WRONG_SCENE','请进入对应场景');return {ghosts:await repo.ghosts(p.id)};});
