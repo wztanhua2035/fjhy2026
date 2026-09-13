@@ -70,6 +70,7 @@ export interface PlayerState {
   id: string; nickname: string; cash: number; stamina: number; status: string;
   sceneId: string; x: number; y: number; appearance: Appearance | null; inventory: Record<string, number>;
   cosmetics: string[]; ledger: LedgerEntry[]; tradeCounts: Record<string, number>; metNpcs: string[]; storyFlags?: Record<string, boolean>;
+  storage:Record<string,number>;life:import('../game-config/life-v1.js').LifeState;
 }
 export interface GhostProfile { playerId: string; nickname: string; appearance: Appearance; title: string; updatedAt: string }
 export interface MailboxPayload { items: {itemId: string; quantity: number}[]; cash: number }

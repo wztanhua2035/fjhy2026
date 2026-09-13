@@ -2,9 +2,11 @@ import type Phaser from 'phaser';
 import type {GameController} from './index.js';
 import {applyHairTexture} from './hair-phaser.js';
 import {UI_DEPTH_BASE} from './assets.js';
+import {installGuestFacilities} from './guest-facilities-phaser.js';
 
 /** The same functional fitting panel is installed in Web and WeChat scenes. */
 export function installOutfitShop(scene:Phaser.Scene,game:GameController,width:number,height:number){
+  installGuestFacilities(scene,game,width,height);
   const depth=UI_DEPTH_BASE+110,objects:Phaser.GameObjects.GameObject[]=[];
   const label=(x:number,y:number,value:string)=>{const t=scene.add.text(x,y,value,{fontFamily:'Microsoft YaHei, Arial',fontSize:'21px',color:'#334538',align:'center'}).setOrigin(.5).setDepth(depth+2);objects.push(t);return t;};
   const run=(action:()=>Promise<unknown>)=>void action().catch((error:Error)=>{game.message=error.message;game.onChange();});
@@ -26,10 +28,11 @@ export function installOutfitShop(scene:Phaser.Scene,game:GameController,width:n
     open.setVisible(!!game.player?.appearance&&game.canUseOutfitShop()&&!game.outfitPanelOpen);
     for(const object of panel)object.setVisible(game.outfitPanelOpen);
     if(!game.outfitPanelOpen)return;
+    title.setText(game.outfitMode==='wardrobe'?'我的衣柜':'春衫衣坊');
     const current=game.outfitPanel(),ap=game.player?.appearance;
     if(ap){preview.setTexture(`formal-player-${ap.gender.toLowerCase()}`,direction*4);applyHairTexture(scene,preview,ap.gender,ap.hairId,game.hairCatalog.length?game.hairCatalog:undefined,ap.faceId,current?.outfit.outfitId);}
-    info.setText(current?`${current.outfit.displayName}${current.current?' · 当前穿着':current.owned?' · 已拥有':''}\n价格 ${current.price} 文　铜钱 ${game.player?.cash??0} 文`:'暂无可用服装');
-    confirm.setText(current?.current?'当前穿着':current?.owned?'穿上':'购买并穿上');
+    info.setText(current?game.outfitMode==='wardrobe'?`${current.outfit.displayName}${current.current?' · 当前穿着':''}\n已拥有 · 免费换装`:`${current.outfit.displayName}${current.current?' · 当前穿着':current.owned?' · 已拥有':''}\n价格 ${current.price} 文　铜钱 ${game.player?.cash??0} 文`:'暂无可用服装');
+    confirm.setText(current?.current?'当前穿着':game.outfitMode==='wardrobe'||current?.owned?'穿上':'购买并穿上');
     confirm.setAlpha(!current||current.current||game.busy||!!game.pending ? .5 : 1);
   };
   update();scene.events.on('postupdate',update);

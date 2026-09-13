@@ -6,6 +6,7 @@ import { starterLooks } from '../../../packages/game-config/appearance-v1.js';
 import {hairServiceConfig} from '../../../packages/game-config/hair-services.js';
 import {outfitShopConfig} from '../../../packages/game-config/outfits.js';
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, guestRoomObjectDialogue } from '../../../packages/game-config/inn-opening.js';
+import {GUEST_ROOM_LIFE_UNLOCKED,normalizeLifeState,settleSleep,type LifeState} from '../../../packages/game-config/life-v1.js';
 import {applyItemEffect,resolveShopPrice,itemStackLimit,requireSupportedStockMode} from '../../../packages/game-rules/inventory.js';
 export interface RequestGameContext { debugOpenAll?: boolean }
 function money(p:PlayerState,amount:number,type:string,referenceId:string,requestId:string){
@@ -14,6 +15,23 @@ function money(p:PlayerState,amount:number,type:string,referenceId:string,reques
 }
 export class GameService {
   constructor(public repo:Repository, public now=()=>new Date()){}
+  async settleDueSleep(playerId:string){
+    const current=await this.repo.player(playerId),sleep=current.life.sleep;
+    if(!sleep||!settleSleep(current.life,this.now()))return current;
+    const result=await this.repo.mutate(playerId,randomUUID(),`SLEEP_SETTLEMENT:${sleep.startedAt}`,p=>{
+      const settled=settleSleep(p.life,this.now());if(settled)p.life=settled.life;
+      return {player:publicPlayer(p),sleepResult:settled?.result??null};
+    });
+    return result.player as PlayerState;
+  }
+  facility(world:WorldConfig,p:PlayerState,zoneId:string,kind:'bed'|'wardrobe'|'storage'|'desk'){
+    ensure(p.storyFlags?.[GUEST_ROOM_LIFE_UNLOCKED],'FACILITY_LOCKED','先到白石街走走，再回来使用房间设施',403);
+    if(p.life.sleep&&kind!=='bed')ensure(false,'SLEEPING','正在休息，请先醒来',409);
+    const zone=world.scenes.find(s=>s.id===p.sceneId)?.interior?.zones.find(z=>z.id===zoneId&&z.kind===kind);
+    ensure(zone?.interactionPoint,'NO_FACILITY','这里没有对应设施');
+    ensure(Math.hypot(p.x-zone.interactionPoint.x,p.y-zone.interactionPoint.y)<1.1,'TOO_FAR','请走近一些');
+    return zone;
+  }
   async action(playerId:string,action:string,body:any,context:RequestGameContext={}){
     const world=await this.repo.world();
     const hash=createHash('sha256').update(JSON.stringify({action,body,debugOpenAll:!!context.debugOpenAll})).digest('hex');
@@ -22,6 +40,8 @@ export class GameService {
       ensure(p.status==='ACTIVE','BANNED','账号不可用',403);
       if(action==='buy'||action==='sell')ensure(Number.isSafeInteger(body.quantity)&&body.quantity>=1&&body.quantity<=99,'INVALID_QUANTITY','交易数量必须为 1 至 99 的整数',400);
       if(action!=='create')ensure(p.appearance,'CHARACTER_REQUIRED','请先创建角色',409);
+      p.life=normalizeLifeState(p.life);
+      if(p.life.sleep&&action!=='sleepWake')ensure(false,'SLEEPING','正在休息，请先醒来',409);
       if(p.appearance&&p.sceneId===INN_LOBBY_SCENE_ID&&!p.storyFlags?.[INTRO_INN_KEEPER_DONE]&&action!=='introComplete')ensure(false,'INTRO_IN_PROGRESS','请先听陈掌柜说完开场的话',409);
       switch(action){
         case 'appearanceService':{
@@ -43,7 +63,7 @@ export class GameService {
             ?formalizeAppearance(starterAppearance(world,body.gender,body.baseAvatarId,{hairColorId:body.hairColorId,topColorId:body.topColorId,bottomColorId:body.bottomColorId}))
             :createStarterAppearance(body.gender,{faceId:body.faceId,hairId:body.hairId,outfitId:body.outfitId},world.faces);
           p.cosmetics=[p.appearance.hairId!,p.appearance.outfitId!];
-          p.sceneId=GUEST_ROOM_SCENE_ID;p.x=7;p.y=8.4;p.metNpcs=[...new Set([...p.metNpcs,'NPC_001'])];p.storyFlags={};
+          p.sceneId=GUEST_ROOM_SCENE_ID;p.x=7;p.y=8.4;p.metNpcs=[...new Set([...p.metNpcs,'NPC_001'])];p.storyFlags={};p.life=normalizeLifeState(null);p.storage={};
           money(p,120,'SYSTEM_GRANT','NEW_PLAYER',body.requestId);
           questDialogue='临时借住的房间不大，却总算有个落脚的地方。出门就是客栈大厅。';break;
         }
@@ -75,7 +95,9 @@ export class GameService {
         }
         case 'portal':{
           const portal=sceneView(world,p.sceneId,this.now()).scene.portals.find(t=>t.id===body.portalId);ensure(portal,'NO_PORTAL','出口不存在');ensure(inEntranceArea({interactionArea:portalInteractionZone(portal)} as any,p.x,p.y),'TOO_FAR','请走到出口');
-          p.sceneId=portal.toSceneId;const safe=recoverSafePosition(world,p.sceneId,portal.spawnX,portal.spawnY);p.x=safe.x;p.y=safe.y;break;
+          const firstStreetExit=p.sceneId===INN_LOBBY_SCENE_ID&&portal.toSceneId==='STREET_BAISHI_01'&&!!p.storyFlags?.[INTRO_INN_KEEPER_DONE];
+          p.sceneId=portal.toSceneId;const safe=recoverSafePosition(world,p.sceneId,portal.spawnX,portal.spawnY);p.x=safe.x;p.y=safe.y;
+          if(firstStreetExit){p.storyFlags??={};p.storyFlags[GUEST_ROOM_LIFE_UNLOCKED]=true;}break;
         }
         case 'introComplete':{
           ensure(p.sceneId===INN_LOBBY_SCENE_ID,'WRONG_SCENE','请先进入客栈大厅');
@@ -88,7 +110,39 @@ export class GameService {
           const zone=world.scenes.find(s=>s.id===GUEST_ROOM_SCENE_ID)?.interior?.zones.find(z=>z.id===body.zoneId);
           ensure(zone?.interactionPoint&&guestRoomObjectDialogue[zone.id],'NO_INTERACTION','这里没有可查看的物件');
           ensure(Math.hypot(p.x-zone.interactionPoint.x,p.y-zone.interactionPoint.y)<1.1,'TOO_FAR','请走近一些');
+          if(p.storyFlags?.[GUEST_ROOM_LIFE_UNLOCKED]){
+            if(zone.kind==='bed'||zone.kind==='wardrobe'||zone.kind==='storage'||zone.kind==='desk')return {player:publicPlayer(p),facility:{zoneId:zone.id,kind:zone.kind},dialogue:zone.kind==='desk'?`旅人记录：当前活力 ${p.life.energy}/100，随身物品 ${Object.keys(p.inventory).length} 种。`:undefined};
+          }
           return {player:publicPlayer(p),dialogue:guestRoomObjectDialogue[zone.id],speaker:'心声'};
+        }
+        case 'wardrobeEquip':{
+          this.facility(world,p,body.zoneId,'wardrobe');
+          const {outfits}=outfitShopConfig(world),outfit=outfits.find(o=>o.outfitId===body.outfitId&&o.enabled);
+          ensure(outfit&&outfit.gender===p.appearance!.gender,'OUTFIT_UNAVAILABLE','服装不可用');
+          ensure(p.cosmetics.includes(outfit.outfitId),'NOT_OWNED','尚未拥有该服装',403);
+          ensure(p.appearance!.outfitId!==outfit.outfitId,'CURRENT_OUTFIT','已经穿着此服装');
+          p.appearance!.outfitId=outfit.outfitId;p.appearance!.topStyleId=outfit.outfitId;break;
+        }
+        case 'storageTransfer':{
+          this.facility(world,p,body.zoneId,'storage');
+          ensure(Number.isSafeInteger(body.quantity)&&body.quantity>=1&&body.quantity<=99,'INVALID_QUANTITY','数量必须为 1 至 99 的整数');
+          const item=world.items.find(i=>i.id===body.itemId&&i.enabled!==false);ensure(item,'ITEM_NOT_FOUND','物品不存在');
+          const source=body.direction==='deposit'?p.inventory:p.storage,target=body.direction==='deposit'?p.storage:p.inventory;
+          ensure(body.direction==='deposit'||body.direction==='withdraw','INVALID_DIRECTION','转移方向无效');
+          if(body.direction==='deposit')ensure(!item.questItem&&!item.keyItem&&!item.questOnly,'PROTECTED_ITEM','任务或重要物品不能存入箱子');
+          ensure((source[item.id]??0)>=body.quantity,'INSUFFICIENT_ITEM_QUANTITY','物品数量不足');
+          if(body.direction==='withdraw')ensure((target[item.id]??0)+body.quantity<=itemStackLimit(item)&&Object.values(p.inventory).reduce((sum,n)=>sum+n,0)+body.quantity<=100,'BAG_FULL','行囊容量不足');
+          source[item.id]-=body.quantity;if(source[item.id]===0)delete source[item.id];target[item.id]=(target[item.id]??0)+body.quantity;break;
+        }
+        case 'sleepStart':{
+          this.facility(world,p,body.zoneId,'bed');
+          ensure(!p.life.sleep,'SLEEPING','已经在休息');ensure([1,3,6].includes(body.hours),'INVALID_SLEEP_DURATION','请选择有效休息时长');
+          p.life.sleep={startedAt:this.now().toISOString(),intendedHours:body.hours};p.life.lastSleepResult=null;break;
+        }
+        case 'sleepWake':{
+          this.facility(world,p,body.zoneId,'bed');ensure(p.life.sleep,'NOT_SLEEPING','目前没有正在进行的休息');
+          const settled=settleSleep(p.life,this.now(),true);ensure(settled,'INVALID_SLEEP','休息时间无效');p.life=settled.life;
+          return {player:publicPlayer(p),sleepResult:settled.result};
         }
         case 'safeReset':{
           const scene=world.scenes.find(s=>s.id===p.sceneId);ensure(scene,'SCENE_NOT_FOUND','场景不存在',404);

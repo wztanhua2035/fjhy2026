@@ -18,6 +18,8 @@ model Player {
   tradeCounts Json @default("{}")
   metNpcs Json @default("[]")
   storyFlags Json @default("{}")
+  personalStorage Json @default("{}")
+  lifeState Json @default("{}")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   lastLoginAt DateTime @default(now())

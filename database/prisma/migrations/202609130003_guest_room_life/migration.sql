@@ -1,0 +1,2 @@
+ALTER TABLE "players" ADD COLUMN "personalStorage" JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE "players" ADD COLUMN "lifeState" JSONB NOT NULL DEFAULT '{}';

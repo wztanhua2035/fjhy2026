@@ -84,7 +84,7 @@ test('旧外观字段原样保留，新语义映射到安全默认选项',()=>{
   assert.equal(mapped.hairId,'F_HAIR_01');
   assert.equal(mapped.outfitId,'F_OUTFIT_01');
   assert.equal(createStarterAppearance('MALE',{faceId:'M_FACE_01'}).baseAvatarId,'MALE_01');
-  assert.equal(publicPlayer({id:'p',nickname:'x',cash:0,stamina:100,status:'ACTIVE',sceneId:'INTERIOR_B_INN',x:12,y:15,appearance:legacy,inventory:{},cosmetics:[],ledger:[],tradeCounts:{},metNpcs:[]}).appearance?.hairId,'F_HAIR_01');
+  assert.equal(publicPlayer({id:'p',nickname:'x',cash:0,stamina:100,status:'ACTIVE',sceneId:'INTERIOR_B_INN',x:12,y:15,appearance:legacy,inventory:{},storage:{},life:{energy:100,sleep:null,lastEffectiveSleepAt:null,lastSleepResult:null},cosmetics:[],ledger:[],tradeCounts:{},metNpcs:[]}).appearance?.hairId,'F_HAIR_01');
 });
 
 test('未来 NPC 可直接配置完整 Hair/Outfit 而无需旧式上下装字段',()=>{

@@ -5,6 +5,7 @@ import {PrismaClient} from '@prisma/client';
 import {PostgresRepository} from '../apps/server/src/repository.js';
 import {GameService} from '../apps/server/src/service.js';
 import {ensureTradeShop} from '../apps/server/src/sync-trade.js';
+import {GUEST_ROOM_LIFE_UNLOCKED} from '../packages/game-config/life-v1.js';
 test('PostgreSQL 多连接并发幂等、事务与重启持久化',{skip:!process.env.TEST_DATABASE_URL},async()=>{
  const url=process.env.TEST_DATABASE_URL!;assert.ok(url.includes('test'),'集成测试只允许显式命名的 test 数据库');
  const db=new PrismaClient({datasourceUrl:url}),repo=new PostgresRepository(db),s=new GameService(repo);const p=await repo.login(`test-${randomUUID()}`);
@@ -20,5 +21,15 @@ test('PostgreSQL 多连接并发幂等、事务与重启持久化',{skip:!proces
  assert.equal((await repo.player(p.id)).inventory.WATER_01,1);
  assert.equal((await repo.player(p.id)).cash,before+8);
  assert.equal(await db.playerLedger.count({where:{playerId:p.id,type:'SHOP_SELL'}}),1);
+ // The CI PostgreSQL database also exercises the new additive player columns.
+ await db.player.update({where:{id:p.id},data:{sceneId:'INTERIOR_B_INN_GUEST_ROOM',x:9.45,y:8.2,storyFlags:{[GUEST_ROOM_LIFE_UNLOCKED]:true}}});
+ const transfer={requestId:randomUUID(),zoneId:'GUEST_CHEST',itemId:'WATER_01',quantity:1,direction:'deposit'};
+ await Promise.all(Array.from({length:2},()=>s.action(p.id,'storageTransfer',transfer)));
+ const reloaded=new PostgresRepository(new PrismaClient({datasourceUrl:url}));
+ try{assert.equal((await reloaded.player(p.id)).storage.WATER_01,1);assert.equal((await reloaded.player(p.id)).inventory.WATER_01,undefined);}finally{await reloaded.close();}
+ await db.player.update({where:{id:p.id},data:{x:5.2,y:5.8,lifeState:{energy:20,sleep:null,lastEffectiveSleepAt:null,lastSleepResult:null}}});
+ await s.action(p.id,'sleepStart',{requestId:randomUUID(),zoneId:'GUEST_BED',hours:6});
+ s.now=()=>new Date(Date.now()+7*3600000);await s.settleDueSleep(p.id);await s.settleDueSleep(p.id);
+ assert.equal((await repo.player(p.id)).life.energy,60);
  }finally{await repo.close();}
 });
