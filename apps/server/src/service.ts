@@ -39,8 +39,8 @@ export class GameService {
         case 'create':{
           ensure(!p.appearance,'ALREADY_CREATED','角色已创建',409);
           p.appearance='baseAvatarId' in body
-            ?formalizeAppearance(starterAppearance(world,body.gender,body.baseAvatarId,{skinColorId:body.skinColorId,hairColorId:body.hairColorId,topColorId:body.topColorId,bottomColorId:body.bottomColorId}))
-            :createStarterAppearance(body.gender,{skinToneId:body.skinToneId,hairId:body.hairId,outfitId:body.outfitId});
+            ?formalizeAppearance(starterAppearance(world,body.gender,body.baseAvatarId,{hairColorId:body.hairColorId,topColorId:body.topColorId,bottomColorId:body.bottomColorId}))
+            :createStarterAppearance(body.gender,{hairId:body.hairId,outfitId:body.outfitId});
           p.cosmetics=[p.appearance.hairId!,p.appearance.outfitId!];
           p.sceneId=GUEST_ROOM_SCENE_ID;p.x=7;p.y=8.4;p.metNpcs=[...new Set([...p.metNpcs,'NPC_001'])];p.storyFlags={};
           money(p,120,'SYSTEM_GRANT','NEW_PLAYER',body.requestId);

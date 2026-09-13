@@ -36,7 +36,7 @@ const cases=[
 for(const [buildingId,npcId,serviceZoneId] of cases)test(`${buildingId} 室内入口、家具、NPC、出口与原门口闭环`,async()=>{
   const repo=new MemoryRepository(),service=new GameService(repo,()=>new Date('2026-09-12T06:00:00Z'));
   const player=await repo.login(`interior-${buildingId}`);
-  await service.action(player.id,'create',{requestId:randomUUID(),gender:'FEMALE',skinToneId:'SKIN_LIGHT',hairId:'F_HAIR_01',outfitId:'F_OUTFIT_01'});
+  await service.action(player.id,'create',{requestId:randomUUID(),gender:'FEMALE',hairId:'F_HAIR_01',outfitId:'F_OUTFIT_01'});
   repo.players.get(player.id)!.storyFlags={INTRO_INN_KEEPER_DONE:true};
   const building=initialWorld.buildings.find(b=>b.id===buildingId)!,scene=initialWorld.scenes.find(s=>s.id===building.interiorSceneId)!;
   const plot=initialWorld.plots.find(p=>p.buildingId===buildingId)!,entrance=plot.entrances![0],portal=scene.portals[0];

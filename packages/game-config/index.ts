@@ -3,7 +3,7 @@ import type { WorldConfig, SceneConfig, BuildingConfig, AppearanceDefinition, En
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID } from './inn-opening.js';
 import { starterLooks } from './appearance-v1.js';
 import {hairConfigs,hairServiceOffers} from './hair-services.js';
-export { starterLookOptions, starterSkinTones, starterLooks, availableStarterLookOptions } from './appearance-v1.js';
+export { starterLookOptions, starterLooks, availableStarterLookOptions } from './appearance-v1.js';
 const street = 'STREET_BAISHI_01';
 // Solid decorations reuse the shared static-collision path. Rectangles follow
 // only each object's footprint and leave every entrance corridor unobstructed.
@@ -166,7 +166,7 @@ export const initialWorld: WorldConfig = {
       ['小禾','FEMALE','FEMALE_06','HAIR_FEMALE_08','SAGE','TOP_FEMALE_05','CREAM','BOTTOM_FEMALE_04','ROSE','SHOES_FEMALE_03']
     ].map(([name,gender,baseAvatarId,hairStyleId,hairColorId,topStyleId,topColorId,bottomStyleId,bottomColorId,shoesId],i)=>({id:`NPC_00${i+2}`,name,nameLocked:false,enabled:true,sceneId:street,x:16+i*7,y:22.5,priority:50-i,hours:['00:00','00:00'] as [string,string],dialogue:['白石街的店铺各有行价，货比三家总没错。'],route:[{x:16+i*7,y:22.5},{x:18+i*7,y:22.5}],appearance:{gender:gender as 'MALE'|'FEMALE',baseAvatarId,hairStyleId,hairColorId,topStyleId,topColorId,bottomStyleId,bottomColorId,shoesId,accessoryIds:[]}}))],
   items:[...groceryItems,{id:'ERRAND_PACKAGE_01',name:'掌柜的急件',icon:'件',giftable:false,stackMax:1,stackable:false,questOnly:true,questItem:true,category:'QUEST',usable:false,droppable:false},{id:'CLOTH_SAMPLE_01',name:'新布样',icon:'布',giftable:false,stackMax:1,stackable:false,questOnly:true,questItem:true,category:'QUEST',usable:false,droppable:false}],
-  colors:{INK:'#343948',CHESTNUT:'#875742',CREAM:'#eee0bf',SAGE:'#86ac92',BLUE:'#789fc5',ROSE:'#cf8890',SKIN_LIGHT:'#f5d8ba',SKIN_WHEAT:'#e9b78e',SKIN_HONEY:'#d6a180',SKIN_DEEP:'#a96f52'},
+  colors:{INK:'#343948',CHESTNUT:'#875742',CREAM:'#eee0bf',SAGE:'#86ac92',BLUE:'#789fc5',ROSE:'#cf8890'},
   quests:[{id:'Q_001',name:'第一桶金',steps:[
     {type:'BUY',target:'RICE_01',shopId:'B_GROCERY',count:1,title:'购买鸣山大米',objective:'前往街坊杂货铺购买 1 份鸣山大米。'},
     {type:'SELL',target:'RICE_01',shopId:'B_TRADE',count:1,title:'出售鸣山大米',objective:'将鸣山大米带回白石商行出售。'}

@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw, ImageChops
 
 ROOT=Path(__file__).resolve().parents[1]
 SOURCE=ROOT/'apps/admin/public/scene-layers/baishi/formal'
-LAYERS=SOURCE/'hair-v2'
+LAYERS=SOURCE/'hair-v3'
 OUT=ROOT/'tmp/hair-alignment'
 OUT.mkdir(parents=True,exist_ok=True)
 
@@ -36,11 +36,11 @@ def contact(name:str,image:Image.Image,scale=4):
 records=[]
 for gender,prefix in [('male','m'),('female','f')]:
     original=Image.open(SOURCE/f'player_{gender}_base.png').convert('RGBA')
-    body=Image.open(LAYERS/f'player_{gender}_body_v2.png').convert('RGBA')
+    body=Image.open(LAYERS/f'player_{gender}_body_v3.png').convert('RGBA')
     contact(f'{gender}-original',original)
     contact(f'{gender}-neutral',body)
     for index in (1,2,3):
-        hair=Image.open(LAYERS/f'{prefix}_hair_0{index}_v2.png').convert('RGBA')
+        hair=Image.open(LAYERS/f'{prefix}_hair_0{index}_v3.png').convert('RGBA')
         combined=Image.alpha_composite(body,hair)
         contact(f'{prefix}-hair-0{index}-composed',combined)
         contact(f'{prefix}-hair-0{index}-only',hair)

@@ -19,17 +19,17 @@
 
 ## 素材与组合
 
-运行素材位于 `apps/admin/public/scene-layers/baishi/formal/hair-v1/`：
+当前运行素材位于 `apps/admin/public/scene-layers/baishi/formal/hair-v3/`：
 
-- `player_male_body_v1.png`、`player_female_body_v1.png`：原有服装/身体保留的基础层。
-- `m_hair_01_v1.png`、`m_hair_02_v1.png`、`m_hair_03_v1.png`。
-- `f_hair_01_v1.png`、`f_hair_02_v1.png`、`f_hair_03_v1.png`。
+- `player_male_body_v3.png`、`player_female_body_v3.png`：保留脸与服装、清除冲突旧发的基础层。
+- `m_hair_01_v3.png`、`m_hair_02_v3.png`、`m_hair_03_v3.png`。
+- `f_hair_01_v3.png`、`f_hair_02_v3.png`、`f_hair_03_v3.png`。
 
 全部 256×256 RGBA、4×4、64×64 帧，行顺序 down/left/right/up。
-原 base PNG 不覆盖；身体/服装/脚部（每帧 y≥32）逐像素一致，较高位置的绿色衣领像素也保留。
-仅去除头发所在上部并补足被遮住的头皮，保留原脸部轮廓中的像素。
+原 base PNG 与旧版运行资源均不覆盖；每帧 y≥43 的身体、服装和脚部逐像素一致。仅对女性少量低于头部的旧发像素做透明清理。
+头皮底色逐帧取原脸部实际肤色，额头不再复制旧刘海/发饰；保留真实五官与耳朵。角色创建不再有独立肤色属性。
 生成发型原图经过透明背景处理、独立方向裁切、逐帧定位和无损 PNG 编码。
-每张 Hair 约 9～12KB；每张基础层约 38KB；小资源随现有 baishi-world 包发布，不新增分包、不改远程 manifest。
+每张 Hair 约 11～16KB；每张基础层约 38KB；小资源随现有 baishi-world 包发布，不新增分包、不改远程 manifest。
 
 `hair-assets.ts` 是两端同一 Resource ID→文件映射。
 `hair-phaser.ts` 将 body（包含当前 outfit）→hair 预组合一次为帧图集，继续使用原玩家 sprite。
@@ -48,7 +48,7 @@ Web/微信共享 GameController 的临时 previewHairId 和功能面板，正式
 ## 资源来源与复现
 
 `tools/build-hair-layers.py --male <三列四行男性源图> --female <三列四行女性源图>`。
-需要 Pillow，输出到上述 hair-v1 目录；方向源区和对齐规则在脚本内记录。
+需要 Pillow，输出到上述 hair-v3 目录；方向源区和对齐规则在脚本内记录。`tools/audit-hair-alignment.py` 输出男女基础层及六套 Hair 的 16 帧放大检查图。
 本轮源图在本机 Codex generated_images 的任务归档目录：
 `C:/Users/tanhu/.codex/generated_images/01a08ec7-1a85-7103-81d0-1f197a4eca23/`。
 男性源文件 `exec-02bb1f31-0e32-495b-b18d-cc9e749a3515.png`；女性源文件 `exec-4faa6a1d-a2c4-4104-a168-ad81e7ebb4f2.png`。

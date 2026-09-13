@@ -1,13 +1,13 @@
 export type Gender = 'MALE' | 'FEMALE';
 export interface Appearance {
   /** V1 formal look: each hair ID includes its color; each outfit is a full set. */
-  skinToneId?: string; hairId?: string; outfitId?: string;
+  hairId?: string; outfitId?: string;
   /** Legacy persistence and old NPC configs; no longer player creation choices. */
-  gender: Gender; baseAvatarId: string; skinColorId?: string; hairStyleId: string; hairColorId: string;
+  gender: Gender; baseAvatarId: string; hairStyleId: string; hairColorId: string;
   topStyleId: string; topColorId: string; bottomStyleId: string; bottomColorId: string; shoesId: string; accessoryIds: string[];
 }
 /** Future NPC configs can use complete IDs without authoring deprecated pieces. */
-export interface FormalNpcAppearance { gender: Gender; skinToneId: string; hairId: string; outfitId: string; accessoryIds: string[]; baseAvatarId?: string }
+export interface FormalNpcAppearance { gender: Gender; hairId: string; outfitId: string; accessoryIds: string[]; baseAvatarId?: string }
 export interface Rect { x: number; y: number; width: number; height: number }
 export type EntranceDirection = 'south' | 'west' | 'east' | 'north';
 export interface EntranceConfig { id: string; position: { x: number; y: number }; direction: EntranceDirection; interactionArea: Rect; targetScene: string; targetSpawnPoint: { x: number; y: number } }

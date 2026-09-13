@@ -24,7 +24,7 @@ test('新老玩家首页选项、确认重开、进度归零与稳定微信身�
     assert.equal(client.player?.appearance,null);
     const premature=await app.inject({method:'POST',url:'/v1/player/restart',headers,payload:{requestId:randomUUID(),confirm:true}});
     assert.equal(premature.statusCode,409);
-    await client.create('FEMALE',{skinToneId:'SKIN_WHEAT',hairId:'F_HAIR_02',outfitId:'F_OUTFIT_03'});
+    await client.create('FEMALE',{hairId:'F_HAIR_02',outfitId:'F_OUTFIT_03'});
     assert.deepEqual(client.homeActions(),['继续游戏','重新开始']);
     const saved=await repo.player(id);assert.equal(saved.cash,120);
     client=new GameController(transport);await client.loginWechat('again');
@@ -46,7 +46,7 @@ test('新老玩家首页选项、确认重开、进度归零与稳定微信身�
     assert.equal(sameAccount.player.id,id);assert.equal(sameAccount.player.appearance,null);
     assert.deepEqual(repo.requests.get(`${id}:${requestId}`)?.result.backup.ledger.some((entry:any)=>entry.type==='QUEST_REWARD'),true);
     client=new GameController(transport);await client.loginWechat('after-reset');assert.deepEqual(client.homeActions(),['开始游戏']);
-    await client.create('MALE',{skinToneId:'SKIN_LIGHT',hairId:'M_HAIR_03',outfitId:'M_OUTFIT_01'});
+    await client.create('MALE',{hairId:'M_HAIR_03',outfitId:'M_OUTFIT_01'});
     assert.equal(client.player?.id,id);assert.equal(client.player?.cash,120);
     client=new GameController(transport);await client.loginWechat('final');assert.deepEqual(client.homeActions(),['继续游戏','重新开始']);
     assert.equal(client.player?.appearance?.hairId,'M_HAIR_03');
@@ -69,7 +69,7 @@ test('男女地图倍率共享且脚底锚点、行走帧与移动碰撞不变',
 
 test('Postgres 重开在同一事务备份角色进度，保留玩家主键及绑定行',async()=>{
   const id=randomUUID(),calls:string[]=[],saved:any[]=[];
-  const row:any={id,nickname:'旅人',cash:120n,stamina:62,status:'ACTIVE',sceneId:'STREET_BAISHI_01',x:24,y:20,tradeCounts:{RICE_01:1},metNpcs:['NPC_001'],inventory:[{itemId:'RICE_01',quantity:2}],cosmetics:[{appearanceId:'M_HAIR_01'}],ledger:[],appearance:{gender:'MALE',baseAvatarId:'MALE_01',skinColorId:'SKIN_LIGHT',hairStyleId:'M_HAIR_01',hairColorId:'INK',topStyleId:'M_OUTFIT_01',topColorId:'SAGE',bottomStyleId:'BOTTOM_MALE_01',bottomColorId:'BLUE',shoesId:'SHOES_MALE_01',accessoryIds:[]}};
+  const row:any={id,nickname:'旅人',cash:120n,stamina:62,status:'ACTIVE',sceneId:'STREET_BAISHI_01',x:24,y:20,tradeCounts:{RICE_01:1},metNpcs:['NPC_001'],inventory:[{itemId:'RICE_01',quantity:2}],cosmetics:[{appearanceId:'M_HAIR_01'}],ledger:[],appearance:{gender:'MALE',baseAvatarId:'MALE_01',hairStyleId:'M_HAIR_01',hairColorId:'INK',topStyleId:'M_OUTFIT_01',topColorId:'SAGE',bottomStyleId:'BOTTOM_MALE_01',bottomColorId:'BLUE',shoesId:'SHOES_MALE_01',accessoryIds:[]}};
   const ledger=[{id:randomUUID(),playerId:id,type:'QUEST_REWARD',amount:15n,before:105n,after:120n,referenceId:'Q_003',requestId:randomUUID(),createdAt:new Date()}];
   const tx:any={
     $queryRaw:async()=>{calls.push('lock');},

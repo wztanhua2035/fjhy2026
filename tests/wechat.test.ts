@@ -40,7 +40,7 @@ test('wx.request → HTTP → 共享控制器：送样、关系、断线重登�
     const platform = createWeChatPlatform('http://localhost:8080', {debugOpenAll:true});
     let c = new GameController(platform.transport);
     await c.loginWechat('code');
-    await c.create('FEMALE',{skinToneId:'SKIN_LIGHT',hairId:'F_HAIR_01',outfitId:'F_OUTFIT_01'});
+    await c.create('FEMALE',{hairId:'F_HAIR_01',outfitId:'F_OUTFIT_01'});
     await c.advanceDialogue();
     const place = async (npcId: string) => { if(c.dialogue)await c.advanceDialogue();const npc = initialWorld.npcs.find(n => n.id === npcId)!; Object.assign(repo.players.get(c.player!.id)!,{sceneId:npc.sceneId,x:npc.x,y:npc.y+1}); await c.refresh(); };
     await place('NPC_CLOTH_SHOPKEEPER'); await c.interact();
@@ -95,10 +95,11 @@ test('微信构建先清空输出，并拒绝任何已退役室内分包残留',
 });
 
 test('图片失败显示具体文件，允许仅重试缺失资源', async () => {
-  const keys = new Set(wechatStartupAssets.slice(1).map(a => a.key));
+  const missing=wechatStartupAssets.find(asset=>asset.key==='baishi-ground-image')!;
+  const keys = new Set(wechatStartupAssets.filter(asset=>asset.key!==missing.key).map(a => a.key));
   const textures = { exists: (key: string) => keys.has(key), addImage: () => {}, addSpriteSheet: () => {} };
   const failures = await loadWechatAssets(textures, () => ({ onerror: () => {}, set src(_path: string) { queueMicrotask(() => this.onerror()); } }));
-  assert.deepEqual(failures, [wechatStartupAssets[0].path]);
+  assert.deepEqual(failures, [missing.path]);
 });
 
 test('白石街旧发布配置升级包含五栋建筑、三段任务，保留其他内容和历史发布', async () => {

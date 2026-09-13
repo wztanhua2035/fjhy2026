@@ -42,7 +42,7 @@ test('入口目标点因地图更新失效时优先在该入口附近恢复',asy
   const interior=world.scenes.find(s=>s.id===entrance.targetScene)!;
   interior.collision.push({x:9.5,y:9.5,width:1,height:1});
   const p=await repo.login('entrance-restore');
-  p.appearance={gender:'FEMALE',baseAvatarId:'FEMALE_01',skinColorId:'SKIN_LIGHT',hairStyleId:'HAIR_FEMALE_01',hairColorId:'INK',topStyleId:'TOP_FEMALE_01',topColorId:'SAGE',bottomStyleId:'BOTTOM_FEMALE_01',bottomColorId:'CREAM',shoesId:'SHOES_FEMALE_01',accessoryIds:[]};
+  p.appearance={gender:'FEMALE',baseAvatarId:'FEMALE_01',hairStyleId:'HAIR_FEMALE_01',hairColorId:'INK',topStyleId:'TOP_FEMALE_01',topColorId:'SAGE',bottomStyleId:'BOTTOM_FEMALE_01',bottomColorId:'CREAM',shoesId:'SHOES_FEMALE_01',accessoryIds:[]};
   Object.assign(repo.players.get(p.id)!,{appearance:p.appearance,sceneId,x:34,y:37.6});
   const result=await new GameService(repo,()=>new Date('2026-09-12T02:00:00Z')).action(p.id,'enter',{requestId:randomUUID(),plotId:plot.id,entranceId:entrance.id});
   assert.equal(result.player.sceneId,interior.id);
@@ -56,7 +56,7 @@ test('bootstrap、scene API、Web 与微信共享修正坐标；服务端 move �
   try{
     const login=(await app.inject({method:'POST',url:'/v1/auth/wechat',payload:{code:'one'}})).json();
     const playerId=login.player.id,record=repo.players.get(playerId)!;
-    record.appearance={gender:'FEMALE',baseAvatarId:'FEMALE_01',skinColorId:'SKIN_LIGHT',hairStyleId:'HAIR_FEMALE_01',hairColorId:'INK',topStyleId:'TOP_FEMALE_01',topColorId:'SAGE',bottomStyleId:'BOTTOM_FEMALE_01',bottomColorId:'CREAM',shoesId:'SHOES_FEMALE_01',accessoryIds:[]};
+    record.appearance={gender:'FEMALE',baseAvatarId:'FEMALE_01',hairStyleId:'HAIR_FEMALE_01',hairColorId:'INK',topStyleId:'TOP_FEMALE_01',topColorId:'SAGE',bottomStyleId:'BOTTOM_FEMALE_01',bottomColorId:'CREAM',shoesId:'SHOES_FEMALE_01',accessoryIds:[]};
     Object.assign(record,{sceneId,x:34.25,y:26.75});
     assert.equal(canStand(initialWorld,sceneId,record.x,record.y),false);
     const webTransport=async(path:string,body?:any,token?:string)=>{
@@ -89,7 +89,7 @@ test('DEV 手动安全复位只在开发环境存在',async()=>{
   const repo=new MemoryRepository(),app=await buildApp(repo,env);
   try{
     const login=(await app.inject({method:'POST',url:'/v1/auth/dev',payload:{account:'safe-reset'}})).json();
-    const created=await app.inject({method:'POST',url:'/v1/player/appearance/create',headers:{authorization:`Bearer ${login.token}`},payload:{requestId:randomUUID(),gender:'FEMALE',baseAvatarId:'FEMALE_01',skinColorId:'SKIN_LIGHT',hairColorId:'INK',topColorId:'SAGE',bottomColorId:'CREAM'}});
+    const created=await app.inject({method:'POST',url:'/v1/player/appearance/create',headers:{authorization:`Bearer ${login.token}`},payload:{requestId:randomUUID(),gender:'FEMALE',baseAvatarId:'FEMALE_01',hairColorId:'INK',topColorId:'SAGE',bottomColorId:'CREAM'}});
     assert.equal(created.statusCode,200,created.body);
     const response=await app.inject({method:'POST',url:'/v1/player/debug-safe-reset',headers:{authorization:`Bearer ${login.token}`},payload:{requestId:randomUUID()}});
     assert.equal(response.statusCode,200,response.body);

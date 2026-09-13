@@ -125,17 +125,17 @@
 - 春衫衣坊正式美术接入采用南向主入口 `ENT_BAISHI_CLOTH_S`：视觉门洞对应 `(34,37.6)`，trigger 为 `2.5×1.6`，室内出口固定为 `(12,18)`，室外返回点为 `(34,38.6)`。西侧仅作为侧立面、橱窗或侧招牌，不承担主功能入口。
 ## 主角与 NPC 模块化外观 V1
 
-2026-09-12 收到《富甲横阳_首次建角外观素材_V1.zip》，已阅读 README 与 manifest 并核对六张 PNG。男/女 Hair 参考图各 `1254×1254`，男/女 Outfit、Skin 参考图各 `1448×1086`；它们是多选项展示图，不是 `256×256`、4×4、单帧 `64×64` 的透明工程贴片，不能直接注册为行走资源。参考图标注的 `M_HAIR_01..03`、`F_HAIR_01..03`、`M_OUTFIT_01..03`、`F_OUTFIT_01..03` 与现有配置一致；README 中另一种 ID 写法为建议，不替换已建立的稳定 ID。肤色当前采用共用的 `SKIN_LIGHT / SKIN_WHEAT / SKIN_HONEY` 三档 ID，正式身体贴片需分别制作男、女视觉版本。
+2026-09-12 收到《富甲横阳_首次建角外观素材_V1.zip》，已阅读 README 与 manifest 并核对六张 PNG。男/女 Hair 参考图各 `1254×1254`，男/女 Outfit 参考图各 `1448×1086`；它们是多选项展示图，不是 `256×256`、4×4、单帧 `64×64` 的透明工程贴片，不能直接注册为行走资源。参考图标注的 `M_HAIR_01..03`、`F_HAIR_01..03`、`M_OUTFIT_01..03`、`F_OUTFIT_01..03` 与现有配置一致。男女各使用一套统一基础肤色，不设置独立选择。
 
-仍需补制的工程资源：男女各三档 Skin 身体层、各三款 Hair 完整发型透明层、各三套包含上衣/下装/鞋的 Outfit 透明层；每层须符合下面的四方向逐帧对齐规格。收到工程贴片之前，现有穿衣角色 spritesheet 继续作为地图与创建预览的安全回退，不把展示图裁切冒充工程帧。
+当前已接入男女 neutral base 与各三款 Hair 完整发型透明层。Outfit 仍只保留既有整套服装语义，不在本轮扩展透明换装资源。现有穿衣角色 spritesheet 继续作为缺图时的安全回退。
 
-正式结构为 `基础身体 + 独立肤色 + Hair + Outfit + Accessory`。一个 Hair ID 已包含造型与最终发色；美发室未来若有 6 种造型、每种 5 色，应配置 30 个完整 Hair SKU。一个 Outfit ID 是完整上身、下身、鞋及必要附属件；春衫衣坊未来只售完整 Outfit。NPC 后续工作、日常、节庆服装也按完整 Outfit ID 配置。玩家不再选择独立发色、上衣、下装或鞋。
+正式外观方向为 `gender + faceId（未来）+ hairId + outfitId`。Face Template 以后自带自然肤色，不设置独立肤色属性。一个 Hair ID 已包含造型与最终发色；一个 Outfit ID 是完整上身、下身、鞋及必要附属件。
 
-创建 V1 男女各有三档肤色、三款 Hair、三套 Outfit。当前仓库提供稳定配置、服务端校验、跨端创建请求与兼容旧外观存档的读写；已有男女 `256×256`、4×4、单帧 `64×64` 的穿衣角色 spritesheet 仍是安全 fallback。当前六张选择参考图尚未获得匹配四方向、逐帧对齐的透明 Skin / Hair / Outfit 图层，因此三种 Hair/Outfit 暂不能在世界中呈现三套不同的正式走行动画，创建预览也以已穿衣基础形象显示。不能将展示图直接当作运行贴片。
+创建 V1 为性别 → Hair → Outfit → 确认。男女 Hair 01/02/03 已在世界行走图中显示；已有男女 `256×256`、4×4、单帧 `64×64` 的穿衣角色 spritesheet 仍是安全 fallback。Outfit 正式换装图层尚未开发。
 
 制作新图层时使用相同 directionRows、footAnchor、frame offset、身体/头部/肩部基准；每层 256×256、4×4、单帧 64×64，透明背景，对齐后才允许启用分层合成。资源失败时男角色使用灰色背心与蓝色短裤、女角色使用粉色背心与蓝色短裤的程序后备；已有正式完整角色贴片优先于程序后备。portrait 后续按 `后发 → 身体/脸 → Outfit → 前发 → 饰品` 对齐，现阶段不重构 portrait 渲染。
 
-数据库 `player_appearance` 仍使用旧列，创建 API 只接收 `skinToneId / hairId / outfitId`，服务端将完整 Hair/Outfit ID 编码进现有 `hairStyleId / topStyleId` 列并保留旧账户字段。读取旧记录时提供安全的新 ID 映射，不覆盖旧字段。这样不增加表或破坏旧存档；未来若正式引入独立列，必须走可回滚的增量 migration。当前不实现饰品系统、完整衣柜或大批量商品。
+创建 API 只接收 `gender / hairId / outfitId`；当前数据库仍使用既有 `hairStyleId / topStyleId` 保存完整 ID，已移除独立肤色列。当前不实现 Face Template、饰品系统或完整衣柜。
 ## 春衫衣坊 V2 美术重做要求
 
 春衫衣坊 V2.1 已作为正式样例接入：`building_cloth_shop_base.png` 为 384×320 透明外围主体，不含烙入 NPC；南侧门洞与 `ENT_BAISHI_CLOTH_S` `(34,37.6)` 对齐，使用 12×10 的 `P_BAISHI_005`，返回点 `(34,38.6)` 位于沿河步道。`portrait_cloth_shopkeeper_normal.png` 为 512×512 透明人物立绘；`building_cloth_shop_fg.png` 与 base 同尺寸、同锚点、同 world position，仅保留雨棚、屋檐和门前局部遮挡结构，初始 `foregroundOcclusionFrontY=36.0`。

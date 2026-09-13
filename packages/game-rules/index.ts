@@ -5,10 +5,10 @@ export function ensure(ok:unknown, code:string, message:string, status=400): ass
 export function minutesAt(now:Date){return (now.getUTCHours()*60+now.getUTCMinutes()+480)%1440;}
 export function isOpen(hours:[string,string],now:Date,forceOpen=false){if(forceOpen)return true;const m=(s:string)=>Number(s.slice(0,2))*60+Number(s.slice(3));const [a,b]=hours.map(m),t=minutesAt(now);return a===b|| (a<b ? t>=a&&t<b : t>=a||t<b);}
 export function phaseAt(now:Date){const h=minutesAt(now)/60;return h<6?'深夜':h<9?'清晨':h<17?'日间':h<20?'傍晚':'夜晚';}
-export function starterAppearance(world:WorldConfig,gender:'MALE'|'FEMALE',baseAvatarId:string,colors:{skinColorId?:string;hairColorId:string;topColorId:string;bottomColorId:string}):Appearance{
+export function starterAppearance(world:WorldConfig,gender:'MALE'|'FEMALE',baseAvatarId:string,colors:{hairColorId:string;topColorId:string;bottomColorId:string}):Appearance{
   ensure(world.appearances.some(a=>a.id===baseAvatarId&&a.partType==='BASE'&&a.genderScope===gender&&a.enabled),'BAD_AVATAR','请选择有效基础形象');
   for(const color of Object.values(colors)) if(color) ensure(Object.hasOwn(world.colors,color),'BAD_COLOR','配色不存在');
-  return {gender,baseAvatarId,skinColorId:colors.skinColorId??'SKIN_LIGHT',hairStyleId:`HAIR_${gender}_01`,topStyleId:`TOP_${gender}_01`,bottomStyleId:`BOTTOM_${gender}_01`,shoesId:`SHOES_${gender}_01`,accessoryIds:[],...colors};
+  return {gender,baseAvatarId,hairStyleId:`HAIR_${gender}_01`,topStyleId:`TOP_${gender}_01`,bottomStyleId:`BOTTOM_${gender}_01`,shoesId:`SHOES_${gender}_01`,accessoryIds:[],...colors};
 }
 export function inEntranceArea(entrance:EntranceConfig,x:number,y:number){const r=entrance.interactionArea;return x>=r.x&&x<=r.x+r.width&&y>=r.y&&y<=r.y+r.height;}
 export function plotEntrances(plot:PlotConfig): EntranceConfig[]{
@@ -31,24 +31,22 @@ export function canStand(world:WorldConfig,sceneId:string,x:number,y:number){
   const s=world.scenes.find(s=>s.id===sceneId);if(!s||x<1||y<1||x>s.width-1||y>s.height-1)return false;
   const staticBlocks=[...s.collision,...world.plots.filter(p=>p.sceneId===sceneId&&p.buildingId)];const npcBlocks=world.npcs.filter(n=>n.enabled&&n.sceneId===sceneId).map(npcCollisionRect);return !staticBlocks.some(r=>x>r.x-.18&&x<r.x+r.width+.18&&y>r.y-.18&&y<r.y+r.height+.18)&&!npcBlocks.some(r=>x>r.x&&x<r.x+r.width&&y>r.y&&y<r.y+r.height);
 }
-export interface StarterLookSelection { skinToneId?: string; hairId?: string; outfitId?: string }
+export interface StarterLookSelection { hairId?: string; outfitId?: string }
 export function createStarterAppearance(gender:'MALE'|'FEMALE', selection:StarterLookSelection):Appearance {
   const options=starterLookOptions(gender);
-  const skin=selection.skinToneId??options.skins[0].id;
   const hair=selection.hairId??options.hairs[0]?.id;
   const outfit=selection.outfitId??options.outfits[0]?.id;
-  ensure(options.skins.some(s=>s.id===skin),'BAD_SKIN','肤色不存在');
   ensure(options.hairs.some(h=>h.id===hair),'BAD_HAIR','发型不存在');
   ensure(options.outfits.some(o=>o.id===outfit),'BAD_OUTFIT','服装不存在');
   // The database's existing non-null columns encode the complete IDs until a
   // future additive schema migration. Deprecated colors are storage defaults.
-  return {gender,baseAvatarId:`${gender}_01`,skinToneId:skin,hairId:hair,outfitId:outfit,
-    skinColorId:skin,hairStyleId:hair,hairColorId:'INK',topStyleId:outfit,topColorId:'SAGE',
+  return {gender,baseAvatarId:`${gender}_01`,hairId:hair,outfitId:outfit,
+    hairStyleId:hair,hairColorId:'INK',topStyleId:outfit,topColorId:'SAGE',
     bottomStyleId:`BOTTOM_${gender}_01`,bottomColorId:'BLUE',shoesId:`SHOES_${gender}_01`,accessoryIds:[]};
 }
 export function formalizeAppearance(appearance:Appearance):Appearance {
   const options=starterLookOptions(appearance.gender);
-  return {...appearance,skinToneId:options.skins.some(s=>s.id===(appearance.skinToneId??appearance.skinColorId))?(appearance.skinToneId??appearance.skinColorId):appearance.skinColorId==='SKIN_DEEP'?'SKIN_HONEY':options.skins[0].id,
+  return {...appearance,
     hairId:options.hairs.some(h=>h.id===(appearance.hairId??appearance.hairStyleId))?(appearance.hairId??appearance.hairStyleId):options.hairs[0].id,
     outfitId:options.outfits.some(o=>o.id===(appearance.outfitId??appearance.topStyleId))?(appearance.outfitId??appearance.topStyleId):options.outfits[0].id};
 }

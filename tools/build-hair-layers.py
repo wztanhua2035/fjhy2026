@@ -6,11 +6,12 @@ sheets are never overwritten. Pillow required; all runtime outputs are PNG.
 import argparse
 import json
 from pathlib import Path
+from statistics import median
 from PIL import Image, ImageDraw, ImageChops
 
 ROOT=Path(__file__).resolve().parents[1]
 FORMAL=ROOT/'apps/admin/public/scene-layers/baishi/formal'
-OUT=FORMAL/'hair-v2'
+OUT=FORMAL/'hair-v3'
 
 def old_hair_pixel(r,g,b,a):
     return a>0 and 24<r<170 and 18<g<150 and 15<b<145 and r>=g-7 and g>=b-7 and not (g>r+12 and g>b+10)
@@ -53,16 +54,20 @@ def frame_base(original,row,gender):
     for y in range(34):
         for x in range(64):base.putpixel((x,y),(0,0,0,0))
     draw=ImageDraw.Draw(base)
-    draw.ellipse((cx-10,9,cx+10,32),fill=(228,177,133,255))
-    # Preserve original face, including eyes inside the skin contour.
+    face_colors=[original.getpixel((x,y)) for x,y in skin if y>=22]
+    tone=tuple(int(median([pixel[channel] for pixel in face_colors])) for channel in range(3)) if face_colors else (228,177,133)
+    draw.ellipse((cx-10,9,cx+10,32),fill=(*tone,255))
+    # Preserve real eyes/cheeks only below the forehead. Copying upper rows
+    # also copied old bangs and pale hair ornaments into the neutral face.
     if row!=3:
-        for y in range(14,34):
+        for y in range(22,34):
             xs=[x for x,sy in skin if sy==y and abs(x-cx)<=12]
             if xs:
                 for x in range(min(xs),max(xs)+1):base.putpixel((x,y),original.getpixel((x,y)))
     else:
-        # Back row keeps the original ears visible at the lower head edges.
-        for x,y in skin:base.putpixel((x,y),original.getpixel((x,y)))
+        # Keep ears, not the light-colored ornaments embedded in old hair.
+        for x,y in skin:
+            if y>=28:base.putpixel((x,y),original.getpixel((x,y)))
     # The collar starts above the lower half in a few poses. Retain its green
     # pixels too, then restore the entire lower half verbatim.
     for y in range(28,32):
@@ -104,7 +109,7 @@ def build(gender,atlas_path):
                 layers[style].paste(cell,(col*64,row*64))
     OUT.mkdir(parents=True,exist_ok=True)
     paths=[]
-    for name,img in [(f'player_{gender}_body_v2',base),*[(f'{"m" if gender=="male" else "f"}_hair_0{i+1}_v2',img) for i,img in enumerate(layers)]]:
+    for name,img in [(f'player_{gender}_body_v3',base),*[(f'{"m" if gender=="male" else "f"}_hair_0{i+1}_v3',img) for i,img in enumerate(layers)]]:
         target=OUT/f'{name}.png';img.save(target,optimize=True)
         assert Image.open(target).size==(256,256) and target.stat().st_size<80*1024
         paths.append({'file':str(target.relative_to(ROOT)),'bytes':target.stat().st_size})
