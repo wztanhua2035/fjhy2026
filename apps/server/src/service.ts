@@ -3,6 +3,7 @@ import type { Repository } from './repository.js';
 import type { PlayerState, WorldConfig, ShopTradeResult } from '../../../packages/shared-types/index.js';
 import { ensure, canStand, recoverSafePosition, positionBlockers, isOpen, starterAppearance, createStarterAppearance, formalizeAppearance, publicPlayer, sceneView, plotEntrances, inEntranceArea, questStepProgress, questStepLedgerType, questStepReference, portalInteractionZone } from '../../../packages/game-rules/index.js';
 import { starterLooks } from '../../../packages/game-config/appearance-v1.js';
+import {hairServiceConfig} from '../../../packages/game-config/hair-services.js';
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, guestRoomObjectDialogue } from '../../../packages/game-config/inn-opening.js';
 import {applyItemEffect,resolveShopPrice,itemStackLimit,requireSupportedStockMode} from '../../../packages/game-rules/inventory.js';
 export interface RequestGameContext { debugOpenAll?: boolean }
@@ -22,6 +23,19 @@ export class GameService {
       if(action!=='create')ensure(p.appearance,'CHARACTER_REQUIRED','请先创建角色',409);
       if(p.appearance&&p.sceneId===INN_LOBBY_SCENE_ID&&!p.storyFlags?.[INTRO_INN_KEEPER_DONE]&&action!=='introComplete')ensure(false,'INTRO_IN_PROGRESS','请先听陈掌柜说完开场的话',409);
       switch(action){
+        case 'appearanceService':{
+          const shop=this.shop(world,p,body.shopId,context),{hairs,offers}=hairServiceConfig(world);
+          ensure(shop.buildingType==='SALON'&&body.serviceType==='HAIR','INVALID_SERVICE','此店不提供该服务');
+          const hair=hairs.find(h=>h.hairId===body.targetId),offer=offers.find(o=>o.shopId===shop.id&&o.hairId===body.targetId);
+          ensure(hair,'HAIR_NOT_FOUND','发型不存在');ensure(hair.enabled,'HAIR_DISABLED','此发型暂不可用');
+          ensure(hair.gender===p.appearance!.gender,'INCOMPATIBLE','此发型不适配当前角色');
+          ensure(offer&&offer.enabled,'SERVICE_DISABLED','此服务暂不可用');
+          ensure(Number.isSafeInteger(offer.price)&&offer.price>0,'INVALID_PRICE','服务报价无效');
+          ensure((p.appearance!.hairId??p.appearance!.hairStyleId)!==hair.hairId,'CURRENT_HAIR','已经是当前发型');
+          money(p,-offer.price,'HAIR_SERVICE',`${shop.id}:${hair.hairId}`,body.requestId);
+          p.appearance!.hairId=hair.hairId;p.appearance!.hairStyleId=hair.hairId;
+          break;
+        }
         case 'create':{
           ensure(!p.appearance,'ALREADY_CREATED','角色已创建',409);
           p.appearance='baseAvatarId' in body
@@ -134,6 +148,7 @@ export class GameService {
           ensure(a&&a.partType!=='BASE'&&a.partType!=='HAIR','BAD_APPEARANCE','请选择可购买的服饰');ensure(shop.buildingType==='CLOTH','WRONG_SHOP','请前往服装店');ensure(a.genderScope==='ALL'||a.genderScope===p.appearance!.gender,'INCOMPATIBLE','此部件不适配当前角色');ensure(!p.cosmetics.includes(a.id),'ALREADY_OWNED','已经拥有该服饰');money(p,-a.price,'COSMETIC_BUY',a.id,body.requestId);p.cosmetics.push(a.id);break;
         }
         case 'changeAppearance':{
+          ensure(!hairServiceConfig(world).hairs.some(h=>h.hairId===body.appearanceId),'SERVICE_REQUIRED','请通过美发服务确认更换');
           const shop=this.shop(world,p,body.buildingId,context),a=[...world.appearances,...starterLooks].find(a=>a.id===body.appearanceId);
           ensure(a&&a.partType!=='BASE'&&a.partType!=='ACCESSORY','BAD_APPEARANCE','部件不可穿戴');ensure(a.genderScope==='ALL'||a.genderScope===p.appearance!.gender,'INCOMPATIBLE','此部件不适配当前角色');if(a.partType!=='OUTFIT'&&a.colors.length)ensure(a.colors.includes(body.colorId),'BAD_COLOR','配色不适配');
           if(a.partType==='HAIR'){ensure(shop.buildingType==='SALON'&&a.enabled,'WRONG_SHOP','请前往美发室选择有效发型');money(p,-a.price,'HAIRCUT',a.id,body.requestId);if(!p.cosmetics.includes(a.id))p.cosmetics.push(a.id);}

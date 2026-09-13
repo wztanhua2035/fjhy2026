@@ -15,9 +15,11 @@ import { starterLooks, starterSkinTones } from '../../../packages/game-config/ap
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID } from '../../../packages/game-config/inn-opening.js';
 import { initialWorld } from '../../../packages/game-config/index.js';
 import {inventoryEntries} from '../../../packages/game-rules/inventory.js';
+import {hairServiceConfig} from '../../../packages/game-config/hair-services.js';
 declare module '@fastify/jwt' {interface FastifyJWT {payload:{sub:string};user:{sub:string}}}
 const requestId=z.string().uuid(),id=z.string().min(1).max(80);
 const schemas={
+  appearanceService:z.object({requestId,shopId:id,serviceType:z.literal('HAIR'),targetId:id}).strict(),
   create:z.union([
     z.object({requestId,gender:z.enum(['MALE','FEMALE']),skinToneId:id.optional(),hairId:id.optional(),outfitId:id.optional()}).strict(),
     z.object({requestId,gender:z.enum(['MALE','FEMALE']),baseAvatarId:id,skinColorId:id.optional(),hairColorId:id,topColorId:id,bottomColorId:id}).strict()
@@ -91,7 +93,7 @@ if(status>=500){
     return login(result.openid);
   });
   app.post('/v1/auth/dev',async req=>{ensure(env.allowDevAuth&&env.appEnv==='DEV'&&env.mode!=='production','NOT_FOUND','接口不存在',404);const {account}=z.object({account:z.string().regex(/^[a-z0-9_-]{1,32}$/)}).strict().parse(req.body);return login(`dev:${account}`);});
-  app.get('/v1/bootstrap',async req=>{const w=await repo.world(),p=await repo.repairPosition(req.user.sub,w);return {player:publicPlayer(p),serverTime:game.now().toISOString(),worldVersion:w.worldVersion,configVersion:w.configVersion,assetVersion:w.assetVersion,assetManifest:`${env.assetBase}/${w.assetVersion}/manifest.json`,colors:{...w.colors,...Object.fromEntries(starterSkinTones.map(s=>[s.id,s.hex]))},appearances:[...w.appearances.filter(a=>a.enabled&&!starterLooks.some(s=>s.id===a.id)),...starterLooks],features:{movementPath:true,trade:true,appearance:true,ghostPreview:true,gifts:false,property:false,quests:true,rank:false}};});
+  app.get('/v1/bootstrap',async req=>{const w=await repo.world(),p=await repo.repairPosition(req.user.sub,w);return {hairs:hairServiceConfig(w).hairs,player:publicPlayer(p),serverTime:game.now().toISOString(),worldVersion:w.worldVersion,configVersion:w.configVersion,assetVersion:w.assetVersion,assetManifest:`${env.assetBase}/${w.assetVersion}/manifest.json`,colors:{...w.colors,...Object.fromEntries(starterSkinTones.map(s=>[s.id,s.hex]))},appearances:[...w.appearances.filter(a=>a.enabled&&!starterLooks.some(s=>s.id===a.id)),...starterLooks],features:{movementPath:true,trade:true,appearance:true,ghostPreview:true,gifts:false,property:false,quests:true,rank:false}};});
   app.post('/v1/player/restart',async req=>{const body=z.object({requestId,confirm:z.literal(true)}).strict().parse(req.body);return {player:publicPlayer(await repo.restartGame(req.user.sub,body.requestId))};});
   app.get('/v1/world/scenes/:id',async req=>{const w=await repo.world(),p=await repo.repairPosition(req.user.sub,w);ensure(p.appearance,'CHARACTER_REQUIRED','请先创建角色',409);return {...sceneView(w,(req.params as any).id,game.now(),requestGameContext(req).debugOpenAll),playerPosition:{sceneId:p.sceneId,x:p.x,y:p.y}};});
   app.get('/v1/scenes/:id/ghosts',async req=>{const p=await repo.player(req.user.sub);ensure(p.appearance&&p.sceneId===(req.params as any).id,'WRONG_SCENE','请进入对应场景');return {ghosts:await repo.ghosts(p.id)};});
@@ -102,7 +104,14 @@ if(status>=500){
     return {building,items:w.items.filter(i=>building.stock[i.id]&&!i.questOnly&&!i.questItem&&!i.keyItem)};
   });
   app.get('/v1/inventory',async req=>{const [world,player]=await Promise.all([repo.world(),repo.player(req.user.sub)]);return {inventory:player.inventory,items:inventoryEntries(player,world.items)};});
-  const routes:Record<keyof typeof schemas,string>={create:'/v1/player/appearance/create',move:'/v1/player/move',enter:'/v1/world/enter',portal:'/v1/world/portal',buy:'/v1/economy/buy',sell:'/v1/economy/sell',useItem:'/v1/inventory/use',talk:'/v1/npc/talk',introComplete:'/v1/intro/complete',inspect:'/v1/world/inspect',purchaseAppearance:'/v1/appearance/purchase',changeAppearance:'/v1/appearance/change'};
+  app.get('/v1/services/appearance',async req=>{
+    const {shopId}=z.object({shopId:id}).strict().parse(req.query),w=await repo.world(),p=await repo.player(req.user.sub);
+    ensure(p.appearance,'CHARACTER_REQUIRED','请先创建角色',409);
+    const shop=game.shop(w,p,shopId,requestGameContext(req));ensure(shop.buildingType==='SALON','INVALID_SERVICE','此店不提供美发服务');
+    const {hairs,offers}=hairServiceConfig(w);
+    return {shopId,hairs:hairs.filter(h=>h.enabled&&h.gender===p.appearance!.gender),offers:offers.filter(o=>o.shopId===shopId&&o.enabled)};
+  });
+  const routes:Record<keyof typeof schemas,string>={appearanceService:'/v1/services/appearance',create:'/v1/player/appearance/create',move:'/v1/player/move',enter:'/v1/world/enter',portal:'/v1/world/portal',buy:'/v1/economy/buy',sell:'/v1/economy/sell',useItem:'/v1/inventory/use',talk:'/v1/npc/talk',introComplete:'/v1/intro/complete',inspect:'/v1/world/inspect',purchaseAppearance:'/v1/appearance/purchase',changeAppearance:'/v1/appearance/change'};
   for(const action of Object.keys(routes) as (keyof typeof schemas)[])app.post(routes[action],async req=>game.action(req.user.sub,action,schemas[action].parse(req.body),requestGameContext(req)));
   app.post('/v1/player/debug-safe-reset',async req=>{ensure(env.appEnv==='DEV'&&env.mode!=='production','NOT_FOUND','接口不存在',404);return game.action(req.user.sub,'safeReset',z.object({requestId}).strict().parse(req.body));});
   app.get('/v1/player/appearance',async req=>{const p=await repo.player(req.user.sub);return {appearance:p.appearance,owned:p.cosmetics};});

@@ -1,4 +1,5 @@
 import { baishiFormalArtRegistry, baishiV2ArtAssets } from '../../../packages/client-runtime/assets.js';
+import {hairAssets} from '../../../packages/client-runtime/hair-assets.js';
 
 export interface WechatAsset { key: string; source: string; path: string; frameWidth?: number; frameHeight?: number }
 export const WECHAT_STARTUP_PACKAGE_ROOTS = ['baishi-ground', 'baishi-world', 'baishi-portraits'] as const;
@@ -12,6 +13,7 @@ const packaged = (asset: Omit<WechatAsset, 'path'>): WechatAsset => ({ ...asset,
 
 /** Resources needed to render startup and Baishi street. Interiors load on demand. */
 export const wechatStartupAssets: WechatAsset[] = [
+  ...hairAssets,
   { key: 'baishi-ground-image', source: '/scene-layers/baishi/ground/baishi_composition_approved_v01.png' },
   ...baishiFormalArtRegistry.buildings.flatMap(a => [{ key: a.assetKey, source: a.imagePath }, ...(a.foreground && a.foregroundOcclusionFrontY !== undefined ? [{ key: a.foreground.assetKey, source: a.foreground.imagePath }] : [])]),
   ...baishiFormalArtRegistry.npcs.map(a => ({ key: a.assetKey, source: a.imagePath, frameWidth: a.frameWidth, frameHeight: a.frameHeight })),
@@ -55,7 +57,10 @@ export async function loadWechatAssets(textures: WechatTextures, createImage: ()
     if (!textures.exists(asset.key)) {
       try {
         await loadWechatImage(textures, asset, createImage, asset.path, diagnostic);
-      } catch { failures.push(asset.path); }
+      } catch {
+        if(hairAssets.some(hair=>hair.key===asset.key)){if(diagnostic)console.warn('[FJHY hair] using complete-player fallback',asset.key);}
+        else failures.push(asset.path);
+      }
     }
     progress(++done, wechatStartupAssets.length);
   }

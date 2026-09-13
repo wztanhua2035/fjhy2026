@@ -2,6 +2,7 @@ import { groceryItems, groceryStock, groceryBinding } from './grocery.js';
 import type { WorldConfig, SceneConfig, BuildingConfig, AppearanceDefinition, EntranceDirection, PlotConfig, InteriorZone } from '../shared-types/index.js';
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID } from './inn-opening.js';
 import { starterLooks } from './appearance-v1.js';
+import {hairConfigs,hairServiceOffers} from './hair-services.js';
 export { starterLookOptions, starterSkinTones, starterLooks, availableStarterLookOptions } from './appearance-v1.js';
 const street = 'STREET_BAISHI_01';
 // Solid decorations reuse the shared static-collision path. Rectangles follow
@@ -153,6 +154,7 @@ const baishiPlots: PlotConfig[] = [
   ...[{id:'P_BAISHI_006',x:2,y:27,width:11,height:12},{id:'P_BAISHI_007',x:14,y:29,width:6,height:9},{id:'P_BAISHI_008',x:28,y:27,width:12,height:11},{id:'P_BAISHI_009',x:41,y:27,width:7,height:12},{id:'P_BAISHI_010',x:41,y:5,width:7,height:14}].map(p=>({...p,entranceX:p.x+1,entranceY:p.y+p.height+1,buildingId:null}))
 ].map(p=>({townId:'TOWN_CENTER',districtId:'DIST_BAISHI',sceneId:street,plotType:'M',facing:'SOUTH',status:p.buildingId?'NPC_OCCUPIED':'RESERVED',allowedBuildingTypes:['SHOP','INN','SALON','CLOTH'],version:1,...p}));
 export const initialWorld: WorldConfig = {
+  hairs:hairConfigs,hairServiceOffers,
   worldVersion:1, configVersion:1, assetVersion:2, scenes, buildings, appearances,
   plots:baishiPlots,
   npcs:[{id:'NPC_001',name:'陈掌柜',nameLocked:true,enabled:true,sceneId:'INTERIOR_B_INN',x:8,y:9,priority:100,hours:['00:00','00:00'],questId:'Q_002',dialogue:['欢迎来到横阳！出门沿白石街走，街坊杂货铺的大米每袋十二文。','去白石商行问问收购价，试试你的第一笔生意。'],route:[{x:8,y:9},{x:10,y:9}],appearance:{gender:'MALE',baseAvatarId:'MALE_05',hairStyleId:'HAIR_MALE_06',hairColorId:'CHESTNUT',topStyleId:'TOP_MALE_04',topColorId:'BLUE',bottomStyleId:'BOTTOM_MALE_02',bottomColorId:'CREAM',shoesId:'SHOES_MALE_02',accessoryIds:[]}},    {id:'NPC_TRADE_CLERK',name:'白石商行伙计',nameLocked:false,enabled:true,sceneId:'INTERIOR_B_TRADE',x:12,y:9,priority:80,hours:['00:00','00:00'] as [string,string],questId:'Q_001',dialogue:['掌柜让我照看商行。你若想做第一笔生意，就先买一袋鸣山大米，再拿到这里来卖。','货物已经备好，买入后再回来找我。'],route:[],appearance:{gender:'MALE',baseAvatarId:'MALE_02',hairStyleId:'HAIR_MALE_04',hairColorId:'INK',topStyleId:'TOP_MALE_02',topColorId:'SAGE',bottomStyleId:'BOTTOM_MALE_01',bottomColorId:'CREAM',shoesId:'SHOES_MALE_01',accessoryIds:[]}},

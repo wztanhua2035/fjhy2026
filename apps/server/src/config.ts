@@ -8,6 +8,8 @@ const point=z.object({x:z.number().min(0).max(160),y:z.number().min(0).max(120)}
 const entrance=z.object({id,position:point,direction:z.enum(['south','west','east','north']),interactionArea:rect,targetScene:id,targetSpawnPoint:point});
 const interiorZone=rect.extend({id,kind:z.enum(['wall','counter','shelf','storage','stairs','room','waitingArea','servicePoint','displayArea','chair','mirror','exit','entry','future','bed','wardrobe','desk']),solid:z.boolean(),label:z.string().max(40).optional(),interactionPoint:point.optional()});
 export const worldSchema=z.object({
+  hairs:z.array(z.object({hairId:id,gender:z.enum(['MALE','FEMALE']),displayName:name,description:z.string().max(160).optional(),assetResourceId:id,enabled:z.boolean(),sortOrder:z.number().int()}).strict()).max(100).optional(),
+  hairServiceOffers:z.array(z.object({serviceId:id,shopId:id,hairId:id,price:z.number().int().min(1).max(1e6),enabled:z.boolean(),sortOrder:z.number().int()}).strict()).max(500).optional(),
   worldVersion:z.number().int().positive(),configVersion:z.number().int().positive(),assetVersion:z.number().int().positive(),
   colors:z.record(id,z.string().regex(/^#[0-9a-fA-F]{6}$/)),
   scenes:z.array(z.object({id,name,townId:id,width:z.number().int().min(10).max(160),height:z.number().int().min(10).max(120),tileSize:z.literal(32),mapAsset:z.string().regex(/^maps\/[a-z0-9_-]+\.tmx$/),roads:z.array(rect),collision:z.array(rect),spawnX:z.number(),spawnY:z.number(),buildingId:id.optional(),interior:z.object({zones:z.array(interiorZone)}).optional(),portals:z.array(z.object({id,x:z.number(),y:z.number(),toSceneId:id,spawnX:z.number(),spawnY:z.number(),returnEntranceId:id.optional(),interactionArea:rect.optional()}))})).min(1).max(100),
@@ -21,6 +23,13 @@ export const worldSchema=z.object({
 }).strict();
 export function validateWorld(input:unknown,previous?:WorldConfig){
   const w=worldSchema.parse(input);
+  if(w.hairs){ensure(new Set(w.hairs.map(h=>h.hairId)).size===w.hairs.length,'DUPLICATE_ID','发型 ID 重复');for(const old of previous?.hairs??[])ensure(w.hairs.some(h=>h.hairId===old.hairId&&h.gender===old.gender),'IMMUTABLE_ID','已有发型 ID 和性别不可更改');}
+  if(previous?.hairs)ensure(w.hairs,'IMMUTABLE_ID','不能删除发型配置');
+  if(w.hairServiceOffers){
+    ensure(new Set(w.hairServiceOffers.map(o=>o.serviceId)).size===w.hairServiceOffers.length&&new Set(w.hairServiceOffers.map(o=>`${o.shopId}:${o.hairId}`)).size===w.hairServiceOffers.length,'DUPLICATE_ID','服务 ID 或店铺发型报价重复');
+    for(const offer of w.hairServiceOffers)ensure(w.hairs?.some(h=>h.hairId===offer.hairId)&&w.buildings.some(b=>b.id===offer.shopId&&b.buildingType==='SALON'),'BAD_REFERENCE','美发服务引用无效');
+  }
+  if(previous?.hairServiceOffers)ensure(w.hairServiceOffers,'IMMUTABLE_ID','不能删除美发服务配置');
   for(const list of [w.scenes,w.plots,w.buildings,w.npcs,w.items,w.appearances,w.quests,w.roads])ensure(new Set(list.map(x=>x.id)).size===list.length,'DUPLICATE_ID','配置含重复 ID');
   for(const s of w.scenes){ensure(s.spawnX>=1&&s.spawnX<s.width&&s.spawnY>=1&&s.spawnY<s.height,'BAD_SPAWN','出生点超出场景');for(const r of [...s.roads,...s.collision])ensure(r.x+r.width<=s.width&&r.y+r.height<=s.height,'OUT_OF_BOUNDS','地图区域超出场景');for(const p of s.portals){const to=w.scenes.find(s=>s.id===p.toSceneId);ensure(to,'BAD_REFERENCE','传送门目标不存在');ensure(p.x>=0&&p.y>=0&&p.x<=s.width&&p.y<=s.height&&p.spawnX>=1&&p.spawnY>=1&&p.spawnX<to.width&&p.spawnY<to.height,'BAD_PORTAL','传送门坐标不合法');}}
   for(const s of w.scenes)if(s.interior){
