@@ -5,10 +5,12 @@ export const JOYSTICK_VISUAL_SCALE = 1.15;
 export const JOYSTICK_HIT_SCALE = 1.24;
 
 export function mobileDialogueBounds(width: number, height: number, insets: { left: number; right: number; bottom: number }) {
-  const left = insets.left + 24;
-  const right = width - insets.right - 24;
+  const usable = width - insets.left - insets.right;
+  const boxWidth = Math.min(usable - 40, width * .78);
+  const left = (width - boxWidth) / 2;
+  const right = left + boxWidth;
   const bottom = height - insets.bottom - 14;
-  const boxHeight = Math.min(166, height * .30);
+  const boxHeight = Math.min(142, height * .27);
   return { left, right, bottom, top: bottom - boxHeight, width: right - left, height: boxHeight };
 }
 

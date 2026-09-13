@@ -1,14 +1,16 @@
 import type Phaser from 'phaser';
 import type {GameController} from './index.js';
 import {UI_DEPTH_BASE} from './assets.js';
+import {uiTokens} from './ui-design-tokens.js';
+import {addUiButton,addUiPanel} from './ui-phaser.js';
 
 /** Small shared facility panel; the server remains authoritative for every change. */
 export function installGuestFacilities(scene:Phaser.Scene,game:GameController,width:number,height:number){
   const depth=UI_DEPTH_BASE+115,objects:(Phaser.GameObjects.GameObject&{setVisible(visible:boolean):unknown})[]=[];
-  const text=(x:number,y:number,value:string,size=19)=>{const t=scene.add.text(x,y,value,{fontFamily:'Microsoft YaHei, Arial',fontSize:`${size}px`,color:'#31443a',align:'center',wordWrap:{width:Math.min(520,width-60)}}).setOrigin(.5).setDepth(depth+2);objects.push(t);return t;};
+  const text=(x:number,y:number,value:string,size=19)=>{const t=scene.add.text(x,y,value,{fontFamily:'Microsoft YaHei, Arial',fontSize:`${size}px`,color:uiTokens.colors.textPrimary,align:'center',wordWrap:{width:Math.min(520,width-60)}}).setOrigin(.5).setDepth(depth+2);objects.push(t);return t;};
   const run=(action:()=>Promise<unknown>)=>void action().catch((error:Error)=>{game.message=error.message;game.onChange();});
-  const button=(x:number,y:number,value:string,action:()=>void)=>{const t=text(x,y,value).setPadding(12,7).setBackgroundColor('#e7ddc5').setInteractive({useHandCursor:true});t.on('pointerdown',()=>{if(!game.busy)action();});return t;};
-  const backdrop=scene.add.rectangle(width/2,height/2,Math.min(610,width-36),Math.min(350,height-28),0xfff9e9,.98).setDepth(depth).setInteractive();objects.push(backdrop);
+  const button=(x:number,y:number,value:string,action:()=>void)=>{const t=addUiButton(scene,x,y,value,depth+2,()=>{if(!game.busy)action();});objects.push(t);return t;};
+  const backdrop=addUiPanel(scene,width/2,height/2,Math.min(610,width-36),Math.min(350,height-28),depth);objects.push(backdrop);
   const title=text(width/2,height/2-130,'');
   const info=text(width/2,height/2-66,'',18);
   const left=button(width/2-160,height/2+12,'1 小时',()=>run(()=>game.startSleep(1)));

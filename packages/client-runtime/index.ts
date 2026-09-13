@@ -44,7 +44,7 @@ export function drawAppearance(p:Painter,input:Appearance|FormalNpcAppearance,co
   else{if(direction!=='right')circle(-4,-12+shapes.height,1.2,'#343948');if(direction!=='left')circle(4,-12+shapes.height,1.2,'#343948');rect(-2,-7+shapes.height,4,1,'#bb786b');}
 }export type Transport=(path:string,body?:unknown,token?:string)=>Promise<any>;
 export function uuid(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.floor(Math.random()*16);return (c==='x'?r:(r&3)|8).toString(16);});}
-export function formatQuestTracker(task:QuestTrackerItem){return task.completed?`${task.name}  ✓ 已完成\n${task.rewardSummary}（已发放）`:`${task.name}\n${task.currentStep}\n目标：${task.currentObjective}\n${task.rewardSummary}`;}
+export function formatQuestTracker(task:QuestTrackerItem){return task.completed?`${task.name}\n已完成`:`${task.name}\n${task.currentObjective}`;}
 export function browserTransport(base=''):Transport{return async(path,body,token)=>{const response=await fetch(`${base}${path}`,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(10000)});const data=await response.json();if(!response.ok)throw Object.assign(new Error(data.message??'网络请求失败'),{status:response.status});return data;};}
 export class GameController {
   token='';boot:Bootstrap|null=null;view:SceneView|null=null;ghosts:GhostProfile[]=[];quests:QuestRuntime[]=[];direction:Direction='down';walkTime=0;moving=false;private interactionCooldown=0;private introIndex=-1;

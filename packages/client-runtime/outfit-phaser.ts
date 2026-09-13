@@ -3,16 +3,18 @@ import type {GameController} from './index.js';
 import {applyHairTexture} from './hair-phaser.js';
 import {UI_DEPTH_BASE} from './assets.js';
 import {installGuestFacilities} from './guest-facilities-phaser.js';
+import {uiTokens} from './ui-design-tokens.js';
+import {addUiButton,addUiPanel} from './ui-phaser.js';
 
 /** The same functional fitting panel is installed in Web and WeChat scenes. */
 export function installOutfitShop(scene:Phaser.Scene,game:GameController,width:number,height:number){
   installGuestFacilities(scene,game,width,height);
   const depth=UI_DEPTH_BASE+110,objects:Phaser.GameObjects.GameObject[]=[];
-  const label=(x:number,y:number,value:string)=>{const t=scene.add.text(x,y,value,{fontFamily:'Microsoft YaHei, Arial',fontSize:'21px',color:'#334538',align:'center'}).setOrigin(.5).setDepth(depth+2);objects.push(t);return t;};
+  const label=(x:number,y:number,value:string)=>{const t=scene.add.text(x,y,value,{fontFamily:'Microsoft YaHei, Arial',fontSize:`${uiTokens.typography.bodyL}px`,color:uiTokens.colors.textPrimary,align:'center'}).setOrigin(.5).setDepth(depth+2);objects.push(t);return t;};
   const run=(action:()=>Promise<unknown>)=>void action().catch((error:Error)=>{game.message=error.message;game.onChange();});
-  const button=(x:number,y:number,value:string,action:()=>void)=>{const t=label(x,y,value).setPadding(16,10).setBackgroundColor('#e6dbbb').setInteractive({useHandCursor:true});t.on('pointerdown',()=>{if(!game.busy)action();});return t;};
+  const button=(x:number,y:number,value:string,action:()=>void)=>{const t=addUiButton(scene,x,y,value,depth+2,()=>{if(!game.busy)action();});objects.push(t);return t;};
   const open=button(width-110,height-160,'看看衣服',()=>run(()=>game.openOutfitShop()));
-  const backdrop=scene.add.rectangle(width/2,height/2,Math.min(600,width-40),320,0xfff9e9,.98).setDepth(depth).setInteractive();objects.push(backdrop);
+  const backdrop=addUiPanel(scene,width/2,height/2,Math.min(600,width-40),320,depth);objects.push(backdrop);
   const title=label(width/2,height/2-112,'春衫衣坊');
   const info=label(width/2+70,height/2-48,'').setWordWrapWidth(330);
   const preview=scene.add.sprite(width/2-200,height/2+25,'formal-player-female',0).setOrigin(.5,59/64).setDisplaySize(110,110).setDepth(depth+2).setInteractive();objects.push(preview);

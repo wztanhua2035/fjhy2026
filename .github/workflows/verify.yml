@@ -38,3 +38,4 @@ jobs:
       - run: npm run assets:build
       - run: npm run build
       - run: npm test
+      - run: node --import tsx --test tests/ui-design-system.test.ts
