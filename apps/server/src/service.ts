@@ -1,10 +1,11 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { Repository } from './repository.js';
 import type { PlayerState, WorldConfig, ShopTradeResult } from '../../../packages/shared-types/index.js';
-import { ensure, canStand, recoverSafePosition, positionBlockers, isOpen, starterAppearance, createStarterAppearance, formalizeAppearance, publicPlayer, sceneView, plotEntrances, inEntranceArea, questStepProgress, questStepLedgerType, questStepReference, portalInteractionZone } from '../../../packages/game-rules/index.js';
+import { ensure, GameError, canStand, recoverSafePosition, positionBlockers, isOpen, starterAppearance, createStarterAppearance, formalizeAppearance, publicPlayer, sceneView, plotEntrances, inEntranceArea, questStepProgress, questStepLedgerType, questStepReference, portalInteractionZone } from '../../../packages/game-rules/index.js';
 import { starterLooks } from '../../../packages/game-config/appearance-v1.js';
 import {hairServiceConfig} from '../../../packages/game-config/hair-services.js';
 import {outfitShopConfig} from '../../../packages/game-config/outfits.js';
+import {validatePlayerIdentity,PlayerIdentityError} from '../../../packages/game-config/player-profile.js';
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, guestRoomObjectDialogue } from '../../../packages/game-config/inn-opening.js';
 import {GUEST_ROOM_LIFE_UNLOCKED,normalizeLifeState,settleSleep,type LifeState} from '../../../packages/game-config/life-v1.js';
 import {applyItemEffect,resolveShopPrice,itemStackLimit,requireSupportedStockMode} from '../../../packages/game-rules/inventory.js';
@@ -59,9 +60,9 @@ export class GameService {
         }
         case 'create':{
           ensure(!p.appearance,'ALREADY_CREATED','角色已创建',409);
-          p.appearance='baseAvatarId' in body
-            ?formalizeAppearance(starterAppearance(world,body.gender,body.baseAvatarId,{hairColorId:body.hairColorId,topColorId:body.topColorId,bottomColorId:body.bottomColorId}))
-            :createStarterAppearance(body.gender,{faceId:body.faceId,hairId:body.hairId,outfitId:body.outfitId},world.faces);
+          try{p.profile=validatePlayerIdentity(body.profile);}catch(error){if(error instanceof PlayerIdentityError)throw new GameError(error.code,error.message,400);throw error;}
+          p.nickname=p.profile.nickname;
+          p.appearance=createStarterAppearance(body.gender,{faceId:body.faceId,hairId:body.hairId,outfitId:body.outfitId},world.faces);
           p.cosmetics=[p.appearance.hairId!,p.appearance.outfitId!];
           p.sceneId=GUEST_ROOM_SCENE_ID;p.x=7;p.y=8.4;p.metNpcs=[...new Set([...p.metNpcs,'NPC_001'])];p.storyFlags={};p.life=normalizeLifeState(null);p.storage={};
           money(p,120,'SYSTEM_GRANT','NEW_PLAYER',body.requestId);

@@ -1,26 +1,29 @@
 import { randomUUID } from 'node:crypto';
-import type { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import type { PlayerState, WorldConfig, GhostProfile } from '../../../packages/shared-types/index.js';
 import { initialWorld } from '../../../packages/game-config/index.js';
-import { ensure, canStand, positionBlockers, recoverSafePosition, formalizeAppearance } from '../../../packages/game-rules/index.js';
+import { ensure, GameError, canStand, positionBlockers, recoverSafePosition, formalizeAppearance } from '../../../packages/game-rules/index.js';
 import {initialLifeState,normalizeLifeState} from '../../../packages/game-config/life-v1.js';
+import type {PlayerProfile} from '../../../packages/game-config/player-profile.js';
 export interface Release { id:string;version:number;status:string;config:WorldConfig;basedOn:number }
 export interface Repository {
   login(subject:string):Promise<PlayerState>; player(id:string):Promise<PlayerState>;
   restartGame(id:string,requestId:string):Promise<PlayerState>;
   repairPosition(id:string,world:WorldConfig):Promise<PlayerState>;
   mutate(id:string,requestId:string,hash:string,fn:(p:PlayerState)=>unknown):Promise<any>;
+  identityTaken(profile:Pick<PlayerProfile,'surname'|'givenName'|'nickname'>,excludeId:string):Promise<boolean>;
+  listPlayers():Promise<PlayerState[]>;
   world():Promise<WorldConfig>; releases():Promise<Release[]>;
   draft(config:WorldConfig,basedOn:number):Promise<Release>; transition(id:string,status:string):Promise<Release>;
   ghosts(exclude:string):Promise<GhostProfile[]>; health():Promise<void>; close():Promise<void>;
 }
-const fresh=(id:string,nickname=`旅人${id.slice(0,4)}`):PlayerState=>({id,nickname,cash:0,stamina:100,status:'ACTIVE',sceneId:'INTERIOR_B_INN_GUEST_ROOM',x:7,y:8.4,appearance:null,inventory:{},storage:{},life:initialLifeState(),cosmetics:[],ledger:[],tradeCounts:{},metNpcs:[],storyFlags:{}});
+const fresh=(id:string,nickname=`旅人${id.slice(0,4)}`):PlayerState=>({id,nickname,cash:0,stamina:100,status:'ACTIVE',sceneId:'INTERIOR_B_INN_GUEST_ROOM',x:7,y:8.4,appearance:null,profile:null,inventory:{},storage:{},life:initialLifeState(),cosmetics:[],ledger:[],tradeCounts:{},metNpcs:[],storyFlags:{}});
 export class MemoryRepository implements Repository {
   players=new Map<string,PlayerState>(); subjects=new Map<string,string>(); requests=new Map<string,{hash:string;result:any}>();
   versions:Release[]=[{id:'initial',version:1,status:'PUBLISHED',config:structuredClone(initialWorld),basedOn:0}];
   async login(subject:string){let id=this.subjects.get(subject);if(!id){id=randomUUID();this.subjects.set(subject,id);this.players.set(id,fresh(id));}return this.player(id);}
   async player(id:string){const p=this.players.get(id);ensure(p,'UNAUTHORIZED','请重新登录',401);return structuredClone(p);}
-  async restartGame(id:string,requestId:string){const key=`${id}:${requestId}`,old=this.requests.get(key);if(old){ensure(old.hash==='RESTART_GAME','REQUEST_CONFLICT','请求编号已被其他操作使用',409);return structuredClone(old.result.player);}const p=await this.player(id);ensure(p.appearance,'CHARACTER_REQUIRED','尚未创建角色',409);const next=fresh(id,p.nickname);this.players.set(id,next);this.requests.set(key,{hash:'RESTART_GAME',result:{player:structuredClone(next),backup:p}});return structuredClone(next);}
+  async restartGame(id:string,requestId:string){const key=`${id}:${requestId}`,old=this.requests.get(key);if(old){ensure(old.hash==='RESTART_GAME','REQUEST_CONFLICT','请求编号已被其他操作使用',409);return structuredClone(old.result.player);}const p=await this.player(id);ensure(p.appearance,'CHARACTER_REQUIRED','尚未创建角色',409);const next=fresh(id);next.profile=p.profile;this.players.set(id,next);this.requests.set(key,{hash:'RESTART_GAME',result:{player:structuredClone(next),backup:p}});return structuredClone(next);}
   async repairPosition(id:string,world:WorldConfig){const p=this.players.get(id);ensure(p,'UNAUTHORIZED','请重新登录',401);if(!canStand(world,p.sceneId,p.x,p.y)){
     const before={sceneId:p.sceneId,x:p.x,y:p.y,hits:positionBlockers(world,p.sceneId,p.x,p.y)};
     const safe=recoverSafePosition(world,p.sceneId,p.x,p.y);p.x=safe.x;p.y=safe.y;
@@ -29,8 +32,10 @@ export class MemoryRepository implements Repository {
   async mutate(id:string,requestId:string,hash:string,fn:(p:PlayerState)=>unknown){
     const key=`${id}:${requestId}`,old=this.requests.get(key);if(old){ensure(old.hash===hash,'REQUEST_CONFLICT','请求编号已被其他操作使用',409);return structuredClone(old.result);}
     const original=this.players.get(id);ensure(original,'UNAUTHORIZED','请重新登录',401);const p=structuredClone(original);
-    const result=fn(p);this.players.set(id,p);this.requests.set(key,{hash,result:structuredClone(result)});return result;
+    const result=fn(p);if(p.profile&&[...this.players.values()].some(other=>other.id!==id&&other.profile?.surname===p.profile!.surname&&other.profile.givenName===p.profile!.givenName&&other.profile.nickname===p.profile!.nickname))throw new GameError('PLAYER_IDENTITY_TAKEN','这个姓名和外号的组合已经有人使用了，请换一个外号或姓名。',409);this.players.set(id,p);this.requests.set(key,{hash,result:structuredClone(result)});return result;
   }
+  async identityTaken(profile:Pick<PlayerProfile,'surname'|'givenName'|'nickname'>,excludeId:string){return [...this.players.values()].some(p=>p.id!==excludeId&&p.profile?.surname===profile.surname&&p.profile.givenName===profile.givenName&&p.profile.nickname===profile.nickname);}
+  async listPlayers(){return [...this.players.values()].map(p=>structuredClone(p));}
   async world(){return structuredClone(this.versions.find(r=>r.status==='PUBLISHED')!.config);}
   async releases(){return structuredClone(this.versions);}
   async draft(config:WorldConfig,basedOn:number){const r={id:randomUUID(),version:Math.max(...this.versions.map(r=>r.version))+1,status:'DRAFT',config:structuredClone(config),basedOn};r.config.configVersion=r.version;this.versions.push(r);return structuredClone(r);}
@@ -39,10 +44,10 @@ export class MemoryRepository implements Repository {
   async health(){} async close(){}
 }
 function checkTransition(r:Release,status:string){ensure((r.status==='DRAFT'&&status==='TEST')||(r.status==='TEST'&&status==='PUBLISHED'),'INVALID_TRANSITION','必须先将草稿验证为 TEST，再发布',409);}
-const include={appearance:true,inventory:true,cosmetics:true,ledger:{orderBy:{createdAt:'desc' as const},take:100}};
+const include={appearance:true,profile:true,inventory:true,cosmetics:true,ledger:{orderBy:{createdAt:'desc' as const},take:100}};
 function decode(row:any):PlayerState{return {id:row.id,nickname:row.nickname,cash:Number(row.cash),stamina:row.stamina,status:row.status,sceneId:row.sceneId,x:row.x,y:row.y,
   appearance:row.appearance?formalizeAppearance({gender:row.appearance.gender,faceId:row.appearance.faceId,headwearId:row.appearance.headwearId,baseAvatarId:row.appearance.baseAvatarId,hairStyleId:row.appearance.hairStyleId,hairColorId:row.appearance.hairColorId,topStyleId:row.appearance.topStyleId,topColorId:row.appearance.topColorId,bottomStyleId:row.appearance.bottomStyleId,bottomColorId:row.appearance.bottomColorId,shoesId:row.appearance.shoesId,accessoryIds:row.appearance.accessoryIds}):null,
-  inventory:Object.fromEntries(row.inventory.map((i:any)=>[i.itemId,i.quantity])),storage:row.personalStorage??{},life:normalizeLifeState(row.lifeState),cosmetics:row.cosmetics.map((c:any)=>c.appearanceId),tradeCounts:row.tradeCounts,metNpcs:row.metNpcs,storyFlags:row.storyFlags??{},
+  profile:row.profile??null,inventory:Object.fromEntries(row.inventory.map((i:any)=>[i.itemId,i.quantity])),storage:row.personalStorage??{},life:normalizeLifeState(row.lifeState),cosmetics:row.cosmetics.map((c:any)=>c.appearanceId),tradeCounts:row.tradeCounts,metNpcs:row.metNpcs,storyFlags:row.storyFlags??{},
   ledger:row.ledger.slice().reverse().map((l:any)=>({id:l.id,type:l.type,amount:Number(l.amount),before:Number(l.before),after:Number(l.after),referenceId:l.referenceId,requestId:l.requestId,createdAt:l.createdAt.toISOString()}))};}
 const json=(v:unknown)=>JSON.parse(JSON.stringify(v)) as Prisma.InputJsonValue;
 export class PostgresRepository implements Repository {
@@ -54,14 +59,14 @@ export class PostgresRepository implements Repository {
     const old=await tx.idempotencyRequest.findUnique({where:{playerId_requestId:{playerId:id,requestId}}});
     if(old){ensure(old.hash==='RESTART_GAME','REQUEST_CONFLICT','请求编号已被其他操作使用',409);return (old.result as any).player as PlayerState;}
     const row=await tx.player.findUnique({where:{id},include});ensure(row,'UNAUTHORIZED','请重新登录',401);ensure(row.appearance,'CHARACTER_REQUIRED','尚未创建角色',409);
-    const next=fresh(id,row.nickname),backup={player:decode(row),ledger:(await tx.playerLedger.findMany({where:{playerId:id}})).map(l=>({...l,amount:String(l.amount),before:String(l.before),after:String(l.after),createdAt:l.createdAt.toISOString()}))};
+    const next=fresh(id),backup={player:decode(row),ledger:(await tx.playerLedger.findMany({where:{playerId:id}})).map(l=>({...l,amount:String(l.amount),before:String(l.before),after:String(l.after),createdAt:l.createdAt.toISOString()}))};
     await tx.idempotencyRequest.create({data:{playerId:id,requestId,hash:'RESTART_GAME',result:json({player:next,backup})}});
     await tx.playerAppearance.delete({where:{playerId:id}});
     await tx.inventory.deleteMany({where:{playerId:id}});
     await tx.playerCosmetic.deleteMany({where:{playerId:id}});
     await tx.playerLedger.deleteMany({where:{playerId:id}});
     await tx.ghostSnapshot.deleteMany({where:{playerId:id}});
-    await tx.player.update({where:{id},data:{cash:0n,stamina:next.stamina,sceneId:next.sceneId,x:next.x,y:next.y,tradeCounts:json({}),metNpcs:json([]),storyFlags:json({}),personalStorage:json({}),lifeState:json(next.life)}});
+    await tx.player.update({where:{id},data:{nickname:next.nickname,cash:0n,stamina:next.stamina,sceneId:next.sceneId,x:next.x,y:next.y,tradeCounts:json({}),metNpcs:json([]),storyFlags:json({}),personalStorage:json({}),lifeState:json(next.life)}});
     return next;
   },{timeout:15000});}
   async repairPosition(id:string,world:WorldConfig){return this.db.$transaction(async tx=>{
@@ -82,7 +87,8 @@ export class PostgresRepository implements Repository {
       if(old){ensure(old.hash===hash,'REQUEST_CONFLICT','请求编号已被其他操作使用',409);return old.result;}
       const row=await tx.player.findUnique({where:{id},include});ensure(row,'UNAUTHORIZED','请重新登录',401);
       const p=decode(row),ledgerIds=new Set(p.ledger.map(l=>l.id)),result=fn(p);
-      await tx.player.update({where:{id},data:{cash:BigInt(p.cash),stamina:p.stamina,sceneId:p.sceneId,x:p.x,y:p.y,tradeCounts:json(p.tradeCounts),metNpcs:json(p.metNpcs),storyFlags:json(p.storyFlags??{}),personalStorage:json(p.storage),lifeState:json(p.life)}});
+      await tx.player.update({where:{id},data:{nickname:p.nickname,cash:BigInt(p.cash),stamina:p.stamina,sceneId:p.sceneId,x:p.x,y:p.y,tradeCounts:json(p.tradeCounts),metNpcs:json(p.metNpcs),storyFlags:json(p.storyFlags??{}),personalStorage:json(p.storage),lifeState:json(p.life)}});
+      if(p.profile)await tx.playerProfile.upsert({where:{playerId:id},create:{playerId:id,...p.profile},update:p.profile});
       if(p.appearance){const {gender,baseAvatarId,hairStyleId,hairColorId,topStyleId,topColorId,bottomStyleId,bottomColorId,shoesId,accessoryIds}=p.appearance;
         const stored={gender,faceId:p.appearance.faceId!,headwearId:p.appearance.headwearId??null,baseAvatarId,hairStyleId,hairColorId,topStyleId,topColorId,bottomStyleId,bottomColorId,shoesId,accessoryIds:json(accessoryIds)};
         await tx.playerAppearance.upsert({where:{playerId:id},create:{playerId:id,...stored},update:stored});
@@ -92,8 +98,10 @@ export class PostgresRepository implements Repository {
       for(const appearanceId of p.cosmetics)await tx.playerCosmetic.upsert({where:{playerId_appearanceId:{playerId:id,appearanceId}},create:{playerId:id,appearanceId},update:{}});
       for(const l of p.ledger.filter(l=>!ledgerIds.has(l.id)))await tx.playerLedger.create({data:{...l,playerId:id,amount:BigInt(l.amount),before:BigInt(l.before),after:BigInt(l.after)}});
       await tx.idempotencyRequest.create({data:{playerId:id,requestId,hash,result:json(result)}});return result;
-    },{timeout:15000});
+    },{timeout:15000}).catch((error:unknown)=>{const target=String((error as any)?.meta?.target??'');if(error instanceof Prisma.PrismaClientKnownRequestError&&error.code==='P2002'&&(target.includes('player_profile_identity_unique')||['surname','givenName','nickname'].every(field=>target.includes(field))))throw new GameError('PLAYER_IDENTITY_TAKEN','这个姓名和外号的组合已经有人使用了，请换一个外号或姓名。',409);throw error;});
   }
+  async identityTaken(profile:Pick<PlayerProfile,'surname'|'givenName'|'nickname'>,excludeId:string){return !!await this.db.playerProfile.findFirst({where:{...profile,playerId:{not:excludeId}}});}
+  async listPlayers(){return (await this.db.player.findMany({include,orderBy:{createdAt:'desc'},take:100})).map(decode);}
   async world(){const r=await this.db.worldRelease.findFirst({where:{status:'PUBLISHED'},orderBy:{version:'desc'}});ensure(r,'NOT_SEEDED','请先初始化世界配置',503);return r.config as unknown as WorldConfig;}
   async releases(){return await this.db.worldRelease.findMany({orderBy:{version:'desc'}}) as unknown as Release[];}
   async draft(config:WorldConfig,basedOn:number){return this.db.$transaction(async tx=>{await tx.$queryRaw`SELECT pg_advisory_xact_lock(782233)::text`;const max=await tx.worldRelease.aggregate({_max:{version:true}}),version=(max._max.version??0)+1;

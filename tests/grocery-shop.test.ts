@@ -1,3 +1,4 @@
+import {testProfile} from './creation-fixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -11,7 +12,7 @@ async function fixture(){
  const repo=new MemoryRepository(),app=await buildApp(repo,env);
  const auth=(await app.inject({method:'POST',url:'/v1/auth/dev',payload:{account:'grocery-test'}})).json(),headers={authorization:`Bearer ${auth.token}`};
  const post=(url:string,payload:object)=>app.inject({method:'POST',url,headers,payload});
- await post('/v1/player/appearance/create',{requestId:randomUUID(),gender:'FEMALE',faceId:'F_FACE_01'});
+ await post('/v1/player/appearance/create',{profile:testProfile(),requestId:randomUUID(),gender:'FEMALE',faceId:'F_FACE_01'});
  const p=repo.players.get(auth.player.id)!;p.sceneId='INTERIOR_B_GROCERY';p.x=12;p.y=12.5;
  const buy=(overrides:object={})=>post('/v1/economy/buy',{requestId:randomUUID(),buildingId:'B_GROCERY',itemId:'WATER_01',quantity:1,...overrides});
  return {repo,app,headers,p,post,buy};

@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {testProfile} from './creation-fixture.js';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { loadWechatAssets, wechatAssets, wechatStartupAssets, WECHAT_STARTUP_PACKAGE_ROOTS } from '../apps/wechat-game/src/assets.js';
@@ -40,7 +41,7 @@ test('wx.request → HTTP → 共享控制器：送样、关系、断线重登�
     const platform = createWeChatPlatform('http://localhost:8080', {debugOpenAll:true});
     let c = new GameController(platform.transport);
     await c.loginWechat('code');
-    await c.create('FEMALE',{faceId:'F_FACE_01',hairId:'F_HAIR_01',outfitId:'F_OUTFIT_01'});
+    await c.create('FEMALE',{faceId:'F_FACE_01',hairId:'F_HAIR_01',outfitId:'F_OUTFIT_01'},testProfile());
     await c.advanceDialogue();
     const place = async (npcId: string) => { if(c.dialogue)await c.advanceDialogue();const npc = initialWorld.npcs.find(n => n.id === npcId)!; Object.assign(repo.players.get(c.player!.id)!,{sceneId:npc.sceneId,x:npc.x,y:npc.y+1}); await c.refresh(); };
     await place('NPC_CLOTH_SHOPKEEPER'); await c.interact();

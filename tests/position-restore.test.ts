@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {testProfile} from './creation-fixture.js';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { initialWorld, baishiBuildingObjectCollision } from '../packages/game-config/index.js';
@@ -89,7 +90,7 @@ test('DEV 手动安全复位只在开发环境存在',async()=>{
   const repo=new MemoryRepository(),app=await buildApp(repo,env);
   try{
     const login=(await app.inject({method:'POST',url:'/v1/auth/dev',payload:{account:'safe-reset'}})).json();
-    const created=await app.inject({method:'POST',url:'/v1/player/appearance/create',headers:{authorization:`Bearer ${login.token}`},payload:{requestId:randomUUID(),gender:'FEMALE',baseAvatarId:'FEMALE_01',hairColorId:'INK',topColorId:'SAGE',bottomColorId:'CREAM'}});
+    const created=await app.inject({method:'POST',url:'/v1/player/appearance/create',headers:{authorization:`Bearer ${login.token}`},payload:{requestId:randomUUID(),gender:'FEMALE',faceId:'F_FACE_01',profile:testProfile()}});
     assert.equal(created.statusCode,200,created.body);
     const response=await app.inject({method:'POST',url:'/v1/player/debug-safe-reset',headers:{authorization:`Bearer ${login.token}`},payload:{requestId:randomUUID()}});
     assert.equal(response.statusCode,200,response.body);

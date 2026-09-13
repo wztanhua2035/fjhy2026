@@ -1,3 +1,4 @@
+import {testProfile} from './creation-fixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -18,7 +19,7 @@ test('男女三完整发型、三整套服装均可建角，重复请求不重�
     const options=starterLookOptions(gender);
     assert.equal(options.hairs.length,3);assert.equal(options.outfits.length,3);
     for(let index=0;index<3;index++){
-      const player=await repo.login(`${gender}-${index}`),body={requestId:randomUUID(),gender,faceId:`${gender==='MALE'?'M':'F'}_FACE_0${index+1}`,hairId:options.hairs[index].id,outfitId:options.outfits[index].id};
+      const player=await repo.login(`${gender}-${index}`),body={requestId:randomUUID(),gender,faceId:`${gender==='MALE'?'M':'F'}_FACE_0${index+1}`,hairId:options.hairs[index].id,outfitId:options.outfits[index].id,profile:testProfile()};
       const first=await service.action(player.id,'create',body);
       const again=await service.action(player.id,'create',body);
       assert.deepEqual(again,first);
@@ -40,11 +41,11 @@ test('建角不依赖旧发色/上衣色/下装色，缺省项回退合法选项
   // Simulate a published world whose legacy color list differs from the client defaults.
   repo.versions[0].config.colors={INK:'#343948'};
   const service=new GameService(repo),player=await repo.login('new-minimal');
-  await service.action(player.id,'create',{requestId:randomUUID(),gender:'MALE',faceId:'M_FACE_01'});
+  await service.action(player.id,'create',{profile:testProfile(),requestId:randomUUID(),gender:'MALE',faceId:'M_FACE_01'});
   assert.equal((await repo.player(player.id)).appearance?.hairId,'M_HAIR_01');
   for(const [field,value] of [['hairId','M_HAIR_MISSING'],['outfitId','M_OUTFIT_MISSING']] as const){
     const other=await repo.login(field);
-    await assert.rejects(()=>service.action(other.id,'create',{requestId:randomUUID(),gender:'MALE',faceId:'M_FACE_01',[field]:value}));
+    await assert.rejects(()=>service.action(other.id,'create',{profile:testProfile(),requestId:randomUUID(),gender:'MALE',faceId:'M_FACE_01',[field]:value}));
     assert.equal((await repo.player(other.id)).appearance,null);
   }
 });
@@ -57,7 +58,7 @@ test('创建 API 的共享客户端只发送新字段，重登 bootstrap 保留�
     const boot=(await app.inject({url:'/v1/bootstrap',headers})).json();
     assert.equal(boot.player.appearance,null);
     assert.ok(boot.appearances.some((item:any)=>item.id==='F_OUTFIT_03'));
-    const body={requestId:randomUUID(),gender:'FEMALE',faceId:'F_FACE_03',hairId:'F_HAIR_03',outfitId:'F_OUTFIT_02'};
+    const body={requestId:randomUUID(),gender:'FEMALE',faceId:'F_FACE_03',hairId:'F_HAIR_03',outfitId:'F_OUTFIT_02',profile:testProfile()};
     const created=await app.inject({method:'POST',url:'/v1/player/appearance/create',headers,payload:body});
     assert.equal(created.statusCode,200,created.body);
     const restored=(await app.inject({url:'/v1/bootstrap',headers})).json();
@@ -67,7 +68,7 @@ test('创建 API 的共享客户端只发送新字段，重登 bootstrap 保留�
     assert.equal(forged.statusCode,400);
     let sent:any;
     const controller=new GameController(async(_path,payload)=>{sent=payload;return {};});
-    await controller.create('FEMALE',{faceId:'F_FACE_01',hairId:'F_HAIR_01',outfitId:'F_OUTFIT_01'});
+    await controller.create('FEMALE',{faceId:'F_FACE_01',hairId:'F_HAIR_01',outfitId:'F_OUTFIT_01'},testProfile());
     assert.equal(sent.hairId,'F_HAIR_01');
     assert.equal(sent.outfitId,'F_OUTFIT_01');
     assert.equal('skinToneId' in sent,false);

@@ -24,12 +24,23 @@ model Player {
   updatedAt DateTime @updatedAt
   lastLoginAt DateTime @default(now())
   appearance PlayerAppearance?
+  profile PlayerProfile?
   inventory Inventory[]
   cosmetics PlayerCosmetic[]
   ledger PlayerLedger[]
   requests IdempotencyRequest[]
   ghost GhostSnapshot?
   @@map("players")
+}
+model PlayerProfile {
+  playerId String @id @db.Uuid
+  player Player @relation(fields:[playerId],references:[id])
+  surname String
+  givenName String
+  nickname String
+  personalityTag String
+  @@unique([surname,givenName,nickname],map:"player_profile_identity_unique")
+  @@map("player_profiles")
 }
 model PlayerAppearance {
   playerId String @id @db.Uuid

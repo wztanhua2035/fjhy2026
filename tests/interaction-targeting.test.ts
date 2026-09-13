@@ -1,3 +1,4 @@
+import {testProfile} from './creation-fixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { canInteractWithNpc, facesInteraction, interactionDefaults, scoredInteraction, selectInteraction, withinInteractionRect } from '../packages/client-runtime/interaction-targeting.js';
@@ -26,7 +27,7 @@ test('真实陈掌柜与伙计四侧近身共用交谈及交易门槛，远处�
 test('服务端接受与客户端相同的门洞边缘和贴门位置',async()=>{
   for(const [sceneId,portalId,x,y] of [['INTERIOR_B_INN','ENTER_INN_GUEST_ROOM',3,5.2],['INTERIOR_B_INN','EXIT_B_INN',10.3,18.7],['INTERIOR_B_INN_GUEST_ROOM','EXIT_INN_GUEST_ROOM',8.2,10.8]] as const){
     const repo=new MemoryRepository();const p=await repo.login(randomUUID());const game=new GameService(repo);
-    await game.action(p.id,'create',{gender:'MALE',hairId:'M_HAIR_01',outfitId:'M_OUTFIT_01',requestId:randomUUID()});
+    await game.action(p.id,'create',{profile:testProfile(),gender:'MALE',faceId:'M_FACE_01',hairId:'M_HAIR_01',outfitId:'M_OUTFIT_01',requestId:randomUUID()});
     await repo.mutate(p.id,randomUUID(),'fixture',player=>{player.sceneId=sceneId;player.x=x;player.y=y;player.storyFlags={INTRO_INN_KEEPER_DONE:true};return {};});
     await game.action(p.id,'portal',{portalId,requestId:randomUUID()});
   }

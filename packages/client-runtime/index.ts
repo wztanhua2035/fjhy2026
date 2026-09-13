@@ -169,9 +169,7 @@ export class GameController {
     catch(e:any){this.dialogue=null;this.dialogueSpeaker=null;this.message=e.message;if(e.status){this.pending=null;this.x=this.player?.x??this.x;this.y=this.player?.y??this.y;}else{this.offline=true;this.message=this.pending?'网络中断，操作结果待确认。点击重试，使用同一请求编号。':'操作已确认，场景加载失败，请重新连接。';}throw e;}
     finally{this.busy=false;this.onChange();}
   }
-  async create(gender:'MALE'|'FEMALE',selection:{faceId:string;hairId?:string;outfitId?:string}):Promise<void>;
-  async create(gender:'MALE'|'FEMALE',baseAvatarId:string,hairColorId:string,topColorId:string,bottomColorId:string):Promise<void>;
-  async create(gender:'MALE'|'FEMALE',selection:string|{faceId:string;hairId?:string;outfitId?:string},hairColorId?:string,topColorId?:string,bottomColorId?:string){await this.write('/v1/player/appearance/create',typeof selection==='string'?{gender,baseAvatarId:selection,hairColorId,topColorId,bottomColorId}:{gender,...selection});}
+  async create(gender:'MALE'|'FEMALE',selection:{faceId:string;hairId:string;outfitId:string},profile:import('../game-config/player-profile.js').PlayerProfile){await this.write('/v1/player/appearance/create',{gender,...selection,headwearId:null,profile});}
   tick(dt:number,dx:number,dy:number){if(this.hairPanelOpen&&!this.canUseHairService())this.closeHairService();if(this.outfitPanelOpen&&!(this.outfitMode==='wardrobe'?this.canUseGuestFacility(this.outfitZoneId):this.canUseOutfitShop()))this.closeOutfitShop();if(!this.view||!this.player?.appearance)return;if(this.dialogue||this.introPending||this.interacting||this.shopOpen||this.hairPanelOpen||this.outfitPanelOpen||this.facilityPanel||this.player.life.sleep||this.trading){dx=0;dy=0;}this.interactionCooldown=Math.max(0,this.interactionCooldown-dt);
     this.walkTime+=dt;this.moving=!!(dx||dy)&&(!this.busy||this.offline);
     const correctionFactor=1-Math.exp(-dt*10);
@@ -311,12 +309,13 @@ export class GameController {
     }
     for(const portal of v.scene.portals){rect(portal.x-.7,portal.y-.25,1.4,.5,'#91b7a3');p.text('出口 ↓',ox+portal.x*tile,oy+(portal.y-1)*tile,16,'#486d5d');}
     const defaultAp=this.player!.appearance!;
-const people=[...(drawNpcs?v.npcs.filter(n=>!skipNpcIds.includes(n.id)).map(n=>({x:n.x,y:n.y,name:n.name,appearance:n.appearance??defaultAp,ghost:false})):[]),...(skipPlayer?[]:[...this.ghosts.slice(0,6).map((g,i)=>({x:(v.scene.buildingId?5:14)+i*3,y:v.scene.buildingId?12:43,name:`${g.nickname} · 留影`,appearance:g.appearance,ghost:true})),{x:this.x,y:this.y,name:'你',appearance:defaultAp,ghost:false}])].sort((a,b)=>a.y-b.y);
+const people=[...(drawNpcs?v.npcs.filter(n=>!skipNpcIds.includes(n.id)).map(n=>({x:n.x,y:n.y,name:n.name,appearance:n.appearance??defaultAp,ghost:false,player:false})):[]),...(skipPlayer?[]:[...this.ghosts.slice(0,6).map((g,i)=>({x:(v.scene.buildingId?5:14)+i*3,y:v.scene.buildingId?12:43,name:`${g.nickname} · 留影`,appearance:g.appearance,ghost:true,player:false})),{x:this.x,y:this.y,name:this.player?.profile?this.player.profile.surname+this.player.profile.givenName:'你',appearance:defaultAp,ghost:false,player:true}])].sort((a,b)=>a.y-b.y);
     for(const person of people){
-      const isPlayer=person.name==='你', scale=isPlayer?1.45:person.ghost?1.05:1.25;
+      const isPlayer=person.player, scale=isPlayer?1.45:person.ghost?1.05:1.25;
       drawAppearance(p,person.appearance,this.boot!.colors,ox+person.x*tile,oy+person.y*tile,scale,isPlayer?this.direction:'down',isPlayer?this.walkTime:0);
       p.text(person.name,ox+person.x*tile,oy+person.y*tile-(isPlayer?52:46),isPlayer?17:16,person.ghost?'#6c648d':'#445749');
     }
+    if(skipPlayer&&this.player?.profile)p.text(this.player.profile.surname+this.player.profile.givenName,ox+this.x*tile,oy+this.y*tile-(v.scene.buildingId?65:52),17,'#445749');
     if(drawInteractionDebug){
       const debug=this.interactionDebug(),colors:Record<string,string>={portal:'#38d9ff44',entrance:'#38d9ff44',npc:'#8cdb7544',service:'#ffd54f44',furniture:'#ff9f4344',scripted:'#ff5b8a44'};
       for(const candidate of debug.zones){

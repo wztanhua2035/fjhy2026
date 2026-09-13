@@ -1,3 +1,4 @@
+import {testProfile} from './creation-fixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -18,7 +19,7 @@ test('真实 HTTP 接受批量路径、兼容旧坐标请求、拒绝路径穿�
  const repo=new MemoryRepository(),app=await buildApp(repo,env);
  try{
   const login=(await app.inject({method:'POST',url:'/v1/auth/dev',payload:{account:'batch-repro'}})).json();
-  await new GameService(repo).action(login.player.id,'create',{requestId:randomUUID(),gender:'MALE',hairId:'M_HAIR_01',outfitId:'M_OUTFIT_01'});
+  await new GameService(repo).action(login.player.id,'create',{profile:testProfile(),requestId:randomUUID(),gender:'MALE',faceId:'M_FACE_01',hairId:'M_HAIR_01',outfitId:'M_OUTFIT_01'});
   const headers={authorization:`Bearer ${login.token}`};
   const boot=(await app.inject({method:'GET',url:'/v1/bootstrap',headers})).json();assert.equal(boot.features.movementPath,true);
   const move=(body:object)=>app.inject({method:'POST',url:'/v1/player/move',headers,payload:{...body,requestId:randomUUID()}});

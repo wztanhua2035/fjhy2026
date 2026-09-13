@@ -1,3 +1,4 @@
+import {testProfile} from './creation-fixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -17,7 +18,7 @@ async function fixture(gender:'MALE'|'FEMALE'='FEMALE'){
   const repo=new MemoryRepository(),app=await buildApp(repo,env,{now:()=>new Date('2026-09-13T04:00:00Z')});
   const auth=(await app.inject({method:'POST',url:'/v1/auth/dev',payload:{account:'hair-test'}})).json();
   const headers={authorization:`Bearer ${auth.token}`},post=(url:string,payload:object)=>app.inject({method:'POST',url,headers,payload});
-  await post('/v1/player/appearance/create',{requestId:randomUUID(),gender,faceId:gender==='MALE'?'M_FACE_01':'F_FACE_01'});
+  await post('/v1/player/appearance/create',{profile:testProfile(),requestId:randomUUID(),gender,faceId:gender==='MALE'?'M_FACE_01':'F_FACE_01'});
   const player=repo.players.get(auth.player.id)!;player.sceneId='INTERIOR_B_SALON';player.x=12;player.y=12.5;
   const change=(targetId='F_HAIR_02',requestId=randomUUID())=>post('/v1/services/appearance',{shopId:'B_SALON',serviceType:'HAIR',targetId,requestId});
   return {repo,app,player,headers,post,change};
@@ -66,7 +67,7 @@ test('预览只读正式 appearance，取消/离开/退出均清除候选',async
   }finally{await f.app.close();}
 });
 test('重新开始清除发型，重建沿用同一 hairId 字段',async()=>{
-  const f=await fixture();try{await f.change();const reset=await f.post('/v1/player/restart',{confirm:true,requestId:randomUUID()});assert.equal(reset.statusCode,200);assert(!reset.json().player.appearance);const created=await f.post('/v1/player/appearance/create',{requestId:randomUUID(),gender:'MALE',faceId:'M_FACE_01',hairId:'M_HAIR_03'});assert.equal(created.statusCode,200);assert.equal(created.json().player.appearance.hairId,'M_HAIR_03');}finally{await f.app.close();}
+  const f=await fixture();try{await f.change();const reset=await f.post('/v1/player/restart',{confirm:true,requestId:randomUUID()});assert.equal(reset.statusCode,200);assert(!reset.json().player.appearance);const created=await f.post('/v1/player/appearance/create',{profile:testProfile(),requestId:randomUUID(),gender:'MALE',faceId:'M_FACE_01',hairId:'M_HAIR_03'});assert.equal(created.statusCode,200);assert.equal(created.json().player.appearance.hairId,'M_HAIR_03');}finally{await f.app.close();}
 });
 test('不同请求内容复用编号冲突；客户端价格字段拒绝',async()=>{
   const f=await fixture();try{

@@ -1,3 +1,4 @@
+import {testProfile} from './creation-fixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -14,7 +15,7 @@ async function fixture(){
   const auth=(await app.inject({method:'POST',url:'/v1/auth/dev',payload:{account:randomUUID().slice(0,24)}})).json();
   const headers={authorization:`Bearer ${auth.token}`};
   const post=(url:string,body:Record<string,unknown>)=>app.inject({method:'POST',url,headers,payload:{requestId:randomUUID(),...body}});
-  const created=await post('/v1/player/appearance/create',{gender:'FEMALE',faceId:'F_FACE_01',outfitId:'F_OUTFIT_01'});
+  const created=await post('/v1/player/appearance/create',{profile:testProfile(),gender:'FEMALE',faceId:'F_FACE_01',outfitId:'F_OUTFIT_01'});
   assert.equal(created.statusCode,200,created.body);
   return {repo,app,headers,post,get player(){return repo.players.get(auth.player.id)!;},setClock:(value:string)=>{clock=new Date(value);}};
 }

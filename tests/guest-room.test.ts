@@ -1,3 +1,4 @@
+import {testProfile} from './creation-fixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -20,7 +21,7 @@ function reachable(from:{x:number;y:number},to:{x:number;y:number}){
     for(const [dx,dy] of [[.5,0],[-.5,0],[0,.5],[0,-.5]]){const n={x:p.x+dx,y:p.y+dy};if(!seen.has(key(n))&&canStand(initialWorld,scene.id,n.x,n.y)){seen.add(key(n));queue.push(n);}}
   }return false;
 }
-const create={gender:'MALE',faceId:'M_FACE_01',hairId:'M_HAIR_01',outfitId:'M_OUTFIT_01'};
+const create={gender:'MALE',faceId:'M_FACE_01',hairId:'M_HAIR_01',outfitId:'M_OUTFIT_01',profile:testProfile()};
 
 test('临时房尺寸、美术、四件家具碰撞和独立可达交互点',async()=>{
   assert.equal(scene.width,14);assert.equal(scene.height,12);assert.equal(scene.tileSize,32);
@@ -105,7 +106,7 @@ test('共享 GameController 自动逐句开场，期间不能移动，结束后�
     return service.action(p.id,action[path],body);
   };
   const c=new GameController(transport);await c.loginDev('guest-controller');
-  await c.create('MALE',create);assert.equal(c.player?.sceneId,GUEST_ROOM_SCENE_ID);
+  await c.create('MALE',create,create.profile);assert.equal(c.player?.sceneId,GUEST_ROOM_SCENE_ID);
   await c.advanceDialogue();c.x=7;c.y=10.2;Object.assign(repo.players.get(p.id)!,{x:7,y:10.2});await c.interact();
   assert.equal(c.player?.sceneId,'INTERIOR_B_INN');assert.equal(c.dialogueSpeaker,'陈掌柜');
   assert.equal(c.dialogue,innOpeningDialogue[0].text);

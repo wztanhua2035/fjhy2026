@@ -1,3 +1,4 @@
+import {testProfile} from './creation-fixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -18,7 +19,7 @@ async function fixture(gender:'MALE'|'FEMALE'='FEMALE'){
   const auth=(await app.inject({method:'POST',url:'/v1/auth/dev',payload:{account:'outfit-test'}})).json();
   const headers={authorization:`Bearer ${auth.token}`},post=(url:string,payload:object)=>app.inject({method:'POST',url,headers,payload});
   const prefix=gender==='MALE'?'M':'F';
-  await post('/v1/player/appearance/create',{requestId:randomUUID(),gender,faceId:`${prefix}_FACE_02`,hairId:`${prefix}_HAIR_03`,outfitId:`${prefix}_OUTFIT_01`});
+  await post('/v1/player/appearance/create',{profile:testProfile(),requestId:randomUUID(),gender,faceId:`${prefix}_FACE_02`,hairId:`${prefix}_HAIR_03`,outfitId:`${prefix}_OUTFIT_01`});
   const player=repo.players.get(auth.player.id)!;player.sceneId='INTERIOR_B_CLOTH';player.x=16;player.y=11;
   const buy=(id=`${prefix}_OUTFIT_02`,requestId=randomUUID())=>post('/v1/appearance/purchase',{buildingId:'B_CLOTH',appearanceId:id,requestId});
   const wear=(id=`${prefix}_OUTFIT_01`)=>post('/v1/appearance/change',{buildingId:'B_CLOTH',appearanceId:id,requestId:randomUUID()});
@@ -71,7 +72,7 @@ test('预览和取消不写 PlayerState，场景变化关闭试衣',async()=>{
 test('重开后失去购买衣服并重新拥有创建选择；旧世界只补字段',async()=>{
   const f=await fixture();try{
     await f.buy();await f.post('/v1/player/restart',{confirm:true,requestId:randomUUID()});
-    const created=await f.post('/v1/player/appearance/create',{requestId:randomUUID(),gender:'MALE',faceId:'M_FACE_01',outfitId:'M_OUTFIT_03'});
+    const created=await f.post('/v1/player/appearance/create',{profile:testProfile(),requestId:randomUUID(),gender:'MALE',faceId:'M_FACE_01',outfitId:'M_OUTFIT_03'});
     assert.equal(created.statusCode,200);assert.deepEqual(created.json().player.cosmetics.filter((id:string)=>id.includes('OUTFIT')),['M_OUTFIT_03']);
   }finally{await f.app.close();}
   const repo=new MemoryRepository(),old=await repo.world();delete old.outfits;delete old.outfitOffers;const draft=await repo.draft(old,old.configVersion);await repo.transition(draft.id,'TEST');await repo.transition(draft.id,'PUBLISHED');

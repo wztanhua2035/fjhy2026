@@ -11,6 +11,7 @@ import { baishiCompatibility } from './compatibility';
 import { mobileTypography } from './typography';
 import { MobileDialogueUi } from './dialogue-ui';
 import {itemCategoryNames} from '../../../packages/game-rules/inventory.js';
+import {personalityChoices,randomIdentity,validatePlayerIdentity,type PersonalityTag} from '../../../packages/game-config/player-profile.js';
 declare const wx: any;
 
 declare const __WECHAT_API_BASE_URL__: string;
@@ -27,8 +28,8 @@ const controller = new GameController(platform.transport);
 // Allows DEV diagnostics and the build script to distinguish the targeting V2 bundle.
 (globalThis as { __fjhyInteractionTargetingBuild?: string }).__fjhyInteractionTargetingBuild = INTERACTION_TARGETING_BUILD_MARKER;
 const debugCollision = allowWechatDebug(__WECHAT_DEV_COLLISION__, wx.getAccountInfoSync?.().miniProgram?.envVersion);
-type Draft = { gender: 'MALE' | 'FEMALE'; faceId: string; hairId: string; outfitId: string; direction: Direction };
-const draft: Draft = { gender: 'FEMALE', faceId: 'F_FACE_01', hairId: 'F_HAIR_01', outfitId: 'F_OUTFIT_01', direction: 'down' };
+type Draft = { gender: 'MALE' | 'FEMALE'; faceId: string; hairId: string; outfitId: string; direction: Direction; surname:string;givenName:string;nickname:string;personalityTag:PersonalityTag|null };
+const draft: Draft = { gender: 'FEMALE', faceId: 'F_FACE_01', hairId: 'F_HAIR_01', outfitId: 'F_OUTFIT_01', direction: 'down',surname:'',givenName:'',nickname:'',personalityTag:null };
 // WeChat sends touch coordinates directly to the game canvas. Phaser's web-only
 // document.elementFromPoint check is not available in the Mini Game runtime.
 function installWeChatTouchMoveBridge() {
@@ -112,6 +113,9 @@ class BaishiWechatScene extends Phaser.Scene {
   private bagPrev!:Phaser.GameObjects.Text;
   private bagNext!:Phaser.GameObjects.Text;
   private bagUse!:Phaser.GameObjects.Text;
+  private profileToggle!:Phaser.GameObjects.Text;
+  private profileText!:Phaser.GameObjects.Text;
+  private profileOpen=false;
   private shopPrev!:Phaser.GameObjects.Text;
   private shopNext!:Phaser.GameObjects.Text;
   private shopBuyTab!:Phaser.GameObjects.Text;
@@ -121,6 +125,10 @@ class BaishiWechatScene extends Phaser.Scene {
   private genderToggle!: Phaser.GameObjects.Text;
   private creationChoices: Phaser.GameObjects.Text[] = [];
   private creationStep = 0;
+  private personalityPage = 0;
+  private creationPagePrev!:Phaser.GameObjects.Text;
+  private creationPageNext!:Phaser.GameObjects.Text;
+  private creationRandom!:Phaser.GameObjects.Text;
   private homeMode = true;
   private confirmingRestart = false;
   private homeBackdrop!: Phaser.GameObjects.Rectangle;
@@ -199,23 +207,29 @@ class BaishiWechatScene extends Phaser.Scene {
     this.shopBuyTab=this.button(WIDTH-440,132,100,'买入',()=>{controller.setShopTab('buy');this.shopPage=0;this.syncUi();}).setVisible(false);
     this.shopSellTab=this.button(WIDTH-325,132,100,'卖出',()=>{controller.setShopTab('sell');this.shopPage=0;this.syncUi();}).setVisible(false);
     this.cameras.main.ignore([this.shopPrev,this.shopNext,this.shopBuyTab,this.shopSellTab]);
-    this.bagToggle=this.button(insets.left+80,insets.top+80,110,'背包',()=>{this.bagOpen=!this.bagOpen;if(this.bagOpen){this.shopOpen=false;this.clearStick();}this.syncUi();}).setVisible(false);
+    this.bagToggle=this.button(insets.left+80,insets.top+80,110,'背包',()=>{this.bagOpen=!this.bagOpen;if(this.bagOpen){this.profileOpen=false;this.shopOpen=false;this.clearStick();}this.syncUi();}).setVisible(false);
     this.bagText=this.add.text(insets.left+20,insets.top+115,'',{fontFamily:'Microsoft YaHei, Arial',fontSize:'16px',color:'#4c392b',backgroundColor:'#fff9e9',padding:{x:16,y:12},lineSpacing:5,wordWrap:{width:380},fixedWidth:410}).setDepth(UI_DEPTH_BASE+39).setVisible(false);
     this.bagPrev=this.button(insets.left+80,HEIGHT-insets.bottom-94,95,'上一件',()=>{this.bagSelected=Math.max(0,this.bagSelected-1);this.syncUi();}).setVisible(false);
     this.bagNext=this.button(insets.left+190,HEIGHT-insets.bottom-94,95,'下一件',()=>{this.bagSelected++;this.syncUi();}).setVisible(false);
     this.bagUse=this.button(insets.left+300,HEIGHT-insets.bottom-94,95,'使用',()=>{const item=controller.inventoryItems()[this.bagSelected];if(item?.usable)void this.run(()=>controller.useItem(item.id));}).setVisible(false);
     this.cameras.main.ignore([this.bagToggle,this.bagText,this.bagPrev,this.bagNext,this.bagUse]);
+    this.profileToggle=this.button(insets.left+205,insets.top+80,126,'个人档案',()=>{this.profileOpen=!this.profileOpen;this.bagOpen=false;this.syncUi();}).setVisible(false);
+    this.profileText=this.add.text(insets.left+20,insets.top+120,'',{fontFamily:'Microsoft YaHei, Arial',fontSize:'20px',color:'#4c392b',backgroundColor:'#fff9e9',padding:{x:18,y:15},lineSpacing:10}).setDepth(UI_DEPTH_BASE+40).setVisible(false);
+    this.cameras.main.ignore([this.profileToggle,this.profileText]);
     this.safeResetButton = this.button(insets.left + 100, insets.top + 108, 176, '恢复到安全点', () => void this.run(() => controller.write('/v1/player/debug-safe-reset', {})));
     this.safeResetButton.setVisible(false);
     this.genderToggle = this.button(insets.left + 105, HEIGHT - insets.bottom - 75, 150, '上一步', () => { this.creationStep = Math.max(0, this.creationStep - 1); this.syncUi(); });
-    this.creationChoices = [0, 1, 2].map(index => this.button(WIDTH - insets.right - 175, HEIGHT / 2 - 70 + index * 68, 280, '', () => this.chooseCreation(index)));
+    this.creationChoices = [0, 1, 2].map(index => this.button(WIDTH - insets.right - 175, HEIGHT / 2 - 95 + index * 92, 280, '', () => this.chooseCreation(index)));
+    this.creationPagePrev=this.button(WIDTH-insets.right-480,HEIGHT-insets.bottom-78,120,'上一组',()=>{this.personalityPage=Math.max(0,this.personalityPage-1);this.syncUi();}).setVisible(false);
+    this.creationPageNext=this.button(WIDTH-insets.right-340,HEIGHT-insets.bottom-78,120,'下一组',()=>{this.personalityPage=Math.min(2,this.personalityPage+1);this.syncUi();}).setVisible(false);
+    this.creationRandom=this.button(WIDTH-insets.right-430,HEIGHT/2+135,180,'🎲 随机生成',()=>void this.generateIdentity()).setVisible(false);
     this.homeBackdrop = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x223c30, .85).setDepth(UI_DEPTH_BASE + 39).setInteractive().setVisible(false);
     this.homeTitle = this.add.text(WIDTH / 2, HEIGHT / 2 - 120, '富甲横阳', {fontFamily:'Microsoft YaHei, Arial',fontSize:'27px',color:'#ffffff',align:'center',wordWrap:{width:Math.min(640,WIDTH-insets.left-insets.right-40)}}).setOrigin(.5).setDepth(UI_DEPTH_BASE + 41).setVisible(false);
     this.homeStart = this.button(WIDTH / 2, HEIGHT / 2, 220, '开始游戏', () => { this.homeMode = false; this.syncUi(); });
     this.homeContinue = this.button(WIDTH / 2, HEIGHT / 2 - 18, 220, '继续游戏', () => { this.homeMode = false; this.syncUi(); });
     this.homeRestart = this.button(WIDTH / 2, HEIGHT / 2 + 70, 220, '重新开始', () => { this.confirmingRestart = true; this.syncUi(); });
     this.restartCancel = this.button(WIDTH / 2 - 135, HEIGHT / 2 + 75, 190, '取消', () => { this.confirmingRestart = false; this.syncUi(); });
-    this.restartAccept = this.button(WIDTH / 2 + 135, HEIGHT / 2 + 75, 220, '确定重新开始', () => void this.run(async () => { await controller.restart(); this.confirmingRestart = false; this.homeMode = false; this.creationStep = 0; }));
+    this.restartAccept = this.button(WIDTH / 2 + 135, HEIGHT / 2 + 75, 220, '确定重新开始', () => void this.run(async () => { await controller.restart(); Object.assign(draft,{gender:'FEMALE',faceId:'F_FACE_01',hairId:'F_HAIR_01',outfitId:'F_OUTFIT_01',direction:'down',surname:'',givenName:'',nickname:'',personalityTag:null}); this.confirmingRestart = false; this.homeMode = false; this.creationStep = 0;this.personalityPage=0;this.profileOpen=false; }));
     for (const button of [this.homeStart,this.homeContinue,this.homeRestart,this.restartCancel,this.restartAccept]) button.setVisible(false);
     const capsule = wx.getMenuButtonBoundingClientRect?.();
     const rightTop = Math.max(insets.top + 12, (capsule?.bottom ?? 0) / windowInfo.windowHeight * HEIGHT + 12);
@@ -269,8 +283,17 @@ class BaishiWechatScene extends Phaser.Scene {
   }
   private async run(action: () => Promise<unknown>) { try { await action(); } catch (error: any) { controller.message = error.message ?? '操作失败'; } this.syncUi(); }
   private async createPreviewPlayer() {
-    await controller.create(draft.gender, { faceId: draft.faceId, hairId: draft.hairId, outfitId: draft.outfitId });
+    const profile=validatePlayerIdentity(draft);
+    await controller.create(draft.gender, { faceId: draft.faceId, hairId: draft.hairId, outfitId: draft.outfitId },profile);
     await this.checkContent();
+  }
+  private async generateIdentity(){for(let attempt=0;attempt<8;attempt++){const candidate=randomIdentity(draft.gender);Object.assign(draft,candidate);try{const query=new URLSearchParams(candidate);const result=await platform.transport(`/v1/player/identity/check?${query}`,undefined,controller.token);if(result.available)break;}catch{break;}}this.syncUi();}
+  private editIdentity(key:'surname'|'givenName'|'nickname'){
+    const labels={surname:'姓（1～2个汉字）',givenName:'名（1～2个汉字）',nickname:'外号（2～3个汉字）'};
+    const complete=(value:string)=>{draft[key]=value;wx.hideKeyboard?.();this.syncUi();wx.offKeyboardConfirm?.(onConfirm);};
+    const onConfirm=(event:{value:string})=>complete(event.value);
+    wx.onKeyboardConfirm?.(onConfirm);
+    wx.showKeyboard?.({defaultValue:draft[key],maxLength:key==='nickname'?3:2,multiple:false,confirmHold:false,confirmType:'done',success:()=>{this.message.setText(`输入${labels[key]}后点击完成`);},fail:()=>wx.offKeyboardConfirm?.(onConfirm)});
   }
   private creationOptions() {
     const boot = controller.boot;
@@ -285,6 +308,8 @@ class BaishiWechatScene extends Phaser.Scene {
     if (this.creationStep === 1) draft.faceId = options.faces[index]?.faceId ?? draft.faceId;
     if (this.creationStep === 2) draft.hairId = options.hairs[index]?.id ?? draft.hairId;
     if (this.creationStep === 3) draft.outfitId = options.outfits[index]?.id ?? draft.outfitId;
+    if (this.creationStep === 4){if(index===0)this.editIdentity('surname');if(index===1)this.editIdentity('givenName');if(index===2)this.editIdentity('nickname');}
+    if (this.creationStep === 5)draft.personalityTag=personalityChoices[this.personalityPage*3+index]?.tag??draft.personalityTag;
     controller.message = '欢迎来到横阳';
     this.syncUi();
   }
@@ -292,18 +317,24 @@ class BaishiWechatScene extends Phaser.Scene {
     const options = this.creationOptions();
     const groups = [
       [{ id: 'MALE', name: '男' }, { id: 'FEMALE', name: '女' }],
-      options.faces.map(face=>({id:face.faceId,name:face.displayName})), options.hairs, options.outfits, []
+      options.faces.map(face=>({id:face.faceId,name:face.displayName})), options.hairs, options.outfits,
+      [{id:'surname',name:`姓：${draft.surname||'点击输入'}`},{id:'givenName',name:`名：${draft.givenName||'点击输入'}`},{id:'nickname',name:`外号：${draft.nickname||'点击输入'}`}],
+      personalityChoices.slice(this.personalityPage*3,this.personalityPage*3+3).map(choice=>({id:choice.tag,name:choice.quote})),[]
     ];
-    const selected = [draft.gender, draft.faceId, draft.hairId, draft.outfitId, ''][this.creationStep];
+    const selected = [draft.gender, draft.faceId, draft.hairId, draft.outfitId, '',draft.personalityTag,''][this.creationStep];
     for (const [index, button] of this.creationChoices.entries()) {
       const item = groups[this.creationStep]?.[index];
-      button.setVisible(!!item).setText(item ? `${item.id === selected ? '✓ ' : ''}${item.name}` : '');
+      button.setVisible(!!item).setText(item ? `${item.id === selected ? '✓ ' : ''}${item.name}` : '').setWordWrapWidth(260).setFontSize(this.creationStep===5?'17px':`${mobileTypography.option}px`);
     }
+    this.creationPagePrev.setVisible(this.creationStep===5&&this.personalityPage>0);
+    this.creationPageNext.setVisible(this.creationStep===5&&this.personalityPage<2);
+    this.creationRandom.setVisible(this.creationStep===4);
     this.genderToggle.setVisible(this.creationStep > 0);
-    const labels = ['选择性别', '选择长相', '选择完整发型', '选择整套服装', '确认形象'];
-    this.message.setText(`${labels[this.creationStep]} · ${this.creationStep + 1}/5\n当前预览：长相、发型与服装组合`);
-    this.primary.setText(this.creationStep === 4 ? '确认创建' : '下一步').setVisible(!!draft.faceId && !!draft.hairId && !!draft.outfitId)
-      .removeAllListeners('pointerdown').on('pointerdown', () => this.creationStep === 4 ? void this.run(() => this.createPreviewPlayer()) : (this.creationStep++, this.syncUi()));
+    const labels = ['选择性别', '选择长相', '选择完整发型', '选择整套服装', '填写姓名与外号', '你最常说的是哪句话？', '最终确认'];
+    const chosen=personalityChoices.find(choice=>choice.tag===draft.personalityTag);
+    this.message.setText(this.creationStep===6?`姓名：${draft.surname}${draft.givenName} · 外号：${draft.nickname}\n性格选择：${chosen?.quote??'尚未选择'}`:`${labels[this.creationStep]} · ${this.creationStep + 1}/7${this.creationStep===4?'\n姓、名各1～2个汉字，外号2～3个汉字':''}`);
+    this.primary.setText(this.creationStep === 6 ? '开始游戏' : '下一步').setVisible(!!draft.faceId && !!draft.hairId && !!draft.outfitId)
+      .removeAllListeners('pointerdown').on('pointerdown', () => {if(this.creationStep===6){void this.run(() => this.createPreviewPlayer());return;}if(this.creationStep===4){try{validatePlayerIdentity({...draft,personalityTag:personalityChoices[0].tag});}catch(error:any){this.message.setText(error.message);return;}}if(this.creationStep===5&&!draft.personalityTag){this.message.setText('请先选择一句话');return;}this.creationStep++;this.syncUi();});
   }
   private syncUi() {
     const player = controller.player; const hasPlayer = !!player?.appearance;
@@ -316,6 +347,8 @@ class BaishiWechatScene extends Phaser.Scene {
     this.restartCancel.setVisible(home && this.confirmingRestart);
     this.restartAccept.setVisible(home && this.confirmingRestart);
     this.bagToggle.setVisible(!home&&hasPlayer&&!controller.dialogue&&!this.shopOpen);
+    this.profileToggle.setVisible(!home&&hasPlayer&&!controller.dialogue&&!this.shopOpen);
+    this.profileText.setVisible(!home&&hasPlayer&&this.profileOpen&&!controller.dialogue).setText(player?.profile?`姓名：${player.profile.surname}${player.profile.givenName}\n外号：${player.profile.nickname}\n性格：${player.profile.personalityTag}`:'暂无角色档案');
     const bagItems=controller.inventoryItems(),showBag=!home&&hasPlayer&&!controller.dialogue&&!this.shopOpen&&this.bagOpen;
     this.bagSelected=Math.min(this.bagSelected,Math.max(0,bagItems.length-1));
     const selected=bagItems[this.bagSelected];
@@ -324,7 +357,9 @@ class BaishiWechatScene extends Phaser.Scene {
     this.bagPrev.setVisible(showBag&&bagItems.length>1);this.bagNext.setVisible(showBag&&bagItems.length>1);this.bagUse.setVisible(showBag&&!!selected?.usable&&!controller.busy&&!controller.pending);
     if (home) {
       this.stickBase.setVisible(false); this.stick.setVisible(false); this.stickHit.setVisible(false); this.primary.setVisible(false); this.shopToggle.setVisible(false); this.safeResetButton.setVisible(false); this.genderToggle.setVisible(false);
+      this.profileToggle.setVisible(false);this.profileText.setVisible(false);
       for (const choice of this.creationChoices) choice.setVisible(false);
+      this.creationPagePrev.setVisible(false);this.creationPageNext.setVisible(false);this.creationRandom.setVisible(false);
       this.shopPrev.setVisible(false);this.shopNext.setVisible(false);this.shopBuyTab.setVisible(false);this.shopSellTab.setVisible(false);this.questToggle.setVisible(false); this.questPanel.setVisible(false); this.shopBackdrop.setVisible(false); this.shopTitle.setVisible(false); this.shopBalance.setVisible(false); this.shopFeedback.setVisible(false);
       for (const row of this.shopRows) Object.values(row).forEach(node => node.setVisible(false));
       this.portraitDim.setVisible(false); this.dialogueUi.sync('', '', false); this.message.setVisible(false); this.hud.setVisible(false); this.clearStick(); return;
@@ -335,6 +370,7 @@ class BaishiWechatScene extends Phaser.Scene {
     const canShop = !dialogue && !!controller.shopPanel() && controller.canUseShop();
     this.genderToggle.setVisible(false);
     for (const button of this.creationChoices) button.setVisible(false);
+    this.creationPagePrev.setVisible(false);this.creationPageNext.setVisible(false);this.creationRandom.setVisible(false);
     if (!canShop || controller.offline) this.shopOpen = false;
     const isShop = canShop && this.shopOpen;
     this.shopToggle.setVisible(canShop).setText(this.shopOpen ? '收起商品' : '看看商品');

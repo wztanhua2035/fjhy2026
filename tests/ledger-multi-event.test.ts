@@ -1,3 +1,4 @@
+import {testProfile} from './creation-fixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -29,7 +30,7 @@ test('HTTP 第一桶金卖出+领奖；春衫首次对话接取+领取；三条�
       return response.json();
     };
     const place=(sceneId:string,x:number,y:number)=>Object.assign(repo.players.get(id)!,{sceneId,x,y,...(sceneId==='INTERIOR_B_INN'?{storyFlags:{INTRO_INN_KEEPER_DONE:true}}:{})});
-    await post('/v1/player/appearance/create',{requestId:randomUUID(),gender:'FEMALE',hairId:'F_HAIR_01',outfitId:'F_OUTFIT_01'});
+    await post('/v1/player/appearance/create',{profile:testProfile(),requestId:randomUUID(),gender:'FEMALE',faceId:'F_FACE_01',hairId:'F_HAIR_01',outfitId:'F_OUTFIT_01'});
     place('INTERIOR_B_TRADE',12,10);
     await post('/v1/npc/talk',{requestId:randomUUID(),npcId:'NPC_TRADE_CLERK'});
     place('INTERIOR_B_GROCERY',12,10);

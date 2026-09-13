@@ -18,14 +18,12 @@ import {inventoryEntries} from '../../../packages/game-rules/inventory.js';
 import {hairServiceConfig} from '../../../packages/game-config/hair-services.js';
 import {faceConfigs} from '../../../packages/game-config/face-templates.js';
 import {outfitShopConfig} from '../../../packages/game-config/outfits.js';
+import {personalityChoices,formalName,validatePlayerIdentity,PlayerIdentityError} from '../../../packages/game-config/player-profile.js';
 declare module '@fastify/jwt' {interface FastifyJWT {payload:{sub:string};user:{sub:string}}}
 const requestId=z.string().uuid(),id=z.string().min(1).max(80);
 const schemas={
   appearanceService:z.object({requestId,shopId:id,serviceType:z.literal('HAIR'),targetId:id}).strict(),
-  create:z.union([
-    z.object({requestId,gender:z.enum(['MALE','FEMALE']),faceId:id,hairId:id.optional(),outfitId:id.optional()}).strict(),
-    z.object({requestId,gender:z.enum(['MALE','FEMALE']),baseAvatarId:id,hairColorId:id,topColorId:id,bottomColorId:id}).strict()
-  ]),
+  create:z.object({requestId,gender:z.enum(['MALE','FEMALE']),faceId:id,hairId:id.optional(),outfitId:id.optional(),headwearId:z.null().optional(),profile:z.object({surname:z.string().optional(),givenName:z.string().optional(),nickname:z.string().optional(),personalityTag:z.string().optional()}).strict()}).strict(),
   move:z.object({requestId,x:z.number().finite(),y:z.number().finite(),path:z.array(z.object({x:z.number().finite(),y:z.number().finite()}).strict()).min(1).max(256).optional()}).strict(),
   enter:z.object({requestId,plotId:id,entranceId:id.optional()}).strict(),portal:z.object({requestId,portalId:id}).strict(),
   buy:z.object({requestId,buildingId:id,itemId:id,quantity:z.number()}).strict(),
@@ -101,6 +99,8 @@ if(status>=500){
   app.post('/v1/auth/dev',async req=>{ensure(env.allowDevAuth&&env.appEnv==='DEV'&&env.mode!=='production','NOT_FOUND','接口不存在',404);const {account}=z.object({account:z.string().regex(/^[a-z0-9_-]{1,32}$/)}).strict().parse(req.body);return login(`dev:${account}`);});
   app.get('/v1/bootstrap',async req=>{const w=await repo.world();await game.settleDueSleep(req.user.sub);const p=await repo.repairPosition(req.user.sub,w);return {faces:w.faces??faceConfigs,hairs:hairServiceConfig(w).hairs,player:publicPlayer(p),serverTime:game.now().toISOString(),worldVersion:w.worldVersion,configVersion:w.configVersion,assetVersion:w.assetVersion,assetManifest:`${env.assetBase}/${w.assetVersion}/manifest.json`,colors:Object.fromEntries(Object.entries(w.colors).filter(([key])=>!key.startsWith('SKIN_'))),appearances:[...w.appearances.filter(a=>a.enabled&&!starterLooks.some(s=>s.id===a.id)),...starterLooks],features:{movementPath:true,trade:true,appearance:true,ghostPreview:true,gifts:false,property:false,quests:true,rank:false}};});
   app.post('/v1/player/restart',async req=>{const body=z.object({requestId,confirm:z.literal(true)}).strict().parse(req.body);return {player:publicPlayer(await repo.restartGame(req.user.sub,body.requestId))};});
+  app.get('/v1/player/identity/check',async req=>{const query=z.object({surname:z.string(),givenName:z.string(),nickname:z.string()}).strict().parse(req.query);let profile;try{profile=validatePlayerIdentity({...query,personalityTag:personalityChoices[0].tag});}catch(error){if(error instanceof PlayerIdentityError)throw new GameError(error.code,error.message,400);throw error;}return {available:!await repo.identityTaken(profile,req.user.sub)};});
+  app.get('/v1/player/profile',async req=>{const p=await repo.player(req.user.sub);return {profile:p.appearance?p.profile??null:null,formalName:p.appearance&&p.profile?formalName(p.profile):null,appearance:p.appearance};});
   app.get('/v1/world/scenes/:id',async req=>{const w=await repo.world(),p=await repo.repairPosition(req.user.sub,w);ensure(p.appearance,'CHARACTER_REQUIRED','请先创建角色',409);return {...sceneView(w,(req.params as any).id,game.now(),requestGameContext(req).debugOpenAll),playerPosition:{sceneId:p.sceneId,x:p.x,y:p.y}};});
   app.get('/v1/scenes/:id/ghosts',async req=>{const p=await repo.player(req.user.sub);ensure(p.appearance&&p.sceneId===(req.params as any).id,'WRONG_SCENE','请进入对应场景');return {ghosts:await repo.ghosts(p.id)};});
   app.get('/v1/economy/catalog/:buildingId',async req=>{
@@ -144,6 +144,7 @@ if(status>=500){
   app.get('/v1/quests',async req=>{const world=await repo.world(),p=await repo.player(req.user.sub);const quests=world.quests.filter(q=>q.enabled).map(quest=>{const accepted=p.ledger.some(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId===quest.id),completed=p.ledger.some(l=>l.type==='QUEST_REWARD'&&l.referenceId===quest.id),stepProgress=questStepProgress(quest,p.ledger),progressed=stepProgress.some(Boolean),state=completed?'completed':accepted?(progressed?'in_progress':'accepted'):'available';return {...quest,state,progress:Object.fromEntries(quest.steps.map((step,index)=>[step.type,stepProgress[index]])),stepProgress,rewardClaimed:completed};});return {enabled:true,quests};});
   app.get('/v1/rank/wealth',async()=>({enabled:false,players:[]}));
   app.get('/admin/world',async()=>repo.world());
+  app.get('/admin/players',async req=>{const supplied=req.headers.authorization?.replace(/^Bearer /,'')??'';const a=Buffer.from(supplied),b=Buffer.from(env.adminToken);ensure(a.length===b.length&&timingSafeEqual(a,b),'ADMIN_UNAUTHORIZED','后台凭据无效',401);return {players:(await repo.listPlayers()).map(p=>({playerId:p.id,formalName:p.appearance&&p.profile?formalName(p.profile):null,profile:p.appearance?p.profile??null:null,appearance:p.appearance}))};});
   app.get('/admin/releases',async()=>({releases:await repo.releases()}));
   app.post('/admin/releases',async req=>{const {config,basedOn}=z.object({config:z.unknown(),basedOn:z.number().int()}).strict().parse(req.body),previous=await repo.world();ensure(previous.configVersion===basedOn,'STALE_DRAFT','请刷新当前版本后重试',409);return repo.draft(validateWorld(config,previous),basedOn);});
   app.post('/admin/releases/:id/transition',async req=>{const {status}=z.object({status:z.enum(['TEST','PUBLISHED'])}).strict().parse(req.body);const releases=await repo.releases(),r=releases.find(r=>r.id===(req.params as any).id);ensure(r,'NOT_FOUND','版本不存在',404);validateWorld(r.config,await repo.world());return repo.transition(r.id,status);});

@@ -1,3 +1,4 @@
+import {testProfile} from './creation-fixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -30,7 +31,7 @@ test('API 创建要求 Face，拒绝异性/不存在/停用 Face；重登与重�
     const headers={authorization:`Bearer ${auth.token}`};
     const before=(await app.inject({url:'/v1/bootstrap',headers})).json();
     assert.equal(before.faces.length,6);
-    const post=(payload:Record<string,unknown>)=>app.inject({method:'POST',url:'/v1/player/appearance/create',headers,payload:{requestId:randomUUID(),gender:'FEMALE',hairId:'F_HAIR_02',outfitId:'F_OUTFIT_03',...payload}});
+    const post=(payload:Record<string,unknown>)=>app.inject({method:'POST',url:'/v1/player/appearance/create',headers,payload:{requestId:randomUUID(),gender:'FEMALE',hairId:'F_HAIR_02',outfitId:'F_OUTFIT_03',profile:testProfile(),...payload}});
     assert.equal((await post({})).statusCode,400);
     assert.equal((await post({faceId:'M_FACE_01'})).statusCode,400);
     assert.equal((await post({faceId:'F_FACE_MISSING'})).statusCode,400);
@@ -52,7 +53,7 @@ test('API 创建要求 Face，拒绝异性/不存在/停用 Face；重登与重�
 test('Hair 服务更新只改变 Hair，保留 Face、Outfit 与 Headwear 槽位',async()=>{
   const repo=new MemoryRepository(),player=await repo.login('face-hair');
   const service=new GameService(repo,()=>new Date('2026-09-13T04:00:00Z'));
-  await service.action(player.id,'create',{requestId:randomUUID(),gender:'FEMALE',faceId:'F_FACE_03',hairId:'F_HAIR_01',outfitId:'F_OUTFIT_02'});
+  await service.action(player.id,'create',{profile:testProfile(),requestId:randomUUID(),gender:'FEMALE',faceId:'F_FACE_03',hairId:'F_HAIR_01',outfitId:'F_OUTFIT_02'});
   repo.players.get(player.id)!.sceneId='INTERIOR_B_SALON';
   const result=await service.action(player.id,'appearanceService',{requestId:randomUUID(),shopId:'B_SALON',serviceType:'HAIR',targetId:'F_HAIR_02'});
   const changed=result.player.appearance;
