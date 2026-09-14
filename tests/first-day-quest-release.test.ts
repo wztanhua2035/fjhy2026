@@ -9,12 +9,13 @@ import {initialWorld} from '../packages/game-config/index.js';
 import {sceneView} from '../packages/game-rules/index.js';
 import {testProfile} from './creation-fixture.js';
 
-test('staging 旧发布配置补齐急差并保留其他配置和玩家存档',async()=>{
+test('staging 旧发布配置补齐三条首日任务的接取 NPC 并保留其他配置和玩家存档',async()=>{
   const repo=new MemoryRepository(),old=repo.versions[0].config;
   old.quests=old.quests.filter(quest=>quest.id!=='Q_002');
   old.items=old.items.filter(item=>item.id!=='ERRAND_PACKAGE_01');
   old.npcs.find(npc=>npc.id==='NPC_001')!.questId=undefined;
   old.npcs.find(npc=>npc.id==='NPC_TRADE_CLERK')!.questId=undefined;
+  old.npcs.find(npc=>npc.id==='NPC_CLOTH_SHOPKEEPER')!.questId=undefined;
   old.quests.find(quest=>quest.id==='Q_001')!.reward=21;
   old.buildings.find(building=>building.id==='B_GROCERY')!.stock.RICE_01.baseBuyPrice=19;
   const player=await repo.login('quest-release');
@@ -27,6 +28,7 @@ test('staging 旧发布配置补齐急差并保留其他配置和玩家存档',a
   assert.ok(live.items.some(item=>item.id==='ERRAND_PACKAGE_01'));
   assert.equal(live.npcs.find(npc=>npc.id==='NPC_001')?.questId,'Q_002');
   assert.equal(live.npcs.find(npc=>npc.id==='NPC_TRADE_CLERK')?.questId,'Q_001');
+  assert.equal(live.npcs.find(npc=>npc.id==='NPC_CLOTH_SHOPKEEPER')?.questId,'Q_003');
   assert.equal(live.buildings.find(building=>building.id==='B_GROCERY')!.stock.RICE_01.baseBuyPrice,19);
   assert.deepEqual(await repo.player(player.id),before);
   assert.equal((await ensureFirstDayQuests(repo)).published,false);
@@ -39,6 +41,10 @@ test('staging 旧发布配置补齐急差并保留其他配置和玩家存档',a
   assert.equal(entered.speaker,'街坊杂货铺店员');
   assert.match(entered.dialogue,/急件/);
   assert.equal((await repo.player(player.id)).inventory.ERRAND_PACKAGE_01,1);
+  Object.assign(repo.players.get(player.id)!,{sceneId:'INTERIOR_B_CLOTH',x:16,y:9,storyFlags:{FIRST_DAY_COMPLETE:true}});
+  const rainSample=await service.action(player.id,'talk',{requestId:randomUUID(),npcId:'NPC_CLOTH_SHOPKEEPER'});
+  assert.match(rainSample.dialogue,/新料子/);
+  assert.equal((await repo.player(player.id)).inventory.CLOTH_SAMPLE_01,1);
 });
 
 test('旧第一桶金存档也优先显示急差，两条任务进度互不覆盖',()=>{
