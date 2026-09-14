@@ -1,4 +1,5 @@
 import {ensureGroceryShop} from './sync-grocery.js';
+import {ensureFirstDayQuests} from './sync-first-day-quests.js';
 import {ensureTradeShop} from './sync-trade.js';
 import {ensureHairServices} from './sync-hair-services.js';
 import {ensureOutfits} from './sync-outfits.js';
@@ -18,6 +19,7 @@ if(env.appEnv==='STAGING') console.log('Staging interior collision',await ensure
 if(env.appEnv==='STAGING') console.log('Staging Baishi alley',await ensureBaishiAlley(repo));
 if(env.appEnv==='STAGING')console.log('Staging grocery shop',await ensureGroceryShop(repo));
 if(env.appEnv==='STAGING')console.log('Staging trade shop',await ensureTradeShop(repo));
+if(env.appEnv==='STAGING')console.log('Staging first day quests',await ensureFirstDayQuests(repo));
 if(env.appEnv==='STAGING')console.log('Staging hair services',await ensureHairServices(repo));
 if(env.appEnv==='STAGING')console.log('Staging outfits',await ensureOutfits(repo));
 const app=await buildApp(repo,env,{logger:true});
