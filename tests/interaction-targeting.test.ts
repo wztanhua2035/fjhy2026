@@ -116,13 +116,13 @@ test('所有 NPC 侧面近身时聊天与服务使用相同门槛',()=>{
   }
 });
 
-test('真实杂货铺和商行柜台前合法站点可以聊天与交易，远处不能',()=>{
+test('杂货铺与商行在陈列物旁合法站点仍可聊天交易，远处不能',()=>{
   for(const id of ['NPC_GROCERY_CLERK','NPC_TRADE_CLERK']){
     const npc=initialWorld.npcs.find(n=>n.id===id)!;
     const c=new GameController(async()=>({}));c.view=sceneView(initialWorld,npc.sceneId,new Date());c.direction='up';
-    for(const dx of [-.3,0,.3]){
-      c.x=npc.x+dx;c.y=11.29;
-      assert.ok(canStand(initialWorld,npc.sceneId,c.x,c.y),`${id}: counter front must be walkable`);
+    for(const x of [10.5,11,13,13.5]){
+      c.x=x;c.y=9.25;c.direction=x<npc.x?'right':'left';
+      assert.ok(canStand(initialWorld,npc.sceneId,c.x,c.y),`${id}: counter side must be walkable`);
       assert.equal(c.nearby()?.id,`npc:${id}`);assert.equal(c.canUseNpcServices(),true);
     }
     c.y=12;assert.equal(c.canUseNpcServices(),false);assert.notEqual(c.nearby()?.type,'npc');

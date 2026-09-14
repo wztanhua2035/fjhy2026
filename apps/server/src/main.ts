@@ -6,7 +6,7 @@ import { PrismaClient } from '@prisma/client';
 import { buildApp } from './app.js';
 import { PostgresRepository } from './repository.js';
 import { environment } from './config.js';
-import { ensureBaishiAlley, ensureGuestRoomScene, syncBaishiContent } from './sync-baishi.js';
+import { ensureBaishiAlley, ensureBaishiInteriorCollision, ensureGuestRoomScene, syncBaishiContent } from './sync-baishi.js';
 const env=environment();
 const repo=new PostgresRepository(new PrismaClient());
 if(process.env.SYNC_BAISHI_CONTENT==='true') {
@@ -14,6 +14,7 @@ if(process.env.SYNC_BAISHI_CONTENT==='true') {
   console.log('Baishi content release',await syncBaishiContent(repo,true));
 }
 if(env.appEnv==='STAGING') console.log('Staging guest room scene',await ensureGuestRoomScene(repo));
+if(env.appEnv==='STAGING') console.log('Staging interior collision',await ensureBaishiInteriorCollision(repo));
 if(env.appEnv==='STAGING') console.log('Staging Baishi alley',await ensureBaishiAlley(repo));
 if(env.appEnv==='STAGING')console.log('Staging grocery shop',await ensureGroceryShop(repo));
 if(env.appEnv==='STAGING')console.log('Staging trade shop',await ensureTradeShop(repo));

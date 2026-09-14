@@ -10,13 +10,13 @@
     },
     {
       "path": "maps/baishi.tmx",
-      "bytes": 6214,
-      "sha256": "6c6a455855c470d80039ea5a41ef2ee04bca53c1b97592e18872bcff5feecac4"
+      "bytes": 7414,
+      "sha256": "62a5cfa6fee5d058757bde3173d00bdf0ae7f9111b569e1ef8fae142b8301b3e"
     },
     {
       "path": "maps/interior.tmx",
-      "bytes": 2114,
-      "sha256": "9ccad5e62e572be6d0545ec06204b362b4ecd30590f0c0c9c999b2821916ed8b"
+      "bytes": 2481,
+      "sha256": "19ae57e60f5778058e0b25437f5eae398595af33ddd5d6727dd8e1fc1b2e80d5"
     }
   ]
 }

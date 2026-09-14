@@ -7,6 +7,8 @@ import { canStand, recoverSafePosition } from '../packages/game-rules/index.js';
 import { GameService } from '../apps/server/src/service.js';
 import { MemoryRepository } from '../apps/server/src/repository.js';
 import type { InteriorZone } from '../packages/shared-types/index.js';
+import { ensureBaishiInteriorCollision } from '../apps/server/src/sync-baishi.js';
+import {canInteractWithNpc} from '../packages/client-runtime/interaction-targeting.js';
 
 function route(sceneId: string, start: {x:number;y:number}, target: {x:number;y:number}) {
   const step=.5, key=(x:number,y:number)=>`${x},${y}`;
@@ -33,6 +35,50 @@ const cases=[
   ['B_SALON','NPC_SALON_HAIRDRESSER','SALON_SERVICE'],
   ['B_CLOTH','NPC_CLOTH_SHOPKEEPER','CLOTH_COUNTER_SERVICE']
 ] as const;
+
+test('五座室内正式画面中央大件具有保守实体占地，小装饰不单独碰撞',()=>{
+  const footprints:Record<string,[number,number][]>= {
+    INTERIOR_B_INN:[[3,13.5],[18,10.5],[18.5,14]],
+    INTERIOR_B_GROCERY:[[8,12],[15,12],[4,8.5],[4,15]],
+    INTERIOR_B_TRADE:[[12,10.5],[3,12],[20,13]],
+    INTERIOR_B_SALON:[[3,8],[5.5,8],[8,8],[16,8],[19,13]],
+    INTERIOR_B_CLOTH:[[7.5,10],[15,10],[4,13.5],[20,13.5],[21.2,7.5]]
+  };
+  for(const [sceneId,points] of Object.entries(footprints)){
+    const scene=initialWorld.scenes.find(s=>s.id===sceneId)!;
+    for(const [x,y] of points)assert.ok(scene.collision.some(r=>x>=r.x&&x<=r.x+r.width&&y>=r.y&&y<=r.y+r.height),`${sceneId} 家具 (${x},${y}) 缺少实体`);
+    assert.equal(scene.interior!.zones.some(z=>z.solid&&/PLANT|FLOWER|DECOR/.test(z.id)),false,sceneId);
+    assert.equal(canStand(initialWorld,sceneId,scene.spawnX,scene.spawnY),true,`${sceneId} spawn`);
+    assert.equal(canStand(initialWorld,sceneId,scene.portals[0].x,scene.portals[0].y-.5),true,`${sceneId} exit`);
+  }
+});
+
+test('杂货铺与商行可从入口绕过中央陈列，到达 NPC 的真实互动范围',()=>{
+  for(const npcId of ['NPC_GROCERY_CLERK','NPC_TRADE_CLERK']){
+    const npc=initialWorld.npcs.find(n=>n.id===npcId)!,scene=initialWorld.scenes.find(s=>s.id===npc.sceneId)!;
+    const target={x:10.5,y:9};
+    assert.ok(route(scene.id,{x:scene.spawnX,y:scene.spawnY},target).length>1,npcId);
+    assert.equal(canInteractWithNpc('right',target,npc).allowed,true,npcId);
+  }
+});
+
+test('staging 仅同步五室内实体，保留服务点与 portal，重复启动不重复发布',async()=>{
+  const repo=new MemoryRepository();
+  const before=await repo.world();
+  const old=repo.versions[0].config.scenes.find(s=>s.id==='INTERIOR_B_CLOTH')!;
+  old.collision=old.collision.filter(r=>r.x!==12.1);
+  old.interior!.zones=old.interior!.zones.filter(z=>z.id!=='CLOTH_DISPLAY_TABLE');
+  const changed=await ensureBaishiInteriorCollision(repo);assert.equal(changed.published,true);
+  const after=await repo.world();
+  assert.deepEqual(after.scenes.find(s=>s.id==='STREET_BAISHI_01'),before.scenes.find(s=>s.id==='STREET_BAISHI_01'));
+  for(const sceneId of Object.keys({INTERIOR_B_INN:1,INTERIOR_B_GROCERY:1,INTERIOR_B_TRADE:1,INTERIOR_B_SALON:1,INTERIOR_B_CLOTH:1})){
+    const actual=after.scenes.find(s=>s.id===sceneId)!,expected=initialWorld.scenes.find(s=>s.id===sceneId)!;
+    assert.deepEqual(actual.collision,expected.collision);
+    assert.deepEqual(actual.portals,expected.portals);
+    assert.deepEqual(actual.interior!.zones.filter(z=>!z.solid),expected.interior!.zones.filter(z=>!z.solid));
+  }
+  assert.equal((await ensureBaishiInteriorCollision(repo)).published,false);
+});
 
 test('客栈临时房门到正门之间的空地保持可通行', () => {
   const scene=initialWorld.scenes.find(s=>s.id==='INTERIOR_B_INN')!;

@@ -61,6 +61,31 @@ export async function ensureGuestRoomScene(repo: Repository) {
   return { published: true, version: release.version, added: [needsGuest && guest.id, needsDoor && door.id].filter(Boolean) };
 }
 
+// Apply the approved visual footprints without replacing portals, NPCs or service points.
+export async function ensureBaishiInteriorCollision(repo: Repository) {
+  const previous = await repo.world();
+  const ids = new Set(['INTERIOR_B_INN','INTERIOR_B_GROCERY','INTERIOR_B_TRADE','INTERIOR_B_SALON','INTERIOR_B_CLOTH']);
+  const scenes = previous.scenes.map(scene => {
+    if (!ids.has(scene.id)) return scene;
+    const source = initialWorld.scenes.find(current => current.id === scene.id);
+    if (!source?.interior || !scene.interior) return scene;
+    return {
+      ...scene,
+      collision: source.collision,
+      interior: { ...scene.interior, zones: [
+        ...scene.interior.zones.filter(zone => !zone.solid),
+        ...source.interior.zones.filter(zone => zone.solid)
+      ] }
+    };
+  });
+  if (isDeepStrictEqual(scenes, previous.scenes)) return { published: false, version: previous.configVersion };
+  const config = validateWorld({ ...previous, scenes }, previous);
+  const draft = await repo.draft(config, previous.configVersion);
+  await repo.transition(draft.id, 'TEST');
+  const release = await repo.transition(draft.id, 'PUBLISHED');
+  return { published: true, version: release.version };
+}
+
 /** Publish only the two street collision edges and the matching occupied plot. */
 export async function ensureBaishiAlley(repo: Repository) {
   const previous = await repo.world();
