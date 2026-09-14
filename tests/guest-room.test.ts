@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { initialWorld } from '../packages/game-config/index.js';
-import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, innOpeningDialogue } from '../packages/game-config/inn-opening.js';
+import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, guestRoomOpeningDialogue, innOpeningDialogue } from '../packages/game-config/inn-opening.js';
 import { canStand, sceneView } from '../packages/game-rules/index.js';
 import { GameController } from '../packages/client-runtime/index.js';
 import { MemoryRepository } from '../apps/server/src/repository.js';
@@ -99,7 +99,7 @@ test('共享 GameController 自动逐句开场，期间不能移动，结束后�
   const transport=async(path:string,body?:any)=>{
     if(path==='/v1/auth/dev')return {token:'test'};
     if(path==='/v1/bootstrap')return {player:await repo.player(p.id),colors:{},appearances:[],features:{}};
-    if(path==='/v1/quests')return {quests:[]};
+    if(path==='/v1/quests')return {quests:(await repo.player(p.id)).ledger.some(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_001')?[initialWorld.quests.find(q=>q.id==='Q_001')!]:[]};
     if(path.startsWith('/v1/world/scenes/'))return sceneView(initialWorld,path.split('/').at(-1)!,new Date());
     if(path.endsWith('/ghosts'))return {ghosts:[]};
     const action:Record<string,string>={'/v1/player/appearance/create':'create','/v1/player/move':'move','/v1/world/portal':'portal','/v1/intro/complete':'introComplete'};
@@ -107,12 +107,18 @@ test('共享 GameController 自动逐句开场，期间不能移动，结束后�
   };
   const c=new GameController(transport);await c.loginDev('guest-controller');
   await c.create('MALE',create,create.profile);assert.equal(c.player?.sceneId,GUEST_ROOM_SCENE_ID);
-  await c.advanceDialogue();c.x=7;c.y=10.2;Object.assign(repo.players.get(p.id)!,{x:7,y:10.2});await c.interact();
+  assert.equal(c.questTracker().length,0);
+  for(let i=0;i<guestRoomOpeningDialogue.length;i++){assert.equal(c.dialogue,guestRoomOpeningDialogue[i].text);assert.equal(c.dialogueSpeaker,'主角');await c.advanceDialogue();}
+  assert.equal(c.dialogue,null);c.x=7;c.y=10.2;Object.assign(repo.players.get(p.id)!,{x:7,y:10.2});await c.interact();
   assert.equal(c.player?.sceneId,'INTERIOR_B_INN');assert.equal(c.dialogueSpeaker,'陈掌柜');
   assert.equal(c.dialogue,innOpeningDialogue[0].text);
   const before={x:c.x,y:c.y};c.tick(.2,1,0);assert.deepEqual({x:c.x,y:c.y},before);assert.equal(c.nearby(),null);
   for(let i=1;i<innOpeningDialogue.length;i++){await c.advanceDialogue();assert.equal(c.dialogue,innOpeningDialogue[i].text.replace('{givenName}',c.player!.profile!.givenName));assert.equal(c.dialogueSpeaker,innOpeningDialogue[i].speaker);}
+  assert.equal(c.player?.storyFlags?.FIRST_DAY_FIRST_TRADE_STARTED,undefined);
   await c.advanceDialogue();assert.equal(c.dialogue,null);assert.equal(c.player?.storyFlags?.[INTRO_INN_KEEPER_DONE],true);
+  assert.equal(c.player?.storyFlags?.FIRST_DAY_FIRST_TRADE_STARTED,true);
+  assert.equal(c.questTracker()[0]?.name,'第一桶金');
+  assert.match(c.questTracker()[0]!.currentObjective,/街坊杂货铺/);
   c.tick(.1,1,0);assert.ok(c.x>before.x);
   await c.refresh();assert.equal(c.dialogue,null);
 });

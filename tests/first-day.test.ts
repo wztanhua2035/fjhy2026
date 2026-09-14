@@ -4,6 +4,7 @@ import {randomUUID} from 'node:crypto';
 import {MemoryRepository} from '../apps/server/src/repository.js';
 import {GameService} from '../apps/server/src/service.js';
 import {firstDayFlags,firstDayQuestAvailable,firstDayStage,shopIntroductions} from '../packages/game-config/first-day.js';
+import {GUEST_ROOM_LIFE_UNLOCKED} from '../packages/game-config/life-v1.js';
 import {testProfile} from './creation-fixture.js';
 
 const id=()=>randomUUID();
@@ -18,9 +19,19 @@ async function street(f:Awaited<ReturnType<typeof setup>>){
 }
 test('首日开场、自动接取与阶段持久化，重试不重复接任务',async()=>{
   const f=await setup();assert.equal(firstDayStage(f.state),'WAKE_UP');assert.equal(firstDayQuestAvailable(f.state,'Q_002'),false);
-  const result:any=await street(f);assert.equal(firstDayStage(f.state),'FIRST_TRADE_STARTED');assert.equal(result.player.storyFlags[firstDayFlags.street],true);
+  Object.assign(f.state,{sceneId:'INTERIOR_B_INN',x:12,y:18});
+  assert.equal(firstDayQuestAvailable(f.state,'Q_001'),false);
+  const requestId=id();const accepted:any=await f.service.action(f.player.id,'introComplete',{requestId});
+  assert.equal(accepted.guide,'接到任务\n《第一桶金》');
+  assert.equal(firstDayStage(f.state),'FIRST_TRADE_STARTED');assert.equal(f.state.storyFlags?.[firstDayFlags.started],true);
+  assert.equal(f.state.storyFlags?.[firstDayFlags.street],undefined);assert.equal(f.state.storyFlags?.[GUEST_ROOM_LIFE_UNLOCKED],undefined);
   assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_001').length,1);
-  assert.equal(firstDayStage(await f.repo.player(f.player.id)),'FIRST_TRADE_STARTED');
+  await f.service.action(f.player.id,'introComplete',{requestId});await f.act('introComplete');
+  assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_001').length,1);
+  const result:any=await f.act('portal',{portalId:'EXIT_B_INN'});assert.equal(firstDayStage(f.state),'ENTERED_BAISHI');assert.equal(result.player.storyFlags[firstDayFlags.street],true);
+  assert.equal(result.guide,undefined);assert.equal(result.player.storyFlags[GUEST_ROOM_LIFE_UNLOCKED],true);
+  assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_001').length,1);
+  assert.equal(firstDayStage(await f.repo.player(f.player.id)),'ENTERED_BAISHI');
   Object.assign(f.state,{sceneId:'INTERIOR_B_INN',x:12,y:18});await f.act('portal',{portalId:'EXIT_B_INN'});
   assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_001').length,1);
   const reset=await f.repo.restartGame(f.player.id,id());assert.deepEqual(reset.storyFlags,{});assert.equal(firstDayStage(reset),'WAKE_UP');

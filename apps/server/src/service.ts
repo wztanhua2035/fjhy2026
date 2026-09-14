@@ -67,7 +67,7 @@ export class GameService {
           p.cosmetics=[p.appearance.hairId!,p.appearance.outfitId!];
           p.sceneId=GUEST_ROOM_SCENE_ID;p.x=7;p.y=8.4;p.metNpcs=[...new Set([...p.metNpcs,'NPC_001'])];p.storyFlags={};p.life=normalizeLifeState(null);p.storage={};
           money(p,120,'SYSTEM_GRANT','NEW_PLAYER',body.requestId);
-          questDialogue='临时借住的房间不大，却总算有个落脚的地方。出门就是客栈大厅。';break;
+          questDialogue='昨晚睡得还行。';break;
         }
         case 'move':{
           if(!canStand(world,p.sceneId,p.x,p.y)){
@@ -103,14 +103,19 @@ export class GameService {
             const firstReturn=p.sceneId==='STREET_BAISHI_01'&&portal.toSceneId===INN_LOBBY_SCENE_ID&&!!p.storyFlags?.[firstDayFlags.trade];
             const firstHome=p.sceneId===INN_LOBBY_SCENE_ID&&portal.toSceneId===GUEST_ROOM_SCENE_ID&&!!p.storyFlags?.[firstDayFlags.returned];
           p.sceneId=portal.toSceneId;const safe=recoverSafePosition(world,p.sceneId,portal.spawnX,portal.spawnY);p.x=safe.x;p.y=safe.y;
-            if(firstStreetExit){p.storyFlags??={};p.storyFlags[GUEST_ROOM_LIFE_UNLOCKED]=true;
-              if(!p.storyFlags[firstDayFlags.street]){p.storyFlags[firstDayFlags.street]=true;p.ledger.push({id:randomUUID(),type:'QUEST_ACCEPTED',amount:0,before:p.cash,after:p.cash,referenceId:'Q_001',requestId:body.requestId,createdAt:new Date().toISOString()});guide='街上转转\n先去街坊杂货铺买一份鸣山大米，再到白石商行问问收购价。';}}
+            if(firstStreetExit){p.storyFlags??={};p.storyFlags[GUEST_ROOM_LIFE_UNLOCKED]=true;p.storyFlags[firstDayFlags.street]=true;}
             if(firstReturn&&!p.storyFlags?.[firstDayFlags.returned]){p.storyFlags![firstDayFlags.returned]=true;guide='忙了一阵，也可以回临时房歇歇。';}
             if(firstHome&&!p.storyFlags?.[firstDayFlags.complete]){p.storyFlags![firstDayFlags.complete]=true;questDialogue='在横阳的第一天，总算有了个开始。';}break;
         }
         case 'introComplete':{
           ensure(p.sceneId===INN_LOBBY_SCENE_ID,'WRONG_SCENE','请先进入客栈大厅');
           p.storyFlags??={};p.storyFlags[INTRO_INN_KEEPER_DONE]=true;
+          if(!p.ledger.some(l=>(l.type==='QUEST_ACCEPTED'||l.type==='QUEST_REWARD')&&l.referenceId==='Q_001')){
+            const quest=world.quests.find(q=>q.id==='Q_001'&&q.enabled);ensure(quest,'QUEST_NOT_FOUND','第一桶金任务暂不可用');
+            p.ledger.push({id:randomUUID(),type:'QUEST_ACCEPTED',amount:0,before:p.cash,after:p.cash,referenceId:quest.id,requestId:body.requestId,createdAt:new Date().toISOString()});
+            guide='接到任务\n《第一桶金》';
+          }
+          p.storyFlags[firstDayFlags.started]=true;
           if(!p.metNpcs.includes('NPC_001'))p.metNpcs.push('NPC_001');
           break;
         }

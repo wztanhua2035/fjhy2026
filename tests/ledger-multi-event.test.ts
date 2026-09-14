@@ -31,7 +31,9 @@ test('HTTP 第一桶金卖出+领奖；春衫首次对话接取+领取；三条�
     };
     const place=(sceneId:string,x:number,y:number)=>Object.assign(repo.players.get(id)!,{sceneId,x,y,...(sceneId==='INTERIOR_B_INN'?{storyFlags:{...repo.players.get(id)!.storyFlags,INTRO_INN_KEEPER_DONE:true,FIRST_DAY_RETURNED_TO_INN:true}}:{})});
     await post('/v1/player/appearance/create',{profile:testProfile(),requestId:randomUUID(),gender:'FEMALE',faceId:'F_FACE_01',hairId:'F_HAIR_01',outfitId:'F_OUTFIT_01'});
-    repo.players.get(id)!.storyFlags={FIRST_DAY_ENTERED_BAISHI:true};
+    place('INTERIOR_B_INN',8,10);
+    await post('/v1/intro/complete',{requestId:randomUUID()});
+    repo.players.get(id)!.storyFlags!.FIRST_DAY_ENTERED_BAISHI=true;
     place('INTERIOR_B_TRADE',12,10);
     await post('/v1/npc/talk',{requestId:randomUUID(),npcId:'NPC_TRADE_CLERK'});
     place('INTERIOR_B_GROCERY',12,10);
