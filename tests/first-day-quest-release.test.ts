@@ -41,7 +41,7 @@ test('staging 旧发布配置补齐三条首日任务的接取 NPC 并保留其�
   assert.equal(entered.speaker,'街坊杂货铺店员');
   assert.match(entered.dialogue,/急件/);
   assert.equal((await repo.player(player.id)).inventory.ERRAND_PACKAGE_01,1);
-  Object.assign(repo.players.get(player.id)!,{sceneId:'INTERIOR_B_CLOTH',x:16,y:9,storyFlags:{FIRST_DAY_COMPLETE:true}});
+  Object.assign(repo.players.get(player.id)!,{sceneId:'INTERIOR_B_CLOTH',x:16,y:9,storyFlags:{FIRST_DAY_ENTERED_BAISHI:true}});
   const rainSample=await service.action(player.id,'talk',{requestId:randomUUID(),npcId:'NPC_CLOTH_SHOPKEEPER'});
   assert.match(rainSample.dialogue,/新料子/);
   assert.equal((await repo.player(player.id)).inventory.CLOTH_SAMPLE_01,1);

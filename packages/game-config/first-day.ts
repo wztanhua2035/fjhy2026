@@ -29,6 +29,8 @@ export function firstDayQuestAvailable(p:PlayerState,id:string){
   if(p.ledger.some(l=>['QUEST_ACCEPTED','QUEST_REWARD'].includes(l.type)&&l.referenceId===id))return true;
   if(id==='Q_001')return !!p.storyFlags?.[firstDayFlags.street]&&p.sceneId==='INTERIOR_B_TRADE';
   if(id==='Q_002')return !!p.storyFlags?.[INTRO_INN_KEEPER_DONE];
-  if(id==='Q_003')return !!p.storyFlags?.[firstDayFlags.complete];
+  // 春衫衣坊属于白石街探索内容：玩家首次出客栈后即可并行接取，
+  // 不应被“回房结束首日”的生活流程反向锁住。
+  if(id==='Q_003')return !!(p.storyFlags?.[firstDayFlags.street]||p.storyFlags?.[firstDayFlags.complete]);
   return true;
 }
