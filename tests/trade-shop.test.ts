@@ -74,7 +74,9 @@ test('第一桶金通过正式店铺 BUY/SELL 账本完成，奖励只发一次'
     const bought=await f.post('/v1/economy/buy',{requestId:randomUUID(),buildingId:'B_GROCERY',itemId:'RICE_01',quantity:2});assert.equal(bought.statusCode,200);
     const quest=f.repo.versions[0].config.quests.find(q=>q.id==='Q_001')!;assert.deepEqual(questStepProgress(quest,bought.json().player.ledger),[1,0]);
     f.repo.players.get(player.id)!.sceneId='INTERIOR_B_TRADE';const sold=await f.sell('RICE_01',1);assert.equal(sold.statusCode,200);assert.deepEqual(questStepProgress(quest,sold.json().player.ledger),[1,1]);
-    assert.equal(sold.json().player.ledger.filter((entry:any)=>entry.type==='QUEST_REWARD'&&entry.referenceId==='Q_001').length,1);
+    assert.equal(sold.json().player.ledger.filter((entry:any)=>entry.type==='QUEST_REWARD'&&entry.referenceId==='Q_001').length,0);
+    const finalized=await f.post('/v1/quest/finalize',{requestId:randomUUID(),questId:'Q_001'});assert.equal(finalized.statusCode,200);
+    assert.equal(finalized.json().player.ledger.filter((entry:any)=>entry.type==='QUEST_REWARD'&&entry.referenceId==='Q_001').length,1);
     await f.sell('RICE_01',1);assert.equal((await f.repo.player(player.id)).ledger.filter(entry=>entry.type==='QUEST_REWARD'&&entry.referenceId==='Q_001').length,1);
   }finally{await f.app.close();}
 });

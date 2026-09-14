@@ -54,6 +54,7 @@ test('wx.request → HTTP → 共享控制器：送样、关系、断线重登�
     c = new GameController(platform.transport); await c.loginWechat('new-code');
     assert.equal(c.questTracker().find(q => q.id === 'Q_003')!.completed, false);
     await place('NPC_CLOTH_SHOPKEEPER'); await c.interact();
+    while(c.dialogue)await c.advanceDialogue();
     assert.equal(c.questTracker().find(q => q.id === 'Q_003')!.completed, true);
     const cash = c.player!.cash;
     await c.advanceDialogue();await c.interact(); assert.equal(c.player!.cash, cash);

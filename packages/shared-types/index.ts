@@ -52,7 +52,17 @@ export interface ItemConfig { id:string; name:string; icon?:string; giftable:boo
 export interface AppearanceDefinition { id: string; partType: string; name: string; genderScope: Gender | 'ALL'; assetKey: string; price: number; colors: string[]; enabled: boolean; starter: boolean }
 export type QuestStepType = 'BUY'|'SELL'|'ACQUIRE'|'DELIVER'|'REPORT';
 export interface QuestStepConfig { type: QuestStepType; target: string; count: number; shopId?:string; title?: string; objective?: string; npcId?: string; completionDialogue?: string }
-export interface QuestConfig { id: string; name: string; steps: QuestStepConfig[]; reward: number; enabled: boolean }
+/** Content-only dialogue. NPC IDs keep quest logic independent from display names. */
+export interface QuestDialogueLine { speakerId: string; text: string }
+export interface QuestDialogueConfig {
+  accept?: QuestDialogueLine[];
+  /** One optional short response for each quest step, in the same order as steps. */
+  steps?: QuestDialogueLine[][];
+  /** Played before the server finalizes reward and any final delivery. */
+  completion?: QuestDialogueLine[];
+  repeat?: QuestDialogueLine[];
+}
+export interface QuestConfig { id: string; name: string; steps: QuestStepConfig[]; reward: number; enabled: boolean; dialogues?: QuestDialogueConfig }
 export interface QuestRuntime extends QuestConfig { state: 'available'|'accepted'|'in_progress'|'completed'; progress: Record<string,number>; stepProgress: number[]; rewardClaimed: boolean }
 export interface QuestTrackerItem { id: string; name: string; state: QuestRuntime['state']; stepIndex: number; stepCount: number; currentStep: string; currentObjective: string; rewardSummary: string; completed: boolean }
 export interface WorldConfig {

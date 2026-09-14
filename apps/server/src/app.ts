@@ -31,7 +31,7 @@ const schemas={
   sell:z.object({requestId,buildingId:id,itemId:id,quantity:z.number()}).strict(),
   useItem:z.object({requestId,itemId:id,quantity:z.number()}).strict(),
   talk:z.object({requestId,npcId:id}).strict(),
-  introComplete:z.object({requestId}).strict(),inspect:z.object({requestId,zoneId:id}).strict(),
+  introComplete:z.object({requestId}).strict(),finalizeQuest:z.object({requestId,questId:id}).strict(),inspect:z.object({requestId,zoneId:id}).strict(),
   purchaseAppearance:z.object({requestId,buildingId:id,appearanceId:id}).strict(),
   changeAppearance:z.object({requestId,buildingId:id,appearanceId:id,colorId:id.optional()}).strict(),
   wardrobeEquip:z.object({requestId,zoneId:id,outfitId:id}).strict(),
@@ -118,7 +118,7 @@ if(status>=500){
     const {hairs,offers}=hairServiceConfig(w);
     return {shopId,hairs:hairs.filter(h=>h.enabled&&h.gender===p.appearance!.gender),offers:offers.filter(o=>o.shopId===shopId&&o.enabled)};
   });
-  const routes:Record<keyof typeof schemas,string>={appearanceService:'/v1/services/appearance',create:'/v1/player/appearance/create',move:'/v1/player/move',enter:'/v1/world/enter',portal:'/v1/world/portal',buy:'/v1/economy/buy',sell:'/v1/economy/sell',useItem:'/v1/inventory/use',talk:'/v1/npc/talk',introComplete:'/v1/intro/complete',inspect:'/v1/world/inspect',purchaseAppearance:'/v1/appearance/purchase',changeAppearance:'/v1/appearance/change',wardrobeEquip:'/v1/facilities/wardrobe/equip',storageTransfer:'/v1/facilities/storage/transfer',sleepStart:'/v1/facilities/sleep/start',sleepWake:'/v1/facilities/sleep/wake'};
+  const routes:Record<keyof typeof schemas,string>={appearanceService:'/v1/services/appearance',create:'/v1/player/appearance/create',move:'/v1/player/move',enter:'/v1/world/enter',portal:'/v1/world/portal',buy:'/v1/economy/buy',sell:'/v1/economy/sell',useItem:'/v1/inventory/use',talk:'/v1/npc/talk',introComplete:'/v1/intro/complete',finalizeQuest:'/v1/quest/finalize',inspect:'/v1/world/inspect',purchaseAppearance:'/v1/appearance/purchase',changeAppearance:'/v1/appearance/change',wardrobeEquip:'/v1/facilities/wardrobe/equip',storageTransfer:'/v1/facilities/storage/transfer',sleepStart:'/v1/facilities/sleep/start',sleepWake:'/v1/facilities/sleep/wake'};
   for(const action of Object.keys(routes) as (keyof typeof schemas)[])app.post(routes[action],async req=>game.action(req.user.sub,action,schemas[action].parse(req.body),requestGameContext(req)));
   app.post('/v1/player/debug-safe-reset',async req=>{ensure(env.appEnv==='DEV'&&env.mode!=='production','NOT_FOUND','接口不存在',404);return game.action(req.user.sub,'safeReset',z.object({requestId}).strict().parse(req.body));});
   app.get('/v1/player/appearance',async req=>{const p=await repo.player(req.user.sub);return {appearance:p.appearance,owned:p.cosmetics};});

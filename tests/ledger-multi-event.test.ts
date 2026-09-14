@@ -39,13 +39,14 @@ test('HTTP 第一桶金卖出+领奖；春衫首次对话接取+领取；三条�
     place('INTERIOR_B_GROCERY',12,10);
     await post('/v1/economy/buy',{requestId:randomUUID(),buildingId:'B_GROCERY',itemId:'RICE_01',quantity:1});
     place('INTERIOR_B_TRADE',12,10);
-    const sellId=randomUUID(),sold=await post('/v1/economy/sell',{requestId:sellId,buildingId:'B_TRADE',itemId:'RICE_01',quantity:1});
+    const sellId=randomUUID();await post('/v1/economy/sell',{requestId:sellId,buildingId:'B_TRADE',itemId:'RICE_01',quantity:1});
+    const sold=await post('/v1/quest/finalize',{requestId:randomUUID(),questId:'Q_001'});
     assert.equal(sold.player.cash,144);
-    assert.deepEqual(sold.player.ledger.filter((l:any)=>l.requestId===sellId).map((l:any)=>l.type),['SHOP_SELL','QUEST_REWARD']);
-    const repeated=await post('/v1/economy/sell',{requestId:sellId,buildingId:'B_TRADE',itemId:'RICE_01',quantity:1});assert.deepEqual(repeated,sold);
+    assert.ok(sold.player.ledger.some((l:any)=>l.type==='SHOP_SELL'));
     place('INTERIOR_B_INN',8,10);await post('/v1/npc/talk',{requestId:randomUUID(),npcId:'NPC_001'});
     place('INTERIOR_B_GROCERY',12,10);await post('/v1/npc/talk',{requestId:randomUUID(),npcId:'NPC_GROCERY_CLERK'});
     place('INTERIOR_B_INN',8,10);await post('/v1/npc/talk',{requestId:randomUUID(),npcId:'NPC_001'});
+    await post('/v1/quest/finalize',{requestId:randomUUID(),questId:'Q_002'});
     assert.equal((await repo.player(id)).ledger.filter(l=>l.type==='QUEST_REWARD'&&l.referenceId==='Q_002').length,1);
     repo.players.get(id)!.storyFlags!.FIRST_DAY_COMPLETE=true;
     place('INTERIOR_B_CLOTH',16,10);
@@ -61,10 +62,9 @@ test('HTTP 第一桶金卖出+领奖；春衫首次对话接取+领取；三条�
     const relogin=(await app.inject({method:'POST',url:'/v1/auth/dev',payload:{account:'multi-ledger'}})).json();assert.equal(relogin.player.id,id);
     assert.ok(relogin.player.metNpcs.includes('NPC_CLOTH_SHOPKEEPER'));
     place('INTERIOR_B_CLOTH',16,10);const reportId=randomUUID();
-    const report=await post('/v1/npc/talk',{requestId:reportId,npcId:'NPC_CLOTH_SHOPKEEPER'});
-    assert.equal(report.player.ledger.filter((l:any)=>l.type==='QUEST_REWARD'&&l.referenceId==='Q_003').length,1);
-    assert.deepEqual(report.player.ledger.filter((l:any)=>l.requestId===reportId).map((l:any)=>l.type),['QUEST_REPORTED','QUEST_REWARD']);
     await post('/v1/npc/talk',{requestId:reportId,npcId:'NPC_CLOTH_SHOPKEEPER'});
+    const report=await post('/v1/quest/finalize',{requestId:randomUUID(),questId:'Q_003'});
+    assert.equal(report.player.ledger.filter((l:any)=>l.type==='QUEST_REWARD'&&l.referenceId==='Q_003').length,1);
     await post('/v1/npc/talk',{requestId:randomUUID(),npcId:'NPC_CLOTH_SHOPKEEPER'});
     assert.equal((await repo.player(id)).ledger.filter(l=>l.type==='QUEST_REWARD'&&l.referenceId==='Q_003').length,1);
   }finally{await app.close();}

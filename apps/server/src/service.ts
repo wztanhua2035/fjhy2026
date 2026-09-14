@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { Repository } from './repository.js';
-import type { PlayerState, WorldConfig, ShopTradeResult } from '../../../packages/shared-types/index.js';
+import type { PlayerState, WorldConfig, ShopTradeResult, QuestConfig, QuestDialogueLine } from '../../../packages/shared-types/index.js';
 import { ensure, GameError, canStand, recoverSafePosition, positionBlockers, isOpen, starterAppearance, createStarterAppearance, formalizeAppearance, publicPlayer, sceneView, plotEntrances, inEntranceArea, questStepProgress, questStepLedgerType, questStepReference, portalInteractionZone } from '../../../packages/game-rules/index.js';
 import { starterLooks } from '../../../packages/game-config/appearance-v1.js';
 import {hairServiceConfig} from '../../../packages/game-config/hair-services.js';
@@ -15,6 +15,16 @@ function money(p:PlayerState,amount:number,type:string,referenceId:string,reques
   ensure(Number.isSafeInteger(p.cash+amount)&&p.cash+amount>=0&&p.cash+amount<=1e12,'INSUFFICIENT_CASH','铜钱不足或超出余额上限');
   const before=p.cash;p.cash+=amount;p.ledger.push({id:randomUUID(),type,amount,before,after:p.cash,referenceId,requestId,createdAt:new Date().toISOString()});
 }
+const readyReference=(questId:string)=>`${questId}:READY_TO_COMPLETE`;
+function isQuestReady(p:PlayerState,questId:string){return p.ledger.some(entry=>entry.type==='QUEST_READY_TO_COMPLETE'&&entry.referenceId===readyReference(questId));}
+function dialogueFor(quest:QuestConfig,stage:'accept'|'completion'|'repeat'|'step',stepIndex?:number){
+  if(stage==='step')return quest.dialogues?.steps?.[stepIndex??-1]??[];
+  return quest.dialogues?.[stage]??[];
+}
+function namedLines(world:WorldConfig,lines:QuestDialogueLine[]){
+  return lines.map(line=>({speakerId:line.speakerId,speaker:line.speakerId==='PLAYER'?'主角':world.npcs.find(npc=>npc.id===line.speakerId)?.name??line.speakerId,text:line.text}));
+}
+function finalNpcId(quest:QuestConfig){return [...quest.steps].reverse().find(step=>step.npcId)?.npcId;}
 export class GameService {
   constructor(public repo:Repository, public now=()=>new Date()){}
   async settleDueSleep(playerId:string){
@@ -39,6 +49,12 @@ export class GameService {
     const hash=createHash('sha256').update(JSON.stringify({action,body,debugOpenAll:!!context.debugOpenAll})).digest('hex');
     return this.repo.mutate(playerId,body.requestId,hash,p=>{
       let questDialogue:string|undefined,guide:string|undefined,speaker:string|undefined,trade:ShopTradeResult|undefined;
+      let dialogueLines:{speakerId:string;speaker:string;text:string}[]|undefined,readyToFinalizeQuestId:string|undefined;
+      const showQuestDialogue=(quest:QuestConfig,stage:'accept'|'completion'|'repeat'|'step',stepIndex?:number)=>{
+        const lines=namedLines(world,dialogueFor(quest,stage,stepIndex));
+        if(!lines.length)return;
+        dialogueLines=[...(dialogueLines??[]),...lines];questDialogue=dialogueLines.map(line=>line.text).join('\n');speaker=dialogueLines[0].speaker;
+      };
       ensure(p.status==='ACTIVE','BANNED','账号不可用',403);
       if(action==='buy'||action==='sell')ensure(Number.isSafeInteger(body.quantity)&&body.quantity>=1&&body.quantity<=99,'INVALID_QUANTITY','交易数量必须为 1 至 99 的整数',400);
       if(action!=='create')ensure(p.appearance,'CHARACTER_REQUIRED','请先创建角色',409);
@@ -103,7 +119,7 @@ export class GameService {
               const item=world.items.find(i=>i.id===step.target);ensure(item,'QUEST_ITEM','任务物品不存在');ensure((p.inventory[item.id]??0)+step.count<=item.stackMax,'BAG_FULL','任务物品无法放入行囊');
               p.inventory[item.id]=(p.inventory[item.id]??0)+step.count;
               p.ledger.push({id:randomUUID(),type:questStepLedgerType(step.type),amount:0,before:p.cash,after:p.cash,referenceId:questStepReference(errand!.id,step),requestId:body.requestId,createdAt:new Date().toISOString()});
-              questDialogue='陈掌柜让你来取急件吧？我已经替他留好了。拿上，路上当心。';speaker='街坊杂货铺店员';
+              showQuestDialogue(errand!,'step',0);
             }
             break;
         }
@@ -188,10 +204,28 @@ export class GameService {
             for(const quest of world.quests.filter(q=>q.enabled&&p.ledger.some(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId===q.id)&&!p.ledger.some(l=>l.type==='QUEST_REWARD'&&l.referenceId===q.id))){
             const progress=questStepProgress(quest,p.ledger);
             if(progress.every((value,index)=>value>=quest.steps[index].count)&&quest.steps.some(step=>step.type===trade!.side&&step.target===trade!.itemId&&(!step.shopId||step.shopId===trade!.shopId))){
-                money(p,quest.reward,'QUEST_REWARD',quest.id,body.requestId);questDialogue=`任务完成：${quest.name}，获得 ${quest.reward} 文奖励`;
-                if(quest.id==='Q_001'){p.storyFlags??={};p.storyFlags[firstDayFlags.trade]=true;guide='第一笔生意做成了。想再逛逛就逛逛，之后可以回客栈。';}
+                if(!isQuestReady(p,quest.id))p.ledger.push({id:randomUUID(),type:'QUEST_READY_TO_COMPLETE',amount:0,before:p.cash,after:p.cash,referenceId:readyReference(quest.id),requestId:body.requestId,createdAt:new Date().toISOString()});
+                showQuestDialogue(quest,'completion');readyToFinalizeQuestId=quest.id;
             }
           }
+          break;
+        }
+        case 'finalizeQuest':{
+          const quest=world.quests.find(q=>q.id===body.questId&&q.enabled);ensure(quest,'QUEST_NOT_FOUND','任务不存在');
+          ensure(p.ledger.some(entry=>entry.type==='QUEST_ACCEPTED'&&entry.referenceId===quest.id),'QUEST_NOT_ACCEPTED','任务尚未接取');
+          ensure(isQuestReady(p,quest.id),'QUEST_NOT_READY','请先完成任务交付对白');
+          ensure(!p.ledger.some(entry=>entry.type==='QUEST_REWARD'&&entry.referenceId===quest.id),'QUEST_ALREADY_COMPLETED','任务已经完成');
+          ensure(questStepProgress(quest,p.ledger).every((value,index)=>value>=quest.steps[index].count),'QUEST_NOT_READY','任务步骤尚未完成');
+          const npcId=finalNpcId(quest),npc=world.npcs.find(candidate=>candidate.id===npcId),finalStep=quest.steps.at(-1);
+          ensure(npc&&npc.sceneId===p.sceneId&&(finalStep?.type==='SELL'||Math.hypot(p.x-npc.x,p.y-npc.y)<6),'TOO_FAR','请回到任务交付对象身边');
+          for(const step of finalStep?.type==='DELIVER'?[finalStep]:[]){
+            const item=world.items.find(item=>item.id===step.target);ensure(item,'QUEST_ITEM','任务物品不存在');
+            const held=p.inventory[item.id]??0;ensure(held>=step.count,'QUEST_ITEM_MISSING','任务物品缺失');
+            if(held===step.count)delete p.inventory[item.id];else p.inventory[item.id]=held-step.count;
+          }
+          money(p,quest.reward,'QUEST_REWARD',quest.id,body.requestId);
+          if(quest.id==='Q_001'){p.storyFlags??={};p.storyFlags[firstDayFlags.trade]=true;guide='第一笔生意做成了。想再逛逛就逛逛，之后可以回客栈。';}
+          questDialogue=`任务完成\n《${quest.name}》\n+${quest.reward}文`;
           break;
         }
         case 'useItem':{
@@ -212,17 +246,39 @@ export class GameService {
           questDialogue=`已接取任务：${quest.name}`;break;
         }        case 'talk':{
           const npc=world.npcs.find(n=>n.id===body.npcId&&n.enabled&&n.sceneId===p.sceneId&&isOpen(n.hours,this.now(),context.debugOpenAll));ensure(npc,'NPC_ABSENT','此刻该人物不在这里');ensure(Math.hypot(p.x-npc.x,p.y-npc.y)<6,'TOO_FAR','请靠近对话');
-            const met=p.metNpcs.includes(npc.id);if(!met)p.metNpcs.push(npc.id);let dialogue=!met&&p.storyFlags?.[firstDayFlags.street]&&firstDayNpcIntroductions[npc.id]?firstDayNpcIntroductions[npc.id]:npc.dialogue[met?Math.min(1,npc.dialogue.length-1):0];const taskMessages:string[]=[];
-            if(npc.questId&&firstDayQuestAvailable(p,npc.questId)&&!p.ledger.some(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId===npc.questId)&&!p.ledger.some(l=>l.type==='QUEST_REWARD'&&l.referenceId===npc.questId)){const quest=world.quests.find(q=>q.id===npc.questId&&q.enabled);if(quest){p.ledger.push({id:randomUUID(),type:'QUEST_ACCEPTED',amount:0,before:p.cash,after:p.cash,referenceId:quest.id,requestId:body.requestId,createdAt:new Date().toISOString()});if(quest.id==='Q_001'){p.storyFlags??={};p.storyFlags[firstDayFlags.started]=true;}taskMessages.push('任务已接取\n任务：'+quest.name+'\n当前目标：'+(quest.steps[0]?.objective??'继续任务。'));}}
-          for(const quest of world.quests.filter(q=>q.enabled&&p.ledger.some(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId===q.id)&&!p.ledger.some(l=>l.type==='QUEST_REWARD'&&l.referenceId===q.id))){
-            const progress=questStepProgress(quest,p.ledger),index=progress.findIndex((value,i)=>value<quest.steps[i].count),step=quest.steps[index];if(!step||step.npcId!==npc.id||!['ACQUIRE','DELIVER','REPORT'].includes(step.type))continue;
-            if(step.type==='ACQUIRE'){const item=world.items.find(i=>i.id===step.target);ensure(item,'QUEST_ITEM','任务物品不存在');ensure((p.inventory[item.id]??0)+step.count<=item.stackMax,'BAG_FULL','任务物品无法放入行囊');p.inventory[item.id]=(p.inventory[item.id]??0)+step.count;taskMessages.push(step.completionDialogue??('已领取：'+item.name+'。'));}
-            else if(step.type==='DELIVER'){const item=world.items.find(i=>i.id===step.target);ensure(item,'QUEST_ITEM','任务物品不存在');ensure((p.inventory[item.id]??0)>=step.count,'QUEST_ITEM_MISSING','请先领取任务物品');p.inventory[item.id]-=step.count;if(p.inventory[item.id]===0)delete p.inventory[item.id];taskMessages.push(step.completionDialogue??('已交付：'+item.name+'。'));}
-            else taskMessages.push(step.completionDialogue??('汇报完成。'));
-            p.ledger.push({id:randomUUID(),type:questStepLedgerType(step.type),amount:0,before:p.cash,after:p.cash,referenceId:questStepReference(quest.id,step),requestId:body.requestId,createdAt:new Date().toISOString()});
-            if(questStepProgress(quest,p.ledger).every((value,i)=>value>=quest.steps[i].count)){money(p,quest.reward,'QUEST_REWARD',quest.id,body.requestId);taskMessages.push('任务完成：'+quest.name+'，获得 '+quest.reward+' 文奖励');}
+          const met=p.metNpcs.includes(npc.id);if(!met)p.metNpcs.push(npc.id);
+          const active=world.quests.filter(quest=>quest.enabled&&p.ledger.some(entry=>entry.type==='QUEST_ACCEPTED'&&entry.referenceId===quest.id)&&!p.ledger.some(entry=>entry.type==='QUEST_REWARD'&&entry.referenceId===quest.id));
+          const ready=active.find(quest=>isQuestReady(p,quest.id)&&finalNpcId(quest)===npc.id);
+          if(ready){showQuestDialogue(ready,'completion');readyToFinalizeQuestId=ready.id;return {player:publicPlayer(p),dialogue:questDialogue,dialogueLines,readyToFinalizeQuestId};}
+          const offered=npc.questId&&firstDayQuestAvailable(p,npc.questId)&&!p.ledger.some(entry=>(entry.type==='QUEST_ACCEPTED'||entry.type==='QUEST_REWARD')&&entry.referenceId===npc.questId)?world.quests.find(quest=>quest.id===npc.questId&&quest.enabled):undefined;
+          if(offered){
+            p.ledger.push({id:randomUUID(),type:'QUEST_ACCEPTED',amount:0,before:p.cash,after:p.cash,referenceId:offered.id,requestId:body.requestId,createdAt:new Date().toISOString()});
+            if(offered.id==='Q_001'){p.storyFlags??={};p.storyFlags[firstDayFlags.started]=true;}
+            showQuestDialogue(offered,'accept');
           }
-          if(taskMessages.length)dialogue=[dialogue,...taskMessages].join('\n');return {player:publicPlayer(p),dialogue};
+          const current=[...active,...(offered?[offered]:[])];
+          for(const quest of current){
+            const progress=questStepProgress(quest,p.ledger),index=progress.findIndex((value,i)=>value<quest.steps[i].count),step=quest.steps[index];
+            if(!step||step.npcId!==npc.id||!['ACQUIRE','DELIVER','REPORT'].includes(step.type))continue;
+            if(step.type==='ACQUIRE'){
+              const item=world.items.find(item=>item.id===step.target);ensure(item,'QUEST_ITEM','任务物品不存在');ensure((p.inventory[item.id]??0)+step.count<=item.stackMax,'BAG_FULL','任务物品无法放入行囊');p.inventory[item.id]=(p.inventory[item.id]??0)+step.count;
+            }else if(step.type==='DELIVER'){
+              const item=world.items.find(item=>item.id===step.target);ensure(item,'QUEST_ITEM','任务物品不存在');ensure((p.inventory[item.id]??0)>=step.count,'QUEST_ITEM_MISSING','请先领取任务物品');
+              const isFinal=index===quest.steps.length-1;
+              if(!isFinal){p.inventory[item.id]-=step.count;if(p.inventory[item.id]===0)delete p.inventory[item.id];}
+            }
+            p.ledger.push({id:randomUUID(),type:questStepLedgerType(step.type),amount:0,before:p.cash,after:p.cash,referenceId:questStepReference(quest.id,step),requestId:body.requestId,createdAt:new Date().toISOString()});
+            if(questStepProgress(quest,p.ledger).every((value,i)=>value>=quest.steps[i].count)){
+              if(!isQuestReady(p,quest.id))p.ledger.push({id:randomUUID(),type:'QUEST_READY_TO_COMPLETE',amount:0,before:p.cash,after:p.cash,referenceId:readyReference(quest.id),requestId:body.requestId,createdAt:new Date().toISOString()});
+              showQuestDialogue(quest,'completion');readyToFinalizeQuestId=quest.id;
+            }else showQuestDialogue(quest,'step',index);
+          }
+          if(!dialogueLines){
+            const completed=world.quests.find(quest=>quest.enabled&&p.ledger.some(entry=>entry.type==='QUEST_REWARD'&&entry.referenceId===quest.id)&&finalNpcId(quest)===npc.id);
+            if(completed)showQuestDialogue(completed,'repeat');
+          }
+          if(!dialogueLines){const repeatIndex=npc.dialogue.length>1?1+(p.ledger.length%(npc.dialogue.length-1)):0;const text=!met&&p.storyFlags?.[firstDayFlags.street]&&firstDayNpcIntroductions[npc.id]?firstDayNpcIntroductions[npc.id]:npc.dialogue[met?repeatIndex:0];dialogueLines=[{speakerId:npc.id,speaker:npc.name,text}];questDialogue=text;speaker=npc.name;}
+          return {player:publicPlayer(p),dialogue:questDialogue,dialogueLines,...(readyToFinalizeQuestId?{readyToFinalizeQuestId}:{})};
         }        case 'purchaseAppearance':{
           const shop=this.shop(world,p,body.buildingId,context),a=[...world.appearances,...starterLooks].find(a=>a.id===body.appearanceId&&a.enabled);
           ensure(a&&a.partType!=='BASE'&&a.partType!=='HAIR','BAD_APPEARANCE','请选择可购买的服饰');ensure(shop.buildingType==='CLOTH','WRONG_SHOP','请前往服装店');ensure(a.genderScope==='ALL'||a.genderScope===p.appearance!.gender,'INCOMPATIBLE','此部件不适配当前角色');ensure(!p.cosmetics.includes(a.id),'ALREADY_OWNED','已经拥有该服饰');
@@ -241,7 +297,7 @@ export class GameService {
           const ap=p.appearance!;if(a.partType==='HAIR'){ap.hairStyleId=a.id;ap.hairId=starterLooks.some(look=>look.id===a.id)?a.id:undefined;if(body.colorId)ap.hairColorId=body.colorId;}if(a.partType==='OUTFIT'){ap.outfitId=a.id;ap.topStyleId=a.id;}if(a.partType==='TOP'){ap.topStyleId=a.id;ap.topColorId=body.colorId;}if(a.partType==='BOTTOM'){ap.bottomStyleId=a.id;ap.bottomColorId=body.colorId;}if(a.partType==='SHOES')ap.shoesId=a.id;break;
         }
       }
-        return {player:publicPlayer(p),dialogue:questDialogue,...(speaker?{speaker}:{}),...(guide?{guide}:{}),...(trade?{trade}:{})};
+        return {player:publicPlayer(p),dialogue:questDialogue,...(dialogueLines?{dialogueLines}:{}),...(readyToFinalizeQuestId?{readyToFinalizeQuestId}:{}),...(speaker?{speaker}:{}),...(guide?{guide}:{}),...(trade?{trade}:{})};
     });
   }
   shop(world:WorldConfig,p:PlayerState,id:string,context:RequestGameContext={}){const b=world.buildings.find(b=>b.id===id);ensure(b,'SHOP_NOT_FOUND','店铺不存在');ensure(b.enabled,'SHOP_DISABLED','店铺暂未营业');ensure(b.interiorSceneId===p.sceneId,'WRONG_SHOP','请先进入对应店铺');ensure(isOpen(b.openingHours,this.now(),context.debugOpenAll),'CLOSED','店铺已打烊');return b;}

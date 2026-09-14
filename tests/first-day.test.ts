@@ -32,7 +32,7 @@ test('陈掌柜开场接取急差，第一桶金只在商行伙计交谈时接�
   assert.equal(result.guide,undefined);assert.equal(result.player.storyFlags[GUEST_ROOM_LIFE_UNLOCKED],true);
   assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_001').length,0);
   f.state.sceneId='INTERIOR_B_TRADE';f.state.x=12;f.state.y=9;
-  const tradeTalk:any=await f.act('talk',{npcId:'NPC_TRADE_CLERK'});assert.match(tradeTalk.dialogue,/任务已接取/);
+  const tradeTalk:any=await f.act('talk',{npcId:'NPC_TRADE_CLERK'});assert.match(tradeTalk.dialogue,/小买卖/);
   assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_001').length,1);
   assert.equal(firstDayStage(await f.repo.player(f.player.id)),'FIRST_TRADE_STARTED');
   Object.assign(f.state,{sceneId:'INTERIOR_B_INN',x:12,y:18});await f.act('portal',{portalId:'EXIT_B_INN'});
@@ -48,7 +48,8 @@ test('第一桶金买卖只奖励一次，首日回房自然结束且店铺提�
   assert.ok(shopIntroductions.INTERIOR_B_GROCERY);
   const bought:any=await f.act('buy',{buildingId:'B_GROCERY',itemId:'RICE_01',quantity:1});assert.equal(bought.player.inventory.RICE_01,1);
   f.state.sceneId='INTERIOR_B_TRADE';f.state.x=12;f.state.y=12.5;
-  const sold:any=await f.act('sell',{buildingId:'B_TRADE',itemId:'RICE_01',quantity:1});
+  await f.act('sell',{buildingId:'B_TRADE',itemId:'RICE_01',quantity:1});
+  const sold:any=await f.act('finalizeQuest',{questId:'Q_001'});
   assert.equal(sold.player.storyFlags[firstDayFlags.trade],true);assert.equal(firstDayStage(f.state),'EXPLORE_BAISHI');
   assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_REWARD'&&l.referenceId==='Q_001').length,1);
   assert.equal(sold.player.cash,144);assert.equal(firstDayQuestAvailable(f.state,'Q_002'),true);

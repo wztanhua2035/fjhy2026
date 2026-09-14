@@ -23,7 +23,7 @@ test('staging 旧发布配置补齐急差并保留其他配置和玩家存档',a
   assert.equal(result.published,true);
   const live=await repo.world();
   assert.ok(live.quests.some(quest=>quest.id==='Q_002'));
-  assert.equal(live.quests.find(quest=>quest.id==='Q_001')?.reward,21);
+  assert.equal(live.quests.find(quest=>quest.id==='Q_001')?.reward,20);
   assert.ok(live.items.some(item=>item.id==='ERRAND_PACKAGE_01'));
   assert.equal(live.npcs.find(npc=>npc.id==='NPC_001')?.questId,'Q_002');
   assert.equal(live.npcs.find(npc=>npc.id==='NPC_TRADE_CLERK')?.questId,'Q_001');
@@ -71,4 +71,19 @@ test('共享客户端进入杂货铺时保留店员自动对白，不被进入�
   assert.equal(controller.dialogueSpeaker,'街坊杂货铺店员');
   assert.match(controller.message,/急件/);
   assert.doesNotMatch(controller.message,/进入建筑/);
+});
+
+test('任务完成对白逐句播放后才请求服务端 finalize',async()=>{
+  const calls:string[]=[];let controller:GameController;controller=new GameController(async path=>{
+    calls.push(path);
+    if(path==='/v1/quest/finalize')return {player:{...controller.player,cash:132},dialogue:'任务完成\n《掌柜的急差》\n+12文'};
+    if(path==='/v1/quests')return {quests:[]};
+    throw new Error(`Unexpected path: ${path}`);
+  });
+  controller.boot={player:{id:'p',nickname:'旅人',cash:120,stamina:100,status:'ACTIVE',sceneId:'INTERIOR_B_INN',x:8,y:9,appearance:{} as any,inventory:{ERRAND_PACKAGE_01:1},storage:{},life:{energy:100,sleep:null,lastEffectiveSleepAt:null,lastSleepResult:null},cosmetics:[],ledger:[],tradeCounts:{},metNpcs:[]},serverTime:'',worldVersion:1,configVersion:1,assetVersion:1,assetManifest:'',colors:{},appearances:[],features:{}};
+  controller.view={scene:{id:'INTERIOR_B_INN'},plots:[],buildings:[],npcs:[]} as any;
+  (controller as any).dialogueQueue=[{speakerId:'NPC_001',speaker:'陈掌柜',text:'这事要是再晚一点，还真有点麻烦。多谢你。'}];
+  (controller as any).pendingQuestFinalization='Q_002';controller.dialogue='拿回来了？辛苦你跑这一趟，我正等着呢。';controller.dialogueSpeaker='陈掌柜';
+  await controller.advanceDialogue();assert.equal(controller.dialogue,'这事要是再晚一点，还真有点麻烦。多谢你。');assert.deepEqual(calls,[]);
+  await controller.advanceDialogue();assert.deepEqual(calls,['/v1/quest/finalize','/v1/quests']);assert.equal(controller.player?.cash,132);
 });

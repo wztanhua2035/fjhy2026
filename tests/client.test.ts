@@ -21,7 +21,7 @@ test('第一桶金买卖反馈使用服务端账本金额并更新目标',async(
   const sell={id:'sell',type:'SHOP_SELL',amount:16,before:108,after:124,referenceId:'B_TRADE:RICE_01',requestId:'r2',createdAt:''};
   const reward={id:'reward',type:'QUEST_REWARD',amount:20,before:124,after:144,referenceId:'Q_001',requestId:'r2',createdAt:''};
   let stage:'buy'|'sell'='buy';
-  let c:GameController;c=new GameController(async path=>{assert.match(path,/economy/);return stage==='buy'?{player:{...c.player,cash:108,inventory:{RICE_01:1},ledger:[accepted,buy]}}:{player:{...c.player,cash:144,inventory:{},ledger:[accepted,buy,sell,reward]},dialogue:'任务完成：第一桶金，获得 20 文奖励'};});
+  let c:GameController;c=new GameController(async path=>{assert.match(path,/economy/);return stage==='buy'?{player:{...c.player,cash:108,inventory:{RICE_01:1},ledger:[accepted,buy]}}:{player:{...c.player,cash:144,inventory:{},ledger:[accepted,buy,sell,reward]}};});
   c.token='token';c.boot={player:{id:'p',nickname:'旅人',cash:120,stamina:100,status:'ACTIVE',sceneId:'INTERIOR_B_GROCERY',x:12,y:9,appearance:{} as any,inventory:{},storage:{},life:{energy:100,sleep:null,lastEffectiveSleepAt:null,lastSleepResult:null},cosmetics:[],ledger:[accepted],tradeCounts:{},metNpcs:[]},serverTime:'',worldVersion:1,configVersion:1,assetVersion:1,assetManifest:'',colors:{},appearances:[],features:{}};c.view={scene:{id:'INTERIOR_B_GROCERY',buildingId:'B_GROCERY'},plots:[],buildings:[{id:'B_GROCERY',name:'街坊杂货铺'}],npcs:[],items:[{id:'RICE_01',name:'鸣山大米'}]} as any;c.x=12;c.y=9;
   await c.trade('buy','RICE_01');assert.equal(c.message,'购买成功\n鸣山大米 ×1\n支出：12文');
   stage='sell';c.boot.player.sceneId='INTERIOR_B_TRADE';c.view!.scene.id='INTERIOR_B_TRADE';c.view!.scene.buildingId='B_TRADE';
