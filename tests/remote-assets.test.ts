@@ -44,6 +44,17 @@ test('six interiors share twelve resolvable remote resources and support an alte
   }
 });
 
+test('Web dev fetches interiors through CDN origin and retries failed textures as local fallback', async () => {
+  const vite = await readFile('apps/web-game/vite.config.ts', 'utf8');
+  const web = await readFile('apps/web-game/src/main.ts', 'utf8');
+  assert.match(vite, /'\/__fjhy_cdn__': \{ target: remoteAssetOrigin/);
+  assert.match(web, /import\.meta\.env\.DEV\?'\/__fjhy_cdn__':__WEB_ASSET_BASE_URL__/);
+  assert.match(web, /this\.load\.image\(asset\.assetKey,backgroundUrl\)/);
+  assert.match(web, /if\(missingBackground\)this\.load\.image\(asset\.assetKey,asset\.fallbackPath\)/);
+  assert.match(web, /if\(missingForeground\)this\.load\.image\(asset\.foreground\.assetKey,asset\.foreground\.fallbackPath\)/);
+  assert.doesNotMatch(web, /this\.load\.image\(asset\.assetKey,\[backgroundUrl,asset\.fallbackPath\]\)/);
+});
+
 test('COS workflow only scopes assets/remote, skips safely without secrets, and keeps the manifest behind CDN verification', async () => {
   const workflow = await readFile('.github/workflows/cos-asset-publish.yml', 'utf8');
   const publisher = await readFile('tools/cos_publish_assets.py', 'utf8');
