@@ -17,9 +17,9 @@ function fakeWx(download: (options: any) => void) {
 
 test('shared manifest resolves stable resource IDs to provider-neutral CDN URLs', () => {
   const asset = remoteAsset('BAISHI_INTERIOR_SALON_BG');
-  assert.equal(asset.path, 'world/baishi/interiors/salon/background_v2.png');
-  assert.equal(asset.version, 2);
-  assert.equal(assetUrl(asset, 'https://res-fjhy.wzpy.net/'), 'https://res-fjhy.wzpy.net/world/baishi/interiors/salon/background_v2.png');
+  assert.equal(asset.path, 'world/baishi/interiors/salon/background_v4.png');
+  assert.equal(asset.version, 4);
+  assert.equal(assetUrl(asset, 'https://res-fjhy.wzpy.net/'), 'https://res-fjhy.wzpy.net/world/baishi/interiors/salon/background_v4.png');
   assert.equal(manifestContainsVendorUrls(), false);
   assert.equal(Object.keys(remoteAssetManifest.resources).length, 17);
   assert.equal(remoteAsset('SIGN_BAISHI_TRADE_V1').type, 'shop-sign');

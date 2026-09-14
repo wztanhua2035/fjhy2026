@@ -2,14 +2,14 @@
   "manifestVersion": 1,
   "resources": {
     "BAISHI_INTERIOR_SALON_BG": {
-      "path": "world/baishi/interiors/salon/background_v2.png",
-      "version": 2,
+      "path": "world/baishi/interiors/salon/background_v4.png",
+      "version": 4,
       "type": "scene-background",
       "width": 768,
       "height": 640,
       "format": "png",
-      "byteSize": 469755,
-      "sha256": "0ada7a9b559963f94d177693e46eb058729d5880685ab5c0e7e306acd0e68f8f"
+      "byteSize": 454927,
+      "sha256": "57c89574e4cd21da515e32f5e40a94840e50318db7be97df980fe3b9c76ced8f"
     },
     "BAISHI_INTERIOR_SALON_FG": {
       "path": "world/baishi/interiors/salon/foreground_v1.png",
@@ -62,14 +62,14 @@
       "sha256": "2fe48b8167bd5b3396847d242f9289e1212b174c04f3e47def2b5f0c95c90eaa"
     },
     "BAISHI_INTERIOR_CLOTH_BG": {
-      "path": "world/baishi/interiors/cloth/background_v2.png",
-      "version": 2,
+      "path": "world/baishi/interiors/cloth/background_v4.png",
+      "version": 4,
       "type": "scene-background",
       "width": 768,
       "height": 640,
       "format": "png",
-      "byteSize": 569384,
-      "sha256": "f00cb588a9015a6f4ac6b90c7d75227e247b40abdeb00ce876f5649d0d4f4fc7"
+      "byteSize": 555263,
+      "sha256": "fcd132f34db6c3c49733af03c3a079e469254126a47d6b4a6eb2d3c99ad38b87"
     },
     "BAISHI_INTERIOR_CLOTH_FG": {
       "path": "world/baishi/interiors/cloth/foreground_v1.png",

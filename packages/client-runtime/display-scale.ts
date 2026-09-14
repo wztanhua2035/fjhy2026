@@ -2,6 +2,8 @@ export const OUTDOOR_CAMERA_ZOOM = 1.08;
 export const OUTDOOR_ACTOR_SCALE = 1.09;
 export const INDOOR_ACTOR_SCALE_MULTIPLIER = 1.43;
 export const PLAYER_NAME_GAP_PX = 6;
+/** Keep 64px character sheets crisp on both Phaser Canvas runtimes. */
+export const PIXEL_ART_RENDER_CONFIG = { pixelArt: true, antialias: false, roundPixels: true } as const;
 export const PLAYER_NAME_STYLE = {
   fontFamily: 'Microsoft YaHei, Arial', fontSize: '17px', fontStyle: 'bold',
   color: '#fff8e8', backgroundColor: '#28554d', padding: { x: 7, y: 3 },

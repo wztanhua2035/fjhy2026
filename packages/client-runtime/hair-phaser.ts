@@ -25,6 +25,9 @@ export function composeHairTextures(scene:Phaser.Scene,configs:HairConfig[]=hair
       const key=`appearance:${face.faceId}:${hair.hairId}:${outfit.outfitId}`;
       if(scene.textures.exists(key)||!scene.textures.exists(body)||!scene.textures.exists(outfit.assetResourceId)||!scene.textures.exists(face.assetResourceId)||!scene.textures.exists(hair.assetResourceId))continue;
       const canvas=scene.textures.createCanvas(key,256,256);if(!canvas)continue;
+      // Composition is native-size, but explicitly keep the canvas in nearest-neighbour
+      // mode so it cannot introduce a soft edge before Phaser receives the sheet.
+      canvas.context.imageSmoothingEnabled=false;
       canvas.context.drawImage(scene.textures.get(body).getSourceImage() as HTMLImageElement,0,0);
       canvas.context.drawImage(scene.textures.get(outfit.assetResourceId).getSourceImage() as HTMLImageElement,0,0);
       canvas.context.drawImage(scene.textures.get(face.assetResourceId).getSourceImage() as HTMLImageElement,0,0);

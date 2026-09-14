@@ -48,3 +48,4 @@ button:disabled{opacity:.48;cursor:default}
 .dialogue-next{position:absolute;right:22px;bottom:10px;color:var(--ui-dialogueBody);font-size:15px}
 #message{left:50%;top:auto;bottom:max(160px,calc(env(safe-area-inset-bottom) + 142px));transform:translateX(-50%);max-width:min(60vw,530px);background:var(--ui-panel);font-size:16px;text-align:center;line-height:1.45;pointer-events:none}
 @media(max-height:600px) and (orientation:landscape){.creation-panel{padding:12px 18px;row-gap:2px}.creation-panel h1{margin:2px 0;font-size:21px}.creation-panel .appearance-preview canvas{width:130px;height:130px}.creation-panel .personality-list{max-height:39dvh}.panel label{margin:3px 0}.panel label select{min-height:38px}.dialogue-body{font-size:20px}.dialogue-name{font-size:17px}}
+#game canvas{image-rendering:pixelated}
