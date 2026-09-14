@@ -99,7 +99,7 @@ test('共享 GameController 自动逐句开场，期间不能移动，结束后�
   const transport=async(path:string,body?:any)=>{
     if(path==='/v1/auth/dev')return {token:'test'};
     if(path==='/v1/bootstrap')return {player:await repo.player(p.id),colors:{},appearances:[],features:{}};
-    if(path==='/v1/quests')return {quests:(await repo.player(p.id)).ledger.some(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_001')?[initialWorld.quests.find(q=>q.id==='Q_001')!]:[]};
+    if(path==='/v1/quests')return {quests:(await repo.player(p.id)).ledger.filter(l=>l.type==='QUEST_ACCEPTED').map(l=>initialWorld.quests.find(q=>q.id===l.referenceId)!).filter(Boolean)};
     if(path.startsWith('/v1/world/scenes/'))return sceneView(initialWorld,path.split('/').at(-1)!,new Date());
     if(path.endsWith('/ghosts'))return {ghosts:[]};
     const action:Record<string,string>={'/v1/player/appearance/create':'create','/v1/player/move':'move','/v1/world/portal':'portal','/v1/intro/complete':'introComplete'};
@@ -116,9 +116,9 @@ test('共享 GameController 自动逐句开场，期间不能移动，结束后�
   for(let i=1;i<innOpeningDialogue.length;i++){await c.advanceDialogue();assert.equal(c.dialogue,innOpeningDialogue[i].text.replace('{givenName}',c.player!.profile!.givenName));assert.equal(c.dialogueSpeaker,innOpeningDialogue[i].speaker);}
   assert.equal(c.player?.storyFlags?.FIRST_DAY_FIRST_TRADE_STARTED,undefined);
   await c.advanceDialogue();assert.equal(c.dialogue,null);assert.equal(c.player?.storyFlags?.[INTRO_INN_KEEPER_DONE],true);
-  assert.equal(c.player?.storyFlags?.FIRST_DAY_FIRST_TRADE_STARTED,true);
-  assert.equal(c.questTracker()[0]?.name,'第一桶金');
-  assert.match(c.questTracker()[0]!.currentObjective,/街坊杂货铺/);
+  assert.equal(c.player?.storyFlags?.FIRST_DAY_FIRST_TRADE_STARTED,undefined);
+  assert.equal(c.questTracker()[0]?.name,'掌柜的急差');
+  assert.match(c.questTracker()[0]!.currentObjective,/领取掌柜的急件/);
   c.tick(.1,1,0);assert.ok(c.x>before.x);
   await c.refresh();assert.equal(c.dialogue,null);
 });

@@ -17,21 +17,21 @@ async function street(f:Awaited<ReturnType<typeof setup>>){
   Object.assign(f.state,{sceneId:'INTERIOR_B_INN',x:12,y:18});await f.act('introComplete');
   return f.act('portal',{portalId:'EXIT_B_INN'});
 }
-test('首日开场、自动接取与阶段持久化，重试不重复接任务',async()=>{
+test('陈掌柜开场接取急差，第一桶金仍在第一次出客栈时接取',async()=>{
   const f=await setup();assert.equal(firstDayStage(f.state),'WAKE_UP');assert.equal(firstDayQuestAvailable(f.state,'Q_002'),false);
   Object.assign(f.state,{sceneId:'INTERIOR_B_INN',x:12,y:18});
-  assert.equal(firstDayQuestAvailable(f.state,'Q_001'),false);
+  assert.equal(firstDayQuestAvailable(f.state,'Q_001'),false);assert.equal(firstDayQuestAvailable(f.state,'Q_002'),false);
   const requestId=id();const accepted:any=await f.service.action(f.player.id,'introComplete',{requestId});
-  assert.equal(accepted.guide,'接到任务\n《第一桶金》');
-  assert.equal(firstDayStage(f.state),'FIRST_TRADE_STARTED');assert.equal(f.state.storyFlags?.[firstDayFlags.started],true);
+  assert.equal(accepted.guide,'接到任务\n《掌柜的急差》');
+  assert.equal(firstDayStage(f.state),'MET_INNKEEPER');assert.equal(f.state.storyFlags?.[firstDayFlags.started],undefined);
   assert.equal(f.state.storyFlags?.[firstDayFlags.street],undefined);assert.equal(f.state.storyFlags?.[GUEST_ROOM_LIFE_UNLOCKED],undefined);
-  assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_001').length,1);
+  assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_002').length,1);
   await f.service.action(f.player.id,'introComplete',{requestId});await f.act('introComplete');
+  assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_002').length,1);
+  const result:any=await f.act('portal',{portalId:'EXIT_B_INN'});assert.equal(firstDayStage(f.state),'FIRST_TRADE_STARTED');assert.equal(result.player.storyFlags[firstDayFlags.street],true);
+  assert.equal(result.guide,'接到任务\n《第一桶金》');assert.equal(result.player.storyFlags[GUEST_ROOM_LIFE_UNLOCKED],true);
   assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_001').length,1);
-  const result:any=await f.act('portal',{portalId:'EXIT_B_INN'});assert.equal(firstDayStage(f.state),'ENTERED_BAISHI');assert.equal(result.player.storyFlags[firstDayFlags.street],true);
-  assert.equal(result.guide,undefined);assert.equal(result.player.storyFlags[GUEST_ROOM_LIFE_UNLOCKED],true);
-  assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_001').length,1);
-  assert.equal(firstDayStage(await f.repo.player(f.player.id)),'ENTERED_BAISHI');
+  assert.equal(firstDayStage(await f.repo.player(f.player.id)),'FIRST_TRADE_STARTED');
   Object.assign(f.state,{sceneId:'INTERIOR_B_INN',x:12,y:18});await f.act('portal',{portalId:'EXIT_B_INN'});
   assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_001').length,1);
   const reset=await f.repo.restartGame(f.player.id,id());assert.deepEqual(reset.storyFlags,{});assert.equal(firstDayStage(reset),'WAKE_UP');
@@ -47,7 +47,7 @@ test('第一桶金买卖只奖励一次，首日回房自然结束且店铺提�
   const sold:any=await f.act('sell',{buildingId:'B_TRADE',itemId:'RICE_01',quantity:1});
   assert.equal(sold.player.storyFlags[firstDayFlags.trade],true);assert.equal(firstDayStage(f.state),'EXPLORE_BAISHI');
   assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_REWARD'&&l.referenceId==='Q_001').length,1);
-  assert.equal(sold.player.cash,144);assert.equal(firstDayQuestAvailable(f.state,'Q_002'),false);
+  assert.equal(sold.player.cash,144);assert.equal(firstDayQuestAvailable(f.state,'Q_002'),true);
   const world=await f.repo.world();
   const innPlot=world.plots.find(plot=>plot.buildingId==='B_INN')!;
   const innDoor=innPlot.entrances![0];
@@ -68,7 +68,7 @@ test('首次店铺提示持久化，重复进店不弹；后续任务按首日�
   assert.equal((await f.repo.player(f.player.id)).storyFlags?.FIRST_DAY_SHOP_INTRO_INTERIOR_B_GROCERY,true);
   Object.assign(f.state,{sceneId:'STREET_BAISHI_01',x:door.interactionArea!.x+door.interactionArea!.width/2,y:door.interactionArea!.y+door.interactionArea!.height/2});
   assert.equal((await f.act('enter',{plotId:plot.id,entranceId:door.id}) as any).guide,undefined);
-  assert.equal(firstDayQuestAvailable(f.state,'Q_002'),false);assert.equal(firstDayQuestAvailable(f.state,'Q_003'),false);
+  assert.equal(firstDayQuestAvailable(f.state,'Q_002'),true);assert.equal(firstDayQuestAvailable(f.state,'Q_003'),false);
   f.state.x=12;f.state.y=9;
-  await assert.rejects(()=>f.act('acceptQuest',{questId:'Q_002'}),/未开放/);
+  assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_002').length,1);
 });
