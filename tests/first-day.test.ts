@@ -17,7 +17,7 @@ async function street(f:Awaited<ReturnType<typeof setup>>){
   Object.assign(f.state,{sceneId:'INTERIOR_B_INN',x:12,y:18});await f.act('introComplete');
   return f.act('portal',{portalId:'EXIT_B_INN'});
 }
-test('陈掌柜开场接取急差，第一桶金仍在第一次出客栈时接取',async()=>{
+test('陈掌柜开场接取急差，第一桶金只在商行伙计交谈时接取',async()=>{
   const f=await setup();assert.equal(firstDayStage(f.state),'WAKE_UP');assert.equal(firstDayQuestAvailable(f.state,'Q_002'),false);
   Object.assign(f.state,{sceneId:'INTERIOR_B_INN',x:12,y:18});
   assert.equal(firstDayQuestAvailable(f.state,'Q_001'),false);assert.equal(firstDayQuestAvailable(f.state,'Q_002'),false);
@@ -28,8 +28,11 @@ test('陈掌柜开场接取急差，第一桶金仍在第一次出客栈时接�
   assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_002').length,1);
   await f.service.action(f.player.id,'introComplete',{requestId});await f.act('introComplete');
   assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_002').length,1);
-  const result:any=await f.act('portal',{portalId:'EXIT_B_INN'});assert.equal(firstDayStage(f.state),'FIRST_TRADE_STARTED');assert.equal(result.player.storyFlags[firstDayFlags.street],true);
-  assert.equal(result.guide,'接到任务\n《第一桶金》');assert.equal(result.player.storyFlags[GUEST_ROOM_LIFE_UNLOCKED],true);
+  const result:any=await f.act('portal',{portalId:'EXIT_B_INN'});assert.equal(firstDayStage(f.state),'ENTERED_BAISHI');assert.equal(result.player.storyFlags[firstDayFlags.street],true);
+  assert.equal(result.guide,undefined);assert.equal(result.player.storyFlags[GUEST_ROOM_LIFE_UNLOCKED],true);
+  assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_001').length,0);
+  f.state.sceneId='INTERIOR_B_TRADE';f.state.x=12;f.state.y=9;
+  const tradeTalk:any=await f.act('talk',{npcId:'NPC_TRADE_CLERK'});assert.match(tradeTalk.dialogue,/任务已接取/);
   assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_001').length,1);
   assert.equal(firstDayStage(await f.repo.player(f.player.id)),'FIRST_TRADE_STARTED');
   Object.assign(f.state,{sceneId:'INTERIOR_B_INN',x:12,y:18});await f.act('portal',{portalId:'EXIT_B_INN'});
@@ -38,6 +41,7 @@ test('陈掌柜开场接取急差，第一桶金仍在第一次出客栈时接�
 });
 test('第一桶金买卖只奖励一次，首日回房自然结束且店铺提示只一次',async()=>{
   const f=await setup();await street(f);
+  f.state.sceneId='INTERIOR_B_TRADE';f.state.x=12;f.state.y=9;await f.act('talk',{npcId:'NPC_TRADE_CLERK'});
   f.state.sceneId='INTERIOR_B_GROCERY';f.state.x=12;f.state.y=12.5;
   const introKey='FIRST_DAY_SHOP_INTRO_INTERIOR_B_GROCERY';
   // Entrance triggers its one-time guide; the same store can be revisited freely.
@@ -64,10 +68,11 @@ test('首次店铺提示持久化，重复进店不弹；后续任务按首日�
   const f=await setup();await street(f);
   const world=await f.repo.world(),plot=world.plots.find(p=>p.buildingId==='B_GROCERY')!,door=plot.entrances![0];
   Object.assign(f.state,{sceneId:'STREET_BAISHI_01',x:door.interactionArea!.x+door.interactionArea!.width/2,y:door.interactionArea!.y+door.interactionArea!.height/2});
-  const entered:any=await f.act('enter',{plotId:plot.id,entranceId:door.id});assert.equal(entered.guide,shopIntroductions.INTERIOR_B_GROCERY);
+  const entered:any=await f.act('enter',{plotId:plot.id,entranceId:door.id});assert.equal(entered.guide,shopIntroductions.INTERIOR_B_GROCERY);assert.equal(entered.speaker,'街坊杂货铺店员');assert.match(entered.dialogue,/急件/);
+  assert.equal((await f.repo.player(f.player.id)).inventory.ERRAND_PACKAGE_01,1);
   assert.equal((await f.repo.player(f.player.id)).storyFlags?.FIRST_DAY_SHOP_INTRO_INTERIOR_B_GROCERY,true);
   Object.assign(f.state,{sceneId:'STREET_BAISHI_01',x:door.interactionArea!.x+door.interactionArea!.width/2,y:door.interactionArea!.y+door.interactionArea!.height/2});
-  assert.equal((await f.act('enter',{plotId:plot.id,entranceId:door.id}) as any).guide,undefined);
+  assert.equal((await f.act('enter',{plotId:plot.id,entranceId:door.id}) as any).dialogue,undefined);
   assert.equal(firstDayQuestAvailable(f.state,'Q_002'),true);assert.equal(firstDayQuestAvailable(f.state,'Q_003'),false);
   f.state.x=12;f.state.y=9;
   assert.equal(f.state.ledger.filter(l=>l.type==='QUEST_ACCEPTED'&&l.referenceId==='Q_002').length,1);

@@ -20,13 +20,14 @@ export function firstDayStage(p:PlayerState){
   if(flags[firstDayFlags.complete])return 'FIRST_DAY_COMPLETE';
   if(flags[firstDayFlags.returned])return 'RETURN_TO_INN';
   if(flags[firstDayFlags.trade])return 'EXPLORE_BAISHI';
-  if(flags[firstDayFlags.street])return 'FIRST_TRADE_STARTED';
+  if(flags[firstDayFlags.started])return 'FIRST_TRADE_STARTED';
+  if(flags[firstDayFlags.street])return 'ENTERED_BAISHI';
   if(flags[INTRO_INN_KEEPER_DONE])return 'MET_INNKEEPER';
   return 'WAKE_UP';
 }
 export function firstDayQuestAvailable(p:PlayerState,id:string){
   if(p.ledger.some(l=>['QUEST_ACCEPTED','QUEST_REWARD'].includes(l.type)&&l.referenceId===id))return true;
-  if(id==='Q_001')return !!p.storyFlags?.[firstDayFlags.street];
+  if(id==='Q_001')return !!p.storyFlags?.[firstDayFlags.street]&&p.sceneId==='INTERIOR_B_TRADE';
   if(id==='Q_002')return !!p.storyFlags?.[firstDayFlags.returned];
   if(id==='Q_003')return !!p.storyFlags?.[firstDayFlags.complete];
   return true;
