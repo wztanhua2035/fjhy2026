@@ -111,7 +111,7 @@ test('共享 GameController 自动逐句开场，期间不能移动，结束后�
   assert.equal(c.player?.sceneId,'INTERIOR_B_INN');assert.equal(c.dialogueSpeaker,'陈掌柜');
   assert.equal(c.dialogue,innOpeningDialogue[0].text);
   const before={x:c.x,y:c.y};c.tick(.2,1,0);assert.deepEqual({x:c.x,y:c.y},before);assert.equal(c.nearby(),null);
-  for(let i=1;i<innOpeningDialogue.length;i++){await c.advanceDialogue();assert.equal(c.dialogue,innOpeningDialogue[i].text);assert.equal(c.dialogueSpeaker,innOpeningDialogue[i].speaker);}
+  for(let i=1;i<innOpeningDialogue.length;i++){await c.advanceDialogue();assert.equal(c.dialogue,innOpeningDialogue[i].text.replace('{givenName}',c.player!.profile!.givenName));assert.equal(c.dialogueSpeaker,innOpeningDialogue[i].speaker);}
   await c.advanceDialogue();assert.equal(c.dialogue,null);assert.equal(c.player?.storyFlags?.[INTRO_INN_KEEPER_DONE],true);
   c.tick(.1,1,0);assert.ok(c.x>before.x);
   await c.refresh();assert.equal(c.dialogue,null);

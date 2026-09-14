@@ -39,6 +39,7 @@ test('后台发布改价、全局下架与店铺下架，下一次读取立即�
  }finally{await f.app.close();}});
 test('无限库存忽略旧每日额度；大米 BUY 与 SELL 任务兼容',async()=>{const f=await fixture();try{
  const stock=f.repo.versions[0].config.buildings.find(b=>b.id==='B_GROCERY')!.stock;stock.RICE_01.dailyLimit=1;
+ f.p.storyFlags={FIRST_DAY_ENTERED_BAISHI:true};f.p.ledger.push({id:randomUUID(),type:'QUEST_ACCEPTED',amount:0,before:f.p.cash,after:f.p.cash,referenceId:'Q_001',requestId:randomUUID(),createdAt:new Date().toISOString()});
  assert.equal((await f.buy({itemId:'RICE_01',quantity:2})).statusCode,200);
  const quests=(await f.app.inject({url:'/v1/quests',headers:f.headers})).json().quests;assert.ok(quests.find((q:any)=>q.id==='Q_001').stepProgress[0]>=1);
  f.repo.players.get(f.p.id)!.sceneId='INTERIOR_B_TRADE';const sold=await f.post('/v1/economy/sell',{requestId:randomUUID(),buildingId:'B_TRADE',itemId:'RICE_01',quantity:1});assert.equal(sold.statusCode,200);assert.equal(sold.json().player.cash,132);assert.ok(sold.json().player.ledger.some((l:any)=>l.type==='QUEST_REWARD'&&l.referenceId==='Q_001'));

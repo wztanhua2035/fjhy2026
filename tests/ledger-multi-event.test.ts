@@ -29,8 +29,9 @@ test('HTTP 第一桶金卖出+领奖；春衫首次对话接取+领取；三条�
       assert.equal(response.statusCode,200,`${endpoint} ${JSON.stringify(payload)} => ${response.statusCode} ${response.body}`);
       return response.json();
     };
-    const place=(sceneId:string,x:number,y:number)=>Object.assign(repo.players.get(id)!,{sceneId,x,y,...(sceneId==='INTERIOR_B_INN'?{storyFlags:{INTRO_INN_KEEPER_DONE:true}}:{})});
+    const place=(sceneId:string,x:number,y:number)=>Object.assign(repo.players.get(id)!,{sceneId,x,y,...(sceneId==='INTERIOR_B_INN'?{storyFlags:{...repo.players.get(id)!.storyFlags,INTRO_INN_KEEPER_DONE:true,FIRST_DAY_RETURNED_TO_INN:true}}:{})});
     await post('/v1/player/appearance/create',{profile:testProfile(),requestId:randomUUID(),gender:'FEMALE',faceId:'F_FACE_01',hairId:'F_HAIR_01',outfitId:'F_OUTFIT_01'});
+    repo.players.get(id)!.storyFlags={FIRST_DAY_ENTERED_BAISHI:true};
     place('INTERIOR_B_TRADE',12,10);
     await post('/v1/npc/talk',{requestId:randomUUID(),npcId:'NPC_TRADE_CLERK'});
     place('INTERIOR_B_GROCERY',12,10);
@@ -44,6 +45,7 @@ test('HTTP 第一桶金卖出+领奖；春衫首次对话接取+领取；三条�
     place('INTERIOR_B_GROCERY',12,10);await post('/v1/npc/talk',{requestId:randomUUID(),npcId:'NPC_GROCERY_CLERK'});
     place('INTERIOR_B_INN',8,10);await post('/v1/npc/talk',{requestId:randomUUID(),npcId:'NPC_001'});
     assert.equal((await repo.player(id)).ledger.filter(l=>l.type==='QUEST_REWARD'&&l.referenceId==='Q_002').length,1);
+    repo.players.get(id)!.storyFlags!.FIRST_DAY_COMPLETE=true;
     place('INTERIOR_B_CLOTH',16,10);
     const clothId=randomUUID(),cloth=await post('/v1/npc/talk',{requestId:clothId,npcId:'NPC_CLOTH_SHOPKEEPER'});
     assert.deepEqual(cloth.player.ledger.filter((l:any)=>l.requestId===clothId).map((l:any)=>l.type),['QUEST_ACCEPTED','QUEST_ITEM_ACQUIRED']);

@@ -6,7 +6,7 @@ export const innOpeningDialogue = [
   { speaker: '陈掌柜', text: '起来了？昨晚睡得还习惯吧？' },
   { speaker: '主角', text: '还好，已经住了几天，差不多习惯了。' },
   { speaker: '陈掌柜', text: '工作慢慢找，不急。这几天先安心住着。' },
-  { speaker: '陈掌柜', text: '既然出来了，就顺便帮我看看店里有没有什么要搭把手的。' }
+  { speaker: '陈掌柜', text: '{givenName}，出去转转也好。白石商行最近在收日常货，若有心，试着做笔小生意。' }
 ] as const;
 
 export const guestRoomObjectDialogue: Record<string, string> = {

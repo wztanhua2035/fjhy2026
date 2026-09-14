@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {installHairService} from '../../../packages/client-runtime/hair-phaser.js';
 import {installOutfitShop} from '../../../packages/client-runtime/outfit-phaser.js';
-import { GameController, formatQuestTracker, formatCyclingQuestTracker, baishiFormalArtRegistry, baishiInteriorArtRegistry, baishiV2ArtAssets, GROUND_DEPTH, WORLD_BASE, PORTRAIT_DIM_DEPTH, PORTRAIT_DEPTH, UI_DEPTH_BASE, DEBUG_DEPTH, worldActorDepth, worldBuildingDepth, buildingImagePosition, foregroundImagePosition, OUTDOOR_CAMERA_ZOOM, actorVisualScale, DIALOGUE_PORTRAIT_SCALE, DIALOGUE_ACTIVE_PORTRAIT_SCALE, DIALOGUE_INACTIVE_ALPHA, JOYSTICK_VISUAL_SCALE, JOYSTICK_HIT_SCALE, baishiShopSignPlacements, buildingDisplayName, shouldUseCustomSign, signTemplateTextStyle, INTERACTION_TARGETING_BUILD_MARKER, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
+import { GameController, formatQuestTracker, formatCyclingQuestTracker, baishiFormalArtRegistry, baishiInteriorArtRegistry, baishiV2ArtAssets, GROUND_DEPTH, WORLD_BASE, PORTRAIT_DIM_DEPTH, PORTRAIT_DEPTH, UI_DEPTH_BASE, DEBUG_DEPTH, worldActorDepth, worldBuildingDepth, buildingImagePosition, foregroundImagePosition, OUTDOOR_CAMERA_ZOOM, actorVisualScale, playerNameTopY, PLAYER_NAME_STYLE, DIALOGUE_PORTRAIT_SCALE, DIALOGUE_ACTIVE_PORTRAIT_SCALE, DIALOGUE_INACTIVE_ALPHA, JOYSTICK_VISUAL_SCALE, JOYSTICK_HIT_SCALE, baishiShopSignPlacements, buildingDisplayName, shouldUseCustomSign, signTemplateTextStyle, INTERACTION_TARGETING_BUILD_MARKER, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
 import { availableStarterLookOptions } from '../../../packages/game-config/appearance-v1.js';
 import { createWeChatPlatform, safeInsets, allowWechatDebug } from './wechat-platform';
 import { loadWechatAssets, loadWechatImage } from './assets';
@@ -182,7 +182,7 @@ class BaishiWechatScene extends Phaser.Scene {
       this.actorNames.set(asset.npcId, this.add.text(0, 0, '', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '16px', color: '#445749', stroke: '#f8f3df', strokeThickness: 3 }).setOrigin(.5, 1).setVisible(false));
     }
     this.playerSprite = this.add.sprite(0, 0, 'formal-player-female', 0).setOrigin(.5, 59 / 64).setDisplaySize(60, 60).setVisible(false);
-    this.playerName = this.add.text(0, 0, '你', { fontFamily: 'Microsoft YaHei, Arial', fontSize: '17px', color: '#445749', stroke: '#f8f3df', strokeThickness: 3 }).setOrigin(.5, 1).setVisible(false);
+    this.playerName = this.add.text(0, 0, '你', PLAYER_NAME_STYLE).setOrigin(.5, 1).setVisible(false);
     this.nightOverlay = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x233052, 0).setDepth(UI_DEPTH_BASE - 10).setVisible(false);
     this.portraitDim = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x18251c, .38).setDepth(PORTRAIT_DIM_DEPTH).setVisible(false);
     this.portraitDim.setInteractive().on('pointerdown', () => this.advanceDialogue());
@@ -321,7 +321,8 @@ class BaishiWechatScene extends Phaser.Scene {
     void this.run(() => controller.advanceDialogue());
   }
   private async run(action: () => Promise<unknown>) { try { await action(); } catch (error: any) { controller.message = error.message ?? '操作失败'; } this.syncUi(); }
-  private syncNotice(dialogue: boolean, hasPlayer: boolean) {
+    private syncNotice(dialogue: boolean, hasPlayer: boolean) {
+      if(controller.guide){this.notices.enqueue('toast',controller.guide);controller.guide=null;}
     if (dialogue) { this.lastNoticeSource = controller.message; this.message.setVisible(false); return; }
     if (!hasPlayer) return;
     if (controller.message && controller.message !== this.lastNoticeSource) {
@@ -551,7 +552,7 @@ class BaishiWechatScene extends Phaser.Scene {
     const offset = playerAsset.frameOffsets?.[controller.direction]?.[frame] ?? { x: 0, y: 0 }, playerDepth = worldActorDepth(controller.y);
     const playerReady = this.textures.exists(playerKey);
     this.playerSprite.setTexture(playerKey).setOrigin(playerAsset.footAnchorX / playerAsset.frameWidth, playerAsset.footAnchorY / playerAsset.frameHeight).setDisplaySize(playerAsset.frameWidth * playerAsset.renderScale * actorScale, playerAsset.frameHeight * playerAsset.renderScale * actorScale).setFrame(row * playerAsset.columns + frame).setPosition(ox + controller.x * TILE + offset.x, oy + controller.y * TILE + offset.y).setDepth(playerDepth).setVisible(!!appearance && playerReady);
-    this.playerName.setPosition(ox + controller.x * TILE, oy + controller.y * TILE - playerAsset.frameHeight * playerAsset.renderScale * actorScale + 8).setDepth(playerDepth + 2).setVisible(!!appearance && playerReady);
+    this.playerName.setText(controller.player?.profile ? controller.player.profile.surname + controller.player.profile.givenName : '你').setPosition(ox + controller.x * TILE + offset.x, playerNameTopY(oy + controller.y * TILE, playerAsset.footAnchorY, playerAsset.renderScale, view!.scene.id, offset.y)).setDepth(playerDepth + 2).setVisible(!!appearance && playerReady);
   }
   private async ensureInteriorArt(sceneId: string) {
     const art = baishiInteriorArtRegistry.find(asset => asset.sceneId === sceneId);

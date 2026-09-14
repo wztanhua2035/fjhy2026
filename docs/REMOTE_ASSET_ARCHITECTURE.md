@@ -6,6 +6,8 @@ The shared manifest is [remote-assets.ts](../packages/client-runtime/remote-asse
 
 Web loads the CDN URL first and permits Phaser to use the packaged local fallback URL if the remote URL fails. Interior assets are requested only after their scene becomes active, so a failed interior cannot prevent the home page or White Stone Street from appearing.
 
+Local Web development currently reads these same CDN objects through a DEV-only proxy to avoid browser CORS restrictions. Before exposing Web staging/production directly, configure and verify the CDN's browser CORS response for the intended Web origins; the WeChat downloader does not exercise that browser check.
+
 WeChat resolves the same manifest entry through `wx.downloadFile`, saves it in the Mini Game local filesystem, and records `resourceId`, `version`, and local `path` in `fjhy-remote-assets-v1.json`. A matching cache entry is reused. A newer manifest version downloads a new filename. V1 retries downloads twice and leaves a clear DEV/STAGING console diagnostic. Cache eviction/LRU can be added behind the cache class without changing manifest semantics.
 
 The six full-resolution interiors are not in WeChat split packages. A failed CDN download or decode uses the existing lightweight generic interior fallback; the current scene's collision and interactions continue to work. Neither CDN errors nor fallback errors block startup.

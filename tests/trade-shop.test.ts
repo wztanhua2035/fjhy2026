@@ -70,6 +70,7 @@ test('商品、数量、方向、店铺和持有量失败均不改变钱包或�
 test('第一桶金通过正式店铺 BUY/SELL 账本完成，奖励只发一次',async()=>{
   const f=await fixture();try{
     const player=f.player;player.sceneId='INTERIOR_B_GROCERY';
+    player.storyFlags={FIRST_DAY_ENTERED_BAISHI:true};player.ledger.push({id:randomUUID(),type:'QUEST_ACCEPTED',amount:0,before:player.cash,after:player.cash,referenceId:'Q_001',requestId:randomUUID(),createdAt:new Date().toISOString()});
     const bought=await f.post('/v1/economy/buy',{requestId:randomUUID(),buildingId:'B_GROCERY',itemId:'RICE_01',quantity:2});assert.equal(bought.statusCode,200);
     const quest=f.repo.versions[0].config.quests.find(q=>q.id==='Q_001')!;assert.deepEqual(questStepProgress(quest,bought.json().player.ledger),[1,0]);
     f.repo.players.get(player.id)!.sceneId='INTERIOR_B_TRADE';const sold=await f.sell('RICE_01',1);assert.equal(sold.statusCode,200);assert.deepEqual(questStepProgress(quest,sold.json().player.ledger),[1,1]);

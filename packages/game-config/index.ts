@@ -62,7 +62,7 @@ const zone=(id:string,kind:InteriorZone['kind'],x:number,y:number,width:number,h
 const interiorZones: Record<string,InteriorZone[]> = {
   B_INN: [
     zone('INN_NORTH_WALL','wall',2,3,20,2,true),
-    zone('INN_COUNTER','counter',6,10.3,5,.8,true),
+    zone('INN_COUNTER','counter',8.4,6.5,6.4,2.2,true),
       zone('INN_GUEST_ROOM','room',1.8,5.1,2.6,3.2),
     zone('INN_ROOM_PARTITION','wall',2.5,11.4,5,.45,true),
     zone('INN_ROOM_SIDE','wall',7.05,11.4,.45,2,true),

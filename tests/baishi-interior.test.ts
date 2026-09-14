@@ -34,6 +34,16 @@ const cases=[
   ['B_CLOTH','NPC_CLOTH_SHOPKEEPER','CLOTH_COUNTER_SERVICE']
 ] as const;
 
+test('客栈临时房门到正门之间的空地保持可通行', () => {
+  const scene=initialWorld.scenes.find(s=>s.id==='INTERIOR_B_INN')!;
+  const counter=scene.interior!.zones.find(z=>z.id==='INN_COUNTER')!;
+  assert.equal(canStand(initialWorld,scene.id,counter.x+counter.width/2,counter.y+counter.height/2),false);
+  for(const x of [6,7,8,9,10,11]) assert.equal(canStand(initialWorld,scene.id,x,10.5),true,`柜台前空地 x=${x}`);
+  const guestDoor=initialWorld.scenes.find(s=>s.id==='INTERIOR_B_INN_GUEST_ROOM')!.portals[0];
+  const path=route(scene.id,{x:guestDoor.spawnX,y:guestDoor.spawnY},{x:12,y:17.5});
+  assert.ok(path.some(p=>p.x>=8&&p.y>=10&&p.y<=11), '可从临时房门横穿柜台前空地，再走向正门');
+});
+
 for(const [buildingId,npcId,serviceZoneId] of cases)test(`${buildingId} 室内入口、家具、NPC、出口与原门口闭环`,async()=>{
   const repo=new MemoryRepository(),service=new GameService(repo,()=>new Date('2026-09-12T06:00:00Z'));
   const player=await repo.login(`interior-${buildingId}`);
