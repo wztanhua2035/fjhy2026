@@ -17,9 +17,9 @@ function fakeWx(download: (options: any) => void) {
 
 test('shared manifest resolves stable resource IDs to provider-neutral CDN URLs', () => {
   const asset = remoteAsset('BAISHI_INTERIOR_SALON_BG');
-  assert.equal(asset.path, 'world/baishi/interiors/salon/background_v4.png');
-  assert.equal(asset.version, 4);
-  assert.equal(assetUrl(asset, 'https://res-fjhy.wzpy.net/'), 'https://res-fjhy.wzpy.net/world/baishi/interiors/salon/background_v4.png');
+  assert.equal(asset.path, 'world/baishi/interiors/salon/background_v7.png');
+  assert.equal(asset.version, 7);
+  assert.equal(assetUrl(asset, 'https://res-fjhy.wzpy.net/'), 'https://res-fjhy.wzpy.net/world/baishi/interiors/salon/background_v7.png');
   assert.equal(manifestContainsVendorUrls(), false);
   assert.equal(Object.keys(remoteAssetManifest.resources).length, 17);
   assert.equal(remoteAsset('SIGN_BAISHI_TRADE_V1').type, 'shop-sign');
@@ -49,9 +49,10 @@ test('Web dev fetches interiors through CDN origin and retries failed textures a
   const web = await readFile('apps/web-game/src/main.ts', 'utf8');
   assert.match(vite, /'\/__fjhy_cdn__': \{ target: remoteAssetOrigin/);
   assert.match(web, /import\.meta\.env\.DEV\?'\/__fjhy_cdn__':__WEB_ASSET_BASE_URL__/);
-  assert.match(web, /this\.load\.image\(asset\.assetKey,backgroundUrl\)/);
-  assert.match(web, /if\(missingBackground\)this\.load\.image\(asset\.assetKey,asset\.fallbackPath\)/);
-  assert.match(web, /if\(missingForeground\)this\.load\.image\(asset\.foreground\.assetKey,asset\.foreground\.fallbackPath\)/);
+  assert.match(web, /this\.load\.image\(entry\.key,assetUrl\(entry\.resource,WEB_ASSET_BASE_URL\)\)/);
+  assert.match(web, /if\(attempt<2\)/);
+  assert.match(web, /this\.load\.image\(entry\.key,entry\.fallback\)/);
+  assert.match(web, /web-cdn-recovered/);
   assert.doesNotMatch(web, /this\.load\.image\(asset\.assetKey,\[backgroundUrl,asset\.fallbackPath\]\)/);
 });
 

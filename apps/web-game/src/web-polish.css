@@ -1,0 +1,204 @@
+/* Web-first Baishi RPG presentation. Business state remains in GameController. */
+:root {
+  --rpg-ink: #25352f;
+  --rpg-paper: #faf3e3;
+  --rpg-paper-dark: #ecdfc4;
+  --rpg-frame: #b99d70;
+  --rpg-jade: #34655a;
+  --rpg-gold: #d4a45d;
+  --rpg-shadow: 0 18px 44px #101c18a8;
+}
+
+html, body, #app, #game { width: 100%; height: 100dvh; overflow: hidden; }
+body, #game { background: radial-gradient(ellipse at 50% 38%, #3e4038 0%, #272d2a 65%, #17211f 100%); }
+#game canvas { image-rendering: pixelated; }
+#app:has(> .panel:not(.hidden)) #game { filter: brightness(.55) blur(2px); }
+
+button { cursor: pointer; transition: background-color .16s ease, box-shadow .16s ease, transform .16s ease, opacity .16s ease; }
+button:hover:not(:disabled) { box-shadow: 0 5px 16px #20372b36; filter: brightness(1.05); }
+button:active:not(:disabled) { transform: translateY(1px) scale(.98); }
+button:disabled { opacity: .48; cursor: not-allowed; }
+button[aria-busy=true] { opacity: .68; cursor: progress; }
+.panel, .inventory-panel, #shop-panel, #profile-panel, #quest-panel {
+  color: var(--rpg-ink); background: linear-gradient(155deg, #fff8e9 0%, var(--rpg-paper) 72%, #e9dcc3 100%);
+  border: 2px solid var(--rpg-frame); box-shadow: var(--rpg-shadow);
+}
+.panel::after, .inventory-panel::after, #profile-panel::after, #shop-panel::after {
+  content: ""; position: absolute; inset: 7px; border: 1px solid #af946e80;
+  border-radius: 11px; pointer-events: none;
+}
+.panel { overflow: hidden; border-radius: 18px; }
+.panel h1, .panel h2, .inventory-panel h3, .shop-detail h3 { font-family: "Microsoft YaHei", sans-serif; letter-spacing: .06em; }
+
+/* A seven-step single-screen creation flow. Its contents switch in place. */
+.creation-panel {
+  width: min(920px, 96vw); height: min(640px, 92dvh); max-height: 92dvh;
+  padding: 20px 28px; display: grid; overflow: hidden;
+  grid-template-columns: minmax(220px, 290px) minmax(0, 1fr);
+  grid-template-rows: 20px 34px 30px minmax(0, 1fr) 56px 22px;
+  gap: 4px 22px; text-align: left;
+}
+.creation-panel > p { grid-column: 1 / -1; grid-row: 1; margin: 0; color: #867454; font-size: 12px; }
+.creation-panel > h1 { grid-column: 1 / -1; grid-row: 2; margin: 0; font-size: 26px; }
+.creation-panel > h2 { grid-column: 1 / -1; grid-row: 3; margin: 0; color: #47695d; font-size: 17px; }
+.creation-panel .appearance-preview {
+  grid-column: 1; grid-row: 4; align-self: stretch; display: grid; place-content: center;
+  margin: 0; padding: 12px; min-height: 0;
+  background: radial-gradient(circle at 50% 30%, #f9f1de, #d6d8c3);
+  border: 2px solid #d0bd95; border-radius: 14px;
+}
+.creation-panel .appearance-preview canvas { width: min(245px, 22vw); height: min(245px, 45dvh); max-height: 100%; image-rendering: pixelated; }
+.creation-panel .appearance-preview small { color: #5a675e; text-align: center; }
+.creation-panel #direction-buttons { grid-column: 1; grid-row: 5; margin: 5px 0 0; }
+.creation-panel #gender-buttons, .creation-panel .creation-option,
+.creation-panel #creation-identity, .creation-panel #creation-personality,
+.creation-panel #creation-confirmation { grid-column: 2; grid-row: 4; align-self: start; min-width: 0; }
+.creation-panel #gender-buttons { align-self: center; gap: 12px; }
+.creation-option h3 { color: #69563a; margin: 8px 0 16px; font-size: 17px; }
+.appearance-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.appearance-choice, .creation-panel .segmented button, .creation-panel .directions button {
+  color: var(--rpg-ink); background: linear-gradient(#fffaf0, #eadfc8);
+  border: 2px solid #c7af82; border-radius: 12px;
+}
+.appearance-choice { min-height: 96px; padding: 12px; font-size: 17px; line-height: 1.4; }
+.appearance-choice.active, .creation-panel .segmented button.active, .creation-panel .directions button.active {
+  background: linear-gradient(#deeee5, #b8d4c4); border-color: var(--rpg-jade);
+  box-shadow: inset 0 0 0 2px #fff9e8, 0 6px 18px #345e4940;
+}
+.creation-panel #creation-identity { display: grid; align-content: start; gap: 10px; }
+.creation-panel #creation-identity label { margin: 0; color: #735d3e; font-weight: 700; }
+.creation-panel #creation-identity input {
+  width: min(390px, 75%); margin: 0; padding: 10px 14px; min-height: 43px;
+  border: 1px solid #baa47e; border-radius: 10px; background: #fffdf6; color: var(--rpg-ink);
+}
+.creation-panel #creation-identity input:focus { outline: 2px solid #93baa7; }
+#creation-random { width: fit-content; min-width: 160px; background: #f2e5cd; }
+.creation-panel .personality-list {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 8px;
+  height: 100%; max-height: none; overflow: hidden;
+}
+.creation-panel .personality-list button {
+  min-height: 0; height: 100%; padding: 7px 10px; font-size: 14px; line-height: 1.38;
+  background: #fff9ec; border: 1px solid #c6b390; text-align: left;
+}
+.creation-panel .personality-list button.active { background: #d6e8db; border: 2px solid var(--rpg-jade); color: var(--rpg-ink); }
+.creation-panel #creation-confirmation { font-size: 19px; line-height: 2; padding: 18px; border: 1px solid #d7c29c; border-radius: 12px; background: #fff9ed; }
+.creation-panel .creation-navigation, .creation-panel #create-player { grid-column: 2; grid-row: 5; align-self: center; }
+.creation-panel .creation-navigation { display: flex; margin: 0; }
+.creation-panel .creation-navigation button, .creation-panel #create-player { min-height: 47px; margin: 0; }
+.creation-panel #create-message { grid-column: 1 / -1; grid-row: 6; align-self: center; margin: 0; }
+
+/* HUD remains in screen coordinates while world objects move beneath it. */
+#status { top: 14px; left: 18px; background: #fff7e8ee; border: 1px solid #d4b98b; font-size: 14px; box-shadow: 0 7px 18px #101c1830; }
+#scene-plaque {
+  top: 12px; right: 18px; width: 132px; min-height: 30px; z-index: 4;
+  border-color: #cdb789; background: #f7ebd3; color: #335a50; font-size: 15px;
+}
+#profile-toggle { top: 12px; right: 162px; z-index: 4; background: #f6e8cf; color: #355a50; border: 1px solid #cbb589; }
+#quest-panel { top: 54px; right: 18px; width: min(270px, 25vw); max-height: 50dvh; z-index: 4; border-radius: 13px; }
+#quest-toggle { background: #e6e4ce; border-bottom: 1px solid #d0b88f; color: #41564c; min-height: 38px; }
+#quest { max-height: calc(50dvh - 42px); overflow-y: auto; }
+.quest-entry { position: relative; padding-right: 48px; }
+.quest-entry strong { font-size: 16px; }
+.quest-entry small { font-size: 13px; line-height: 1.45; }
+.quest-progress { position: absolute; right: 0; top: 2px; font-size: 12px; font-weight: 700; color: #986b31; }
+.quest-details { grid-column: 1 / -1; margin-top: 12px; padding: 12px; width: calc(100% + 48px); background: #fff9ed; border: 1px solid #d6c3a0; border-radius: 9px; }
+.quest-details p { margin: 3px 0 8px; color: #536453; line-height: 1.45; }
+.quest-steps { padding-left: 20px; margin: 9px 0 0; }
+.quest-steps li { padding: 3px 0; color: #756f5e; }
+.quest-steps li.done { color: #477b60; text-decoration: line-through; }
+.quest-steps li.current { color: #9d6c2e; font-weight: 700; }
+
+/* Modal layers cover the scene softly and stay above HUD buttons. */
+#hud:has(#shop-panel:not(.hidden))::before,
+#hud:has(#profile-panel:not(.hidden))::before,
+#hud:has(.inventory-panel:not(.hidden))::before {
+  content: ""; position: fixed; inset: 0; z-index: 5;
+  background: #13231c66; backdrop-filter: blur(2px); pointer-events: none;
+}
+#inventory { z-index: 6; top: 64px; left: 18px; }
+#inventory > button { min-height: 43px; border: 1px solid #c7af82; background: #e9d8b7; color: #304e44; }
+.inventory-panel { position: relative; width: min(640px, 70vw); max-height: min(610px, 76dvh); padding: 20px; overflow: hidden; }
+.inventory-categories { margin: 15px 0; }
+.inventory-categories button { min-height: 37px; padding: 7px 12px; background: #f2e5d0; }
+.inventory-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; max-height: 320px; overflow-y: auto; }
+.inventory-list button {
+  display: grid; grid-template-columns: 32px minmax(0,1fr); grid-template-rows: auto auto;
+  gap: 2px 8px; min-height: 76px; align-content: center; padding: 9px;
+  border: 1px solid #c7b28e; background: #fff9eb; text-align: left;
+}
+.inventory-list button.selected { background: #d6e8dc; border: 2px solid var(--rpg-jade); }
+.inventory-icon { grid-column: 1; grid-row: 1 / span 2; align-self: center; font-size: 25px; }
+.inventory-list strong { grid-column: 2; grid-row: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inventory-list small { grid-column: 2; grid-row: 2; color: #7e6950; }
+.inventory-detail { margin-top: 14px; padding: 15px; min-height: 105px; background: #fffaf0; border: 1px solid #d2bc93; border-radius: 10px; }
+.inventory-detail strong { font-size: 19px; }
+.panel-close { position: absolute; top: 16px; right: 17px; z-index: 1; min-height: 34px; padding: 5px 13px; background: #e9dac0; border: 1px solid #ba9e73; color: #35584e; }
+
+#profile-panel { position: absolute; z-index: 6; top: 65px; right: 18px; width: min(560px, 55vw); padding: 22px; white-space: normal; }
+.profile-card { grid-template-columns: 168px minmax(0,1fr); gap: 22px; }
+.profile-avatar { width: 168px; height: 168px; background: #e5e0cd; border: 2px solid #c9b48d; }
+.profile-name { font-size: 25px; }
+.profile-stat { grid-template-columns: 76px minmax(0,1fr); font-size: 15px; }
+.profile-stat b { overflow-wrap: anywhere; }
+
+#shop-panel { z-index: 6; width: min(760px, 72vw); max-height: min(580px, 74dvh); bottom: 76px; right: 20px; overflow: hidden; }
+#shop-panel header { background: linear-gradient(120deg, #305a50, #547564); padding: 14px 18px; }
+.shop-close { min-height: 32px; padding: 5px 11px; border: 1px solid #e8d2a7; background: #f5ebd5; color: #34594f; }
+#shop-items { padding: 14px 17px; }
+.shop-tabs { margin-bottom: 12px; }
+.shop-tabs button { min-width: 116px; background: #eee2cb; }
+.shop-tabs button.active { background: #d2e7d8; border-color: var(--rpg-jade); }
+.shop-layout { display: grid; grid-template-columns: minmax(180px, 42%) minmax(0,1fr); gap: 14px; min-height: 330px; max-height: min(440px, 56dvh); }
+.shop-list { min-height: 0; overflow-y: auto; padding-right: 5px; }
+.shop-list-item { display: grid; grid-template-columns: 40px minmax(0,1fr); grid-template-rows: auto auto; align-items: center; gap: 2px 9px; width: 100%; min-height: 58px; margin-bottom: 7px; padding: 7px 10px; text-align: left; background: #fff8e8; border: 1px solid #cbb58f; border-radius: 9px; }
+.shop-list-item.selected { background: #d6e8dc; border: 2px solid var(--rpg-jade); }
+.shop-list-item .shop-icon { grid-column: 1; grid-row: 1 / span 2; width: 38px; height: 38px; }
+.shop-list-item strong { grid-column: 2; grid-row: 1; font-size: 16px; }
+.shop-list-item small { grid-column: 2; grid-row: 2; color: #7c6b54; }
+.shop-detail { display: grid; justify-items: start; align-content: start; gap: 10px; min-width: 0; padding: 15px; background: #fff9ee; border: 1px solid #d3b98e; border-radius: 11px; }
+.shop-detail-icon { font-size: 28px; line-height: 1; }
+.shop-detail h3 { margin: 0; font-size: 21px; }
+.shop-detail p { margin: 0; color: #6c6755; font-size: 14px; line-height: 1.45; }
+.shop-price { color: #436b59; font-weight: 700; }
+.shop-total { color: #92632e; font-size: 17px; font-weight: 700; }
+.shop-quantity { display: flex; align-items: center; gap: 10px; }
+.shop-quantity button { width: 38px; height: 38px; min-height: 38px; padding: 0; border: 1px solid #ad9a77; background: #f2e4ca; }
+.shop-quantity span { min-width: 52px; text-align: center; }
+.shop-primary-action { min-height: 44px; min-width: 145px; background: var(--rpg-jade); color: white; border: 0; }
+#shop-feedback { font-size: 14px; }
+
+/* Web direction control is still four pointer targets, drawn as one gamepad. */
+#dpad { z-index: 4; width: 142px; height: 142px; left: 18px; bottom: 18px; display: block; border: 2px solid #c9d8c3a8; border-radius: 50%; background: radial-gradient(circle, #d2dfd5aa 0 22%, #4a6557bb 24% 53%, #244034cc 55%); box-shadow: inset 0 3px 13px #10271b8a, 0 8px 22px #13251b66; }
+#dpad::after { content: ""; position: absolute; left: 54px; top: 54px; width: 30px; height: 30px; border: 2px solid #f5ecd2b8; border-radius: 50%; background: #7a9f86; pointer-events: none; }
+#dpad button { position: absolute; width: 44px; height: 42px; min-height: 0; padding: 0; border: 0; background: transparent; color: #fff6dc; text-shadow: 0 2px 4px #152920; font-size: 23px; }
+#dpad button:hover:not(:disabled) { background: #e3f1df35; border-radius: 14px; }
+#dpad button[data-move=up] { left: 47px; top: 4px; }
+#dpad button[data-move=left] { left: 4px; top: 48px; }
+#dpad button[data-move=down] { left: 47px; bottom: 3px; }
+#dpad button[data-move=right] { right: 4px; top: 48px; }
+
+#interact, #shop-toggle { z-index: 4; border: 1px solid #e0c88f; background: linear-gradient(145deg, #3c715f, #285247); box-shadow: 0 9px 20px #101e19a8; }
+#interact { width: 176px; min-height: 55px; }
+#message { z-index: 8; min-width: 235px; max-width: 470px; padding: 11px 18px 11px 44px; color: #364739; background: #fff7e4; border: 2px solid #ccb584; border-radius: 13px; box-shadow: 0 10px 30px #111d19b0; text-align: left; animation: rpgNoticeIn .25s ease-out both; }
+#message::before { content: "✦"; position: absolute; left: 14px; top: 10px; color: #a57a3a; font-size: 20px; }
+#message[data-event=item]::before { content: "◆"; }
+#message[data-event=quest]::before { content: "◈"; }
+#message[data-event=reward]::before { content: "✧"; }
+#message[data-kind=result] { background: #f7edd4; border-color: #d1aa63; }
+@keyframes rpgNoticeIn { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+#dialogue-panel { z-index: 7; width: min(500px, 56vw); min-height: 127px; max-height: 172px; bottom: 12px; background: linear-gradient(130deg, #213a33, #172d28); border-color: #c8ad78; }
+.dialogue-body { font-size: 21px; line-height: 1.48; }
+.dialogue-name { background: #806240; }
+
+@media (max-width: 1420px), (max-height: 800px) {
+  .creation-panel { height: min(600px, 93dvh); padding: 14px 22px; grid-template-rows: 18px 30px 26px minmax(0,1fr) 50px 20px; }
+  .creation-panel .personality-list button { font-size: 13px; padding: 5px 8px; }
+  .appearance-choice { min-height: 82px; font-size: 15px; }
+  .inventory-panel { max-height: 68dvh; }
+  .inventory-list { max-height: 220px; }
+  #shop-panel { max-height: 70dvh; }
+  .shop-layout { min-height: 260px; max-height: 43dvh; }
+}
