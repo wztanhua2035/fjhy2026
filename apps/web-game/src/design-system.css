@@ -20,8 +20,9 @@ button:disabled{opacity:.48;cursor:default}
 .creation-panel .personality-list{max-height:42dvh;gap:8px}
 .creation-panel .personality-list button{min-height:52px;font-size:16px;line-height:1.45;padding:8px 12px}
 .creation-panel #creation-confirmation{font-size:17px}
-#status{left:max(18px,env(safe-area-inset-left));top:max(16px,env(safe-area-inset-top));background:var(--ui-panel);color:var(--ui-textPrimary);font-size:15px;box-shadow:0 5px 16px #263b3029}
-#quest-panel{top:max(70px,calc(env(safe-area-inset-top) + 58px));right:max(18px,env(safe-area-inset-right));width:min(260px,30vw)}
+#status{display:none}
+#scene-plaque{position:absolute;right:max(128px,calc(env(safe-area-inset-right) + 112px));top:max(12px,env(safe-area-inset-top));width:148px;min-height:34px;box-sizing:border-box;display:grid;place-items:center;padding:7px 12px;border:1px solid #d8caa9;border-radius:11px;background:#f8f3e5;color:#315b51;box-shadow:0 5px 14px #263b3024;font-weight:700;font-size:16px;line-height:20px;pointer-events:none;z-index:4}
+#quest-panel{top:max(62px,calc(env(safe-area-inset-top) + 50px));right:max(18px,env(safe-area-inset-right));width:min(260px,30vw)}
 #quest-toggle{background:var(--ui-accentSoft);color:var(--ui-textPrimary);font-size:15px;min-height:44px}
 #hud #quest{font-size:14px;color:var(--ui-textSecondary)}
 #interact{right:max(22px,env(safe-area-inset-right));bottom:max(22px,env(safe-area-inset-bottom));width:170px;min-height:56px;font-size:18px}

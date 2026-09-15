@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {preloadHairAssets,installHairService} from '../../../packages/client-runtime/hair-phaser.js';
 import {installOutfitShop} from '../../../packages/client-runtime/outfit-phaser.js';
-import { OUTDOOR_CAMERA_ZOOM, actorVisualScale, playerNameTopY, PLAYER_NAME_STYLE, PIXEL_ART_RENDER_CONFIG, assetUrl, remoteAsset, GameController, drawAppearance, formatQuestTracker, baishiV2ArtAssets, hengyangInnV1ArtAssets, streetGroceryV1ArtAssets, qingsiHairSalonV1ArtAssets, baishiFormalArtRegistry, baishiInteriorArtRegistry, ImageAssetStore, GROUND_DEPTH, WORLD_BASE, PORTRAIT_DIM_DEPTH, PORTRAIT_DEPTH, DEBUG_DEPTH, worldActorDepth, worldBuildingDepth, buildingImagePosition, foregroundImagePosition, baishiShopSignPlacements, buildingDisplayName, shouldUseCustomSign, signTemplateTextStyle, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
+import { OUTDOOR_CAMERA_ZOOM, actorVisualScale, playerNameTopY, PLAYER_NAME_STYLE, PIXEL_ART_RENDER_CONFIG, assetUrl, remoteAsset, GameController, drawAppearance, formatQuestTracker, sceneLabelFor, baishiV2ArtAssets, hengyangInnV1ArtAssets, streetGroceryV1ArtAssets, qingsiHairSalonV1ArtAssets, baishiFormalArtRegistry, baishiInteriorArtRegistry, ImageAssetStore, GROUND_DEPTH, WORLD_BASE, PORTRAIT_DIM_DEPTH, PORTRAIT_DEPTH, DEBUG_DEPTH, worldActorDepth, worldBuildingDepth, buildingImagePosition, foregroundImagePosition, baishiShopSignPlacements, buildingDisplayName, shouldUseCustomSign, signTemplateTextStyle, type Direction, type Painter } from '../../../packages/client-runtime/index.js';
 import { baishiBuildingObjectCollision, availableStarterLookOptions } from '../../../packages/game-config/index.js';
 import type { Appearance } from '../../../packages/shared-types/index.js';
 import { createWebPlatform } from './web-platform';
@@ -50,6 +50,9 @@ byId<HTMLButtonElement>('creation-random').onclick=()=>void run(async()=>{for(le
 byId<HTMLButtonElement>('creation-back').onclick=()=>{creationStep=Math.max(0,creationStep-1);refreshCreation();};
 byId<HTMLButtonElement>('creation-next').onclick=()=>{if(creationStep===4){try{validatePlayerIdentity({...draft,personalityTag:personalityChoices[0].tag});}catch(error:any){createMessage.textContent=error.message;return;}}if(creationStep===5&&!draft.personalityTag){createMessage.textContent='请先选择一句话';return;}createMessage.textContent='';creationStep=Math.min(6,creationStep+1);refreshCreation();};
 const profileToggle=document.createElement('button');profileToggle.id='profile-toggle';profileToggle.textContent='个人档案';hud.append(profileToggle);
+const scenePlaque=document.createElement('div');scenePlaque.id='scene-plaque';scenePlaque.setAttribute('aria-live','polite');hud.append(scenePlaque);
+// The scene view is shared with the Phaser world; this DOM element remains fixed above it.
+setInterval(()=>{scenePlaque.textContent=controller.player?.appearance?sceneLabelFor(controller.view?.scene):'';},200);
 const profilePanel=document.createElement('section');profilePanel.id='profile-panel';profilePanel.className='hidden';hud.append(profilePanel);
 const profileAvatar=document.createElement('canvas');profileAvatar.width=112;profileAvatar.height=112;profileAvatar.className='profile-avatar';
 let profileOpen=false;profileToggle.onclick=()=>{profileOpen=!profileOpen;syncUi();};

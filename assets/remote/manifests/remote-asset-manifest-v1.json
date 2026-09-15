@@ -2,14 +2,14 @@
   "manifestVersion": 1,
   "resources": {
     "BAISHI_INTERIOR_SALON_BG": {
-      "path": "world/baishi/interiors/salon/background_v4.png",
-      "version": 4,
+      "path": "world/baishi/interiors/salon/background_v6.png",
+      "version": 6,
       "type": "scene-background",
       "width": 768,
       "height": 640,
       "format": "png",
-      "byteSize": 454927,
-      "sha256": "57c89574e4cd21da515e32f5e40a94840e50318db7be97df980fe3b9c76ced8f"
+      "byteSize": 455606,
+      "sha256": "32834ce19b50dfca943eb331ae54427f55ae0603156681a81cde4a466e0dc8b6"
     },
     "BAISHI_INTERIOR_SALON_FG": {
       "path": "world/baishi/interiors/salon/foreground_v1.png",
@@ -22,14 +22,14 @@
       "sha256": "2108969a7028f8336010f2f5a9c955e820f8f79dd7bd2d4e82903001af2d3769"
     },
     "BAISHI_INTERIOR_GROCERY_BG": {
-      "path": "world/baishi/interiors/grocery/background_v2.png",
-      "version": 2,
+      "path": "world/baishi/interiors/grocery/background_v4.png",
+      "version": 4,
       "type": "scene-background",
       "width": 768,
       "height": 640,
       "format": "png",
-      "byteSize": 547652,
-      "sha256": "88a9ee97175097f242ce7306b667cb32525c7440d20004d8c269dd7fcda3ffbf"
+      "byteSize": 537318,
+      "sha256": "ea8de313d96fd03d2d62017fa2d5d979c98750b302bf7e4634486f1fd38ca7dc"
     },
     "BAISHI_INTERIOR_GROCERY_FG": {
       "path": "world/baishi/interiors/grocery/foreground_v1.png",
@@ -42,14 +42,14 @@
       "sha256": "ea08ed6d26376e43a0892ee34a59b38787799dc4ecdfaa4f1c167d0413c0c7b6"
     },
     "BAISHI_INTERIOR_TRADE_BG": {
-      "path": "world/baishi/interiors/trade/background_v2.png",
-      "version": 2,
+      "path": "world/baishi/interiors/trade/background_v4.png",
+      "version": 4,
       "type": "scene-background",
       "width": 768,
       "height": 640,
       "format": "png",
-      "byteSize": 559470,
-      "sha256": "a953aa461ae4e9b66bf3e5b698dde2673ded80c6358adabb3f2e4ac60132b124"
+      "byteSize": 547880,
+      "sha256": "5586c282311d9eaf4abf125e71f841d7db6ca35a35d12626d2e65251e6c999a4"
     },
     "BAISHI_INTERIOR_TRADE_FG": {
       "path": "world/baishi/interiors/trade/foreground_v1.png",
@@ -62,14 +62,14 @@
       "sha256": "2fe48b8167bd5b3396847d242f9289e1212b174c04f3e47def2b5f0c95c90eaa"
     },
     "BAISHI_INTERIOR_CLOTH_BG": {
-      "path": "world/baishi/interiors/cloth/background_v4.png",
-      "version": 4,
+      "path": "world/baishi/interiors/cloth/background_v6.png",
+      "version": 6,
       "type": "scene-background",
       "width": 768,
       "height": 640,
       "format": "png",
-      "byteSize": 555263,
-      "sha256": "fcd132f34db6c3c49733af03c3a079e469254126a47d6b4a6eb2d3c99ad38b87"
+      "byteSize": 552927,
+      "sha256": "a02e63ba88ed5894e6490bbad6b25c02cabc53edeb7b859e9f3ca064d50f85c2"
     },
     "BAISHI_INTERIOR_CLOTH_FG": {
       "path": "world/baishi/interiors/cloth/foreground_v1.png",

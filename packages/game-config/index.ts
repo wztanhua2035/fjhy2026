@@ -146,14 +146,23 @@ const guestRoomZones: InteriorZone[] = [
   zone('GUEST_ENTRY','entry',6.2,8.2,1.6,1.1),
   zone('GUEST_EXIT','exit',6.2,9.75,1.6,.9)
 ];
-const scenes: SceneConfig[] = [{id:street,name:'白石街',townId:'TOWN_CENTER',width:48,height:48,tileSize:32,mapAsset:'maps/baishi.tmx',
+const scenePresentation: Record<string, Pick<SceneConfig, 'formalName'|'sceneLabel'>> = {
+  [street]: { formalName: '平阳县白石街', sceneLabel: '白石街' },
+  INTERIOR_B_INN: { formalName: '横阳客栈大堂', sceneLabel: '横阳客栈' },
+  INTERIOR_B_GROCERY: { formalName: '街坊杂货铺', sceneLabel: '街坊杂货铺' },
+  INTERIOR_B_TRADE: { formalName: '白石商行', sceneLabel: '白石商行' },
+  INTERIOR_B_SALON: { formalName: '青丝美发室', sceneLabel: '青丝美发室' },
+  INTERIOR_B_CLOTH: { formalName: '春衫衣坊', sceneLabel: '春衫衣坊' },
+  [GUEST_ROOM_SCENE_ID]: { formalName: '横阳客栈临时房', sceneLabel: '临时房' }
+};
+const scenes: SceneConfig[] = [{id:street,name:'白石街',...scenePresentation[street],townId:'TOWN_CENTER',width:48,height:48,tileSize:32,mapAsset:'maps/baishi.tmx',
   // Follows the approved composition: compact main street, centre lane, canal and bridge.
   roads:[{x:0,y:20,width:48,height:5},{x:21,y:20,width:5,height:19},{x:0,y:45,width:48,height:3}],
   collision:[{x:0,y:39,width:22,height:6},{x:26,y:39,width:22,height:6},{x:0,y:0,width:15,height:4},{x:16,y:0,width:18,height:5},{x:35,y:0,width:13,height:4},{x:2,y:27,width:11,height:12},{x:14,y:29,width:6,height:9},{x:28,y:27,width:11.5,height:10},{x:42,y:27,width:6,height:12},...baishiStreetObjectCollision],portals:[],spawnX:23,spawnY:23},
- ...buildings.map((b,i)=>({id:b.interiorSceneId,name:b.name,townId:'TOWN_CENTER',width:24,height:20,tileSize:32,mapAsset:'maps/interior.tmx',roads:[],
+ ...buildings.map((b,i)=>({id:b.interiorSceneId,name:b.name,...scenePresentation[b.interiorSceneId],townId:'TOWN_CENTER',width:24,height:20,tileSize:32,mapAsset:'maps/interior.tmx',roads:[],
   collision:interiorZones[b.id].filter(z=>z.solid).map(({x,y,width,height})=>({x,y,width,height})),interior:{zones:interiorZones[b.id]},buildingId:b.id,spawnX:12,spawnY:15,
     portals:[{id:`EXIT_${b.id}`,x:12,y:18,interactionArea:{x:10.2,y:17,width:3.6,height:2},toSceneId:street,spawnX:8.5+i*6,spawnY:21,returnEntranceId:['ENT_BAISHI_INN_S','ENT_BAISHI_GROCERY_S','ENT_BAISHI_TRADE_S','ENT_BAISHI_SALON_W','ENT_BAISHI_CLOTH_S'][i]},...(b.id==='B_INN'?[{id:'ENTER_INN_GUEST_ROOM',x:3,y:7.2,interactionArea:{x:1.8,y:5.1,width:2.6,height:3.2},toSceneId:GUEST_ROOM_SCENE_ID,spawnX:7,spawnY:8.4}]:[])]}))];
-scenes.push({id:GUEST_ROOM_SCENE_ID,name:'客栈临时房',townId:'TOWN_CENTER',width:14,height:12,tileSize:32,mapAsset:'maps/interior.tmx',roads:[],collision:guestRoomZones.filter(z=>z.solid).map(({x,y,width,height})=>({x,y,width,height})),interior:{zones:guestRoomZones},buildingId:'B_INN',spawnX:7,spawnY:8.4,portals:[{id:'EXIT_INN_GUEST_ROOM',x:7,y:10.2,interactionArea:{x:5.7,y:9.2,width:2.8,height:2},toSceneId:INN_LOBBY_SCENE_ID,spawnX:3,spawnY:8.6}]});
+scenes.push({id:GUEST_ROOM_SCENE_ID,name:'客栈临时房',...scenePresentation[GUEST_ROOM_SCENE_ID],townId:'TOWN_CENTER',width:14,height:12,tileSize:32,mapAsset:'maps/interior.tmx',roads:[],collision:guestRoomZones.filter(z=>z.solid).map(({x,y,width,height})=>({x,y,width,height})),interior:{zones:guestRoomZones},buildingId:'B_INN',spawnX:7,spawnY:8.4,portals:[{id:'EXIT_INN_GUEST_ROOM',x:7,y:10.2,interactionArea:{x:5.7,y:9.2,width:2.8,height:2},toSceneId:INN_LOBBY_SCENE_ID,spawnX:3,spawnY:8.6}]});
 const appearances: AppearanceDefinition[] = [];
 for(const gender of ['MALE','FEMALE'] as const){
   for(let i=1;i<=6;i++) appearances.push({id:`${gender}_${String(i).padStart(2,'0')}`,partType:'BASE',name:`${gender==='MALE'?'少年':'少女'} ${i}`,genderScope:gender,assetKey:`avatars/${gender}_${i}`,price:0,colors:[],enabled:true,starter:true});

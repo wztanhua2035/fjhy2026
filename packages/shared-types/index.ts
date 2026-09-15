@@ -38,7 +38,9 @@ export interface NPCConfig {
 export interface Portal { id: string; x: number; y: number; toSceneId: string; spawnX: number; spawnY: number; returnEntranceId?: string; interactionArea?: Rect }
 export interface InteriorZone extends Rect { id: string; kind: 'wall'|'counter'|'shelf'|'storage'|'stairs'|'room'|'waitingArea'|'servicePoint'|'displayArea'|'chair'|'mirror'|'exit'|'entry'|'future'|'bed'|'wardrobe'|'desk'; solid: boolean; label?: string; interactionPoint?: {x:number;y:number} }
 export interface SceneConfig {
-  id: string; name: string; townId: string; width: number; height: number; tileSize: number;
+  id: string; name: string; /** Full editorial name for content and future directories. */ formalName?: string;
+  /** Short HUD name. Clients fall back to `name` while reading an older world config. */ sceneLabel?: string;
+  townId: string; width: number; height: number; tileSize: number;
   mapAsset: string; roads: Rect[]; collision: Rect[]; portals: Portal[]; buildingId?: string;
   spawnX: number; spawnY: number; interior?: { zones: InteriorZone[] };
 }
