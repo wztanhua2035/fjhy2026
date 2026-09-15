@@ -201,7 +201,7 @@ export const initialWorld: WorldConfig = {
       {type:'BUY',target:'RICE_01',shopId:'B_GROCERY',count:1,title:'购买鸣山大米',objective:'前往街坊杂货铺购买 1 份鸣山大米。'},
       {type:'SELL',target:'RICE_01',shopId:'B_TRADE',npcId:'NPC_TRADE_CLERK',count:1,title:'出售鸣山大米',objective:'将鸣山大米带回白石商行出售。'}
     ],reward:20,enabled:true,dialogues:{
-      accept:[{speakerId:'NPC_TRADE_CLERK',text:'想试试做点小买卖？街坊杂货铺有鸣山大米。你买一份来，我按收价给你算。'},{speakerId:'PLAYER',text:'行，我去跑一趟，先把这笔账弄明白。'}],
+      accept:[{speakerId:'NPC_TRADE_CLERK',text:'想试试做点小买卖？别急，先把一趟完整走明白。'},{speakerId:'NPC_TRADE_CLERK',text:'街坊杂货铺有鸣山大米。你买一份来，我按收价给你算。'},{speakerId:'PLAYER',text:'行，我去跑一趟，先把这笔账弄明白。'}],
       steps:[[{speakerId:'NPC_GROCERY_CLERK',text:'买鸣山大米？今天这批刚到，品相还不错。'}],[{speakerId:'NPC_TRADE_CLERK',text:'鸣山大米？我看看。'}]],
       completion:[{speakerId:'NPC_TRADE_CLERK',text:'东西不错，这一单我收了。'},{speakerId:'NPC_TRADE_CLERK',text:'第一次跑买卖吧？先把账算明白，慢慢就熟了。'}],
       repeat:[{speakerId:'NPC_TRADE_CLERK',text:'最近货价还算稳，过阵子就不好说了。'}]
@@ -220,7 +220,7 @@ export const initialWorld: WorldConfig = {
       {type:'DELIVER',target:'CLOTH_SAMPLE_01',npcId:'NPC_SALON_HAIRDRESSER',count:1,title:'把布样交给青丝美发师',objective:'前往青丝美发室，把新布样交给青丝美发师。'},
       {type:'REPORT',target:'NPC_CLOTH_SHOPKEEPER',npcId:'NPC_CLOTH_SHOPKEEPER',count:1,title:'回春衫衣坊向掌柜汇报',objective:'返回春衫衣坊，把“青里再压一点”的意见告诉春衫掌柜。'}
     ],reward:15,enabled:true,dialogues:{
-      accept:[{speakerId:'NPC_CLOTH_SHOPKEEPER',text:'我这儿有块新料子，颜色拿不太准。你要是顺路，帮我拿给青丝那边看看。'},{speakerId:'PLAYER',text:'行，我帮您问问。'}],
+      accept:[{speakerId:'NPC_CLOTH_SHOPKEEPER',text:'你眼光看着挺利落，正好帮我看看一块新料子。'},{speakerId:'NPC_CLOTH_SHOPKEEPER',text:'颜色我拿不太准。你要是顺路，帮我拿给青丝那边看看。'},{speakerId:'PLAYER',text:'行，我帮您问问。'}],
       steps:[[{speakerId:'NPC_CLOTH_SHOPKEEPER',text:'就是这块。带过去时让她看看灯下的颜色。'}],[{speakerId:'NPC_SALON_HAIRDRESSER',text:'这个颜色挺舒服，不过灯下会显得稍微重一点。'},{speakerId:'NPC_SALON_HAIRDRESSER',text:'要我说，再柔一点会更衬人。你替我把这句话带给春衫掌柜。'}],[{speakerId:'PLAYER',text:'青丝那边说颜色可以再柔一点，灯下会更好看。'},{speakerId:'NPC_CLOTH_SHOPKEEPER',text:'她也这么觉得？那我心里有数了。'}]],
       completion:[{speakerId:'NPC_CLOTH_SHOPKEEPER',text:'辛苦你两头跑，这块布做出来一定更衬人。'}],
       repeat:[{speakerId:'NPC_CLOTH_SHOPKEEPER',text:'衣服不是越花越好，穿着舒服、衬人最要紧。'}]

@@ -418,14 +418,14 @@ class BaishiWechatScene extends Phaser.Scene {
     this.restartAccept.setVisible(home && this.confirmingRestart);
     this.bagToggle.setVisible(!home&&hasPlayer&&!controller.dialogue&&!this.shopOpen);
     this.profileToggle.setVisible(!home&&hasPlayer&&!controller.dialogue&&!this.shopOpen);
-    this.profileText.setVisible(!home&&hasPlayer&&this.profileOpen&&!controller.dialogue).setText(player?.profile?`姓名：${player.profile.surname}${player.profile.givenName}\n外号：${player.profile.nickname}\n性格：${player.profile.personalityTag}`:'暂无角色档案');
+    this.profileText.setVisible(!home&&hasPlayer&&this.profileOpen&&!controller.dialogue).setText(player?.profile?`个人档案\n姓名：${player.profile.surname}${player.profile.givenName}\n外号：${player.profile.nickname}\n性格：${player.profile.personalityTag}\n铜钱：${player.cash} 文`:'暂无角色档案');
     this.profilePreview.setVisible(!home&&hasPlayer&&this.profileOpen&&!controller.dialogue);
     if(this.profilePreview.visible)this.profilePreview.setTexture(this.playerSprite.texture.key,this.playerSprite.frame.name);
     const bagItems=controller.inventoryItems(),showBag=!home&&hasPlayer&&!controller.dialogue&&!this.shopOpen&&this.bagOpen;
     this.bagSelected=Math.min(this.bagSelected,Math.max(0,bagItems.length-1));
     const selected=bagItems[this.bagSelected];
     const bagPage=Math.floor(this.bagSelected/8)*8;
-    this.bagText.setVisible(showBag).setText(bagItems.length?`背包 ${bagItems.length} 种\n${bagItems.slice(bagPage,bagPage+8).map((item,index)=>`${index+bagPage===this.bagSelected?'▶':'　'}${item.icon} ${item.name} ×${item.quantity}`).join('\n')}${bagItems.length>8?`\n第 ${Math.floor(bagPage/8)+1} 页`:''}\n\n${selected?.name??''} · ${selected?itemCategoryNames[selected.category]:''}\n${selected?.description??''}\n${selected?.usable?'可使用':'暂不可使用'}`:'行囊里暂时没有东西。');
+    this.bagText.setVisible(showBag).setText(bagItems.length?`背包 · ${bagItems.length} 类物品\n${bagItems.slice(bagPage,bagPage+8).map((item,index)=>`${index+bagPage===this.bagSelected?'▶':'　'}${item.icon} ${item.name} ×${item.quantity}`).join('\n')}${bagItems.length>8?`\n第 ${Math.floor(bagPage/8)+1} 页`:''}\n\n${selected?.name??''} · ${selected?itemCategoryNames[selected.category]:''}\n${selected?.description??''}\n${selected?.usable?'可使用':'暂不可使用'}`:'行囊里暂时没有东西。');
     this.bagPrev.setVisible(showBag&&bagItems.length>1);this.bagNext.setVisible(showBag&&bagItems.length>1);this.bagUse.setVisible(showBag&&!!selected?.usable&&!controller.busy&&!controller.pending);
     if (home) {
       this.personalityViewport.setVisible(false);for(const row of this.personalityRows)row.setVisible(false);

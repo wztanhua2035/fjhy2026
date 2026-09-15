@@ -2,7 +2,7 @@ import type {GameController} from '../../../packages/client-runtime/index.js';
 import {itemCategoryNames} from '../../../packages/game-rules/inventory.js';
 
 export function createInventoryUi(controller:GameController,root:HTMLElement){
-  let open=false,selected='';
+  let open=false,selected='',category='ALL';
   const toggle=document.createElement('button'),panel=document.createElement('section');
   toggle.type='button';toggle.textContent='背包';toggle.onclick=()=>{open=!open;refresh();};
   panel.className='inventory-panel hidden';root.replaceChildren(toggle,panel);
@@ -10,11 +10,16 @@ export function createInventoryUi(controller:GameController,root:HTMLElement){
     const visible=open&&!controller.dialogue&&!controller.shopOpen;
     panel.classList.toggle('hidden',!visible);if(!visible)return;
     const entries=controller.inventoryItems();panel.replaceChildren();
-    const heading=document.createElement('h3');heading.textContent='背包';panel.append(heading);
+    const heading=document.createElement('h3');heading.textContent=`背包 · ${entries.length} 类物品`;panel.append(heading);
     if(!entries.length){const empty=document.createElement('p');empty.textContent='行囊里暂时没有东西。';panel.append(empty);return;}
-    if(!entries.some(item=>item.id===selected))selected=entries[0].id;
+    const categories=['ALL',...Array.from(new Set(entries.map(item=>item.category)))];
+    if(!categories.includes(category))category='ALL';
+    const filters=document.createElement('div');filters.className='inventory-categories';
+    for(const id of categories){const button=document.createElement('button');button.type='button';button.className=id===category?'active':'';button.textContent=id==='ALL'?'全部':itemCategoryNames[id as keyof typeof itemCategoryNames]??id;button.onclick=()=>{category=id;refresh();};filters.append(button);}panel.append(filters);
+    const filtered=category==='ALL'?entries:entries.filter(item=>item.category===category);
+    if(!filtered.some(item=>item.id===selected))selected=filtered[0]?.id??entries[0].id;
     const list=document.createElement('div');list.className='inventory-list';
-    for(const item of entries){const row=document.createElement('button');row.type='button';row.className=item.id===selected?'selected':'';row.textContent=`${item.icon} ${item.name} ×${item.quantity}`;row.onclick=()=>{selected=item.id;refresh();};list.append(row);}
+    for(const item of filtered){const row=document.createElement('button');row.type='button';row.className=item.id===selected?'selected':'';row.textContent=`${item.icon} ${item.name} ×${item.quantity}`;row.onclick=()=>{selected=item.id;refresh();};list.append(row);}
     const item=entries.find(entry=>entry.id===selected)!;
     const detail=document.createElement('div');detail.className='inventory-detail';
     const title=document.createElement('strong');title.textContent=item.name;

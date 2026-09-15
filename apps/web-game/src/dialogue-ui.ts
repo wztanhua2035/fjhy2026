@@ -16,7 +16,12 @@ export function createWebDialogueUi(root: HTMLElement, advanceStory: () => void)
   panel.append(name, body, next);
   root.append(panel);
   let source = '', pages: string[] = [], page = 0;
-  panel.onclick = () => { if (page + 1 < pages.length) { page++; body.textContent = pages[page]; } else advanceStory(); };
+  const showPage = () => {
+    body.textContent = pages[page] ?? '';
+    next.textContent = page + 1 < pages.length ? '▼ 继续' : '▼';
+    next.dataset.more = String(page + 1 < pages.length);
+  };
+  panel.onclick = () => { if (page + 1 < pages.length) { page++; showPage(); } else advanceStory(); };
   return {
     sync(speaker: string, text: string, visible: boolean, formalName?: string) {
       panel.classList.toggle('hidden', !visible);
@@ -25,7 +30,7 @@ export function createWebDialogueUi(root: HTMLElement, advanceStory: () => void)
       if (key !== source) { source = key; pages = paginateDialogue(text, 25, 3); page = 0; }
       name.textContent = speakerName(speaker, formalName);
       name.dataset.speaker = speakerKind(speaker);
-      body.textContent = pages[page] ?? '';
+      showPage();
     }
   };
 }
