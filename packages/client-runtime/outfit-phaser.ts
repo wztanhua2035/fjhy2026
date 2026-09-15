@@ -7,8 +7,8 @@ import {uiTokens} from './ui-design-tokens.js';
 import {addUiButton,addUiPanel} from './ui-phaser.js';
 
 /** The same functional fitting panel is installed in Web and WeChat scenes. */
-export function installOutfitShop(scene:Phaser.Scene,game:GameController,width:number,height:number){
-  installGuestFacilities(scene,game,width,height);
+export function installOutfitShop(scene:Phaser.Scene,game:GameController,width:number,height:number,options:{webLife?:boolean}={}){
+  if(!options.webLife)installGuestFacilities(scene,game,width,height);
   const depth=UI_DEPTH_BASE+110,objects:Phaser.GameObjects.GameObject[]=[];
   const label=(x:number,y:number,value:string)=>{const t=scene.add.text(x,y,value,{fontFamily:'Microsoft YaHei, Arial',fontSize:`${uiTokens.typography.bodyL}px`,color:uiTokens.colors.textPrimary,align:'center'}).setOrigin(.5).setDepth(depth+2);objects.push(t);return t;};
   const run=(action:()=>Promise<unknown>)=>void action().catch((error:Error)=>{game.message=error.message;game.onChange();});
@@ -27,9 +27,10 @@ export function installOutfitShop(scene:Phaser.Scene,game:GameController,width:n
   const panel=[backdrop,title,info,preview,hint,previous,next,confirm,cancel];
   scene.cameras.main.ignore(objects);
   const update=()=>{
-    open.setVisible(!!game.player?.appearance&&game.canUseOutfitShop()&&!game.outfitPanelOpen);
-    for(const object of panel)object.setVisible(game.outfitPanelOpen);
-    if(!game.outfitPanelOpen)return;
+    open.setVisible(!options.webLife&&!!game.player?.appearance&&game.canUseOutfitShop()&&!game.outfitPanelOpen);
+    const visible=game.outfitPanelOpen&&!options.webLife;
+    for(const object of panel)object.setVisible(visible);
+    if(!visible)return;
     title.setText(game.outfitMode==='wardrobe'?'我的衣柜':'春衫衣坊');
     const current=game.outfitPanel(),ap=game.player?.appearance;
     if(ap){preview.setTexture(`formal-player-${ap.gender.toLowerCase()}`,direction*4);applyHairTexture(scene,preview,ap.gender,ap.hairId,game.hairCatalog.length?game.hairCatalog:undefined,ap.faceId,current?.outfit.outfitId);}

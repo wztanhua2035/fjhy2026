@@ -1,3 +1,4 @@
+import {adoptRpgModal} from './rpg-modal';
 import type {GameController} from '../../../packages/client-runtime/index.js';
 import {itemCategoryNames} from '../../../packages/game-rules/inventory.js';
 
@@ -5,7 +6,7 @@ export function createInventoryUi(controller:GameController,root:HTMLElement){
   let open=false,selected='',category='ALL';
   const toggle=document.createElement('button'),panel=document.createElement('section');
   toggle.type='button';toggle.textContent='背包';toggle.onclick=()=>{open=!open;refresh();};
-  panel.className='inventory-panel hidden';root.replaceChildren(toggle,panel);
+  panel.className='inventory-panel hidden';adoptRpgModal(panel,'行囊');root.replaceChildren(toggle);root.parentElement!.append(panel);
   function refresh(){
     const visible=open&&!controller.dialogue&&!controller.shopOpen;
     panel.classList.toggle('hidden',!visible);if(!visible)return;

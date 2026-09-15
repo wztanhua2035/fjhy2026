@@ -47,7 +47,7 @@ export function applyHairTexture(scene:Phaser.Scene,sprite:Phaser.GameObjects.Sp
   sprite.setTexture(key,frame).setOrigin(ox,oy).setDisplaySize(width,height);
 }
 
-export function installHairService(scene:Phaser.Scene,game:GameController,sprite:Phaser.GameObjects.Sprite,width:number,height:number,creation?:()=>{gender:'MALE'|'FEMALE';faceId:string;hairId:string}){
+export function installHairService(scene:Phaser.Scene,game:GameController,sprite:Phaser.GameObjects.Sprite,width:number,height:number,creation?:()=>{gender:'MALE'|'FEMALE';faceId:string;hairId:string},options:{contextButton?:boolean}={}){
   const depth=UI_DEPTH_BASE+100,objects:Phaser.GameObjects.GameObject[]=[];
   const text=(x:number,y:number,label:string)=>{const t=scene.add.text(x,y,label,{fontFamily:'Microsoft YaHei, Arial',fontSize:`${uiTokens.typography.bodyL}px`,color:uiTokens.colors.textPrimary,align:'center'}).setOrigin(.5).setDepth(depth+2);objects.push(t);return t;};
   const run=(action:()=>Promise<unknown>)=>void action().catch((error:Error)=>{game.message=error.message;game.onChange();});
@@ -70,7 +70,7 @@ export function installHairService(scene:Phaser.Scene,game:GameController,sprite
     const configs=game.hairCatalog.length?game.hairCatalog:game.boot?.hairs??hairConfigs;
     const ap=game.player?.appearance??creation?.();
     if(ap&&sprite.visible)applyHairTexture(scene,sprite,ap.gender,game.player?.appearance?game.renderHairId:ap.hairId,configs,ap.faceId,game.player?.appearance?game.renderOutfitId:('outfitId' in ap?ap.outfitId:undefined));
-    open.setVisible(!!game.player?.appearance&&game.canUseHairService()&&!game.hairPanelOpen);
+    open.setVisible(options.contextButton!==false&&!!game.player?.appearance&&game.canUseHairService()&&!game.hairPanelOpen);
     for(const object of panel)object.setVisible(game.hairPanelOpen);
     if(!game.hairPanelOpen)return;
     const current=game.hairPanel();
