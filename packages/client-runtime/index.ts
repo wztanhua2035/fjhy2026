@@ -297,15 +297,15 @@ try{const knownNpcs=new Set(this.player?.metNpcs??[]),npc=this.view?.npcs.find(n
     } finally {this.trading=false;this.onChange();}
   }
   shopPanel():ShopPanelView|null{const view=this.view,player=this.player,building=view?.buildings.find(candidate=>candidate.id===view.scene.buildingId);if(!view||!player||!building||!Object.keys(building.stock).length)return null;return {buildingId:building.id,title:building.name,balance:player.cash,items:Object.entries(building.stock).sort(([a],[b])=>(building.stock[a].sortOrder??0)-(building.stock[b].sortOrder??0)).flatMap(([id,stock])=>{const item=view.items.find(candidate=>candidate.id===id);return item&&item.enabled!==false&&stock.enabled!==false&&!item.questOnly&&!item.questItem&&!item.keyItem&&stock.pricingMode!=='MARKET_DYNAMIC'&&['INFINITE','infinite'].includes(stock.stockMode??'INFINITE')&&(stock.canBuy!==false||stock.canSell!==false)?[{description:item.description,stackMax:item.stackMax,id,name:item.name,icon:item.icon??'品',owned:player.inventory[id]??0,buyPrice:stock.canBuy===false?0:fixedShopPrice(stock,'buy'),sellPrice:stock.canSell===false?0:fixedShopPrice(stock,'sell'),dailyLimit:stock.dailyLimit}]:[];})};}
-  render(p:Painter,width:number,height:number,drawTerrain=true,drawStructures=true,drawNpcs=true,skipNpcIds:string[]=[],skipPlayer=false,drawCollision=true,drawInteractionDebug=false){
+  render(p:Painter,width:number,height:number,drawTerrain=true,drawStructures=true,drawNpcs=true,skipNpcIds:string[]=[],skipPlayer=false,drawCollision=true,drawInteractionDebug=false,presentation?:{origin:{x:number;y:number};zoneLabels?:boolean}){
     const v=this.view;if(!v)return;if(drawTerrain)p.rect(0,0,width,height,'#b7cba5');
-    const tile=32,ox=width/2-this.x*tile,oy=height/2-this.y*tile;
+    const tile=32,ox=presentation?.origin.x??width/2-this.x*tile,oy=presentation?.origin.y??height/2-this.y*tile;
     const rect=(x:number,y:number,w:number,h:number,c:string)=>p.rect(ox+x*tile,oy+y*tile,w*tile,h*tile,c);
     if(drawTerrain){if(v.scene.buildingId){rect(0,0,v.scene.width,v.scene.height,'#e8d9bc');for(let y=0;y<v.scene.height;y+=2)rect(0,y,v.scene.width,.025,'#d5c4a6');}
     else{for(let y=0;y<v.scene.height;y+=3)for(let x=0;x<v.scene.width;x+=3)if((x+y)%9===0)rect(x,y,.15,.12,'#91b28c');}
     for(const r of v.scene.roads){rect(r.x,r.y,r.width,r.height,'#e9dfc9');rect(r.x,r.y,r.width,.06,'#c1b99f');}}
     if(drawCollision)for(const r of v.scene.collision){rect(r.x,r.y,r.width,r.height,'#977b61');}
-    if(drawStructures)for(const zone of v.scene.interior?.zones??[])if(zone.label)p.text(zone.label,ox+(zone.x+zone.width/2)*tile,oy+(zone.y-.45)*tile,15,'#54654e');
+    if(drawStructures&&presentation?.zoneLabels!==false)for(const zone of v.scene.interior?.zones??[])if(zone.label)p.text(zone.label,ox+(zone.x+zone.width/2)*tile,oy+(zone.y-.45)*tile,15,'#54654e');
     if(drawStructures)for(const plot of v.plots){const b=v.buildings.find(b=>b.id===plot.buildingId);
       if(b){rect(plot.x+.18,plot.y+.2,plot.width,plot.height,'#00000020');rect(plot.x,plot.y,plot.width,plot.height,'#f4e4cb');rect(plot.x-.25,plot.y-.2,plot.width+.5,1.6,['#688f83','#879bb3','#b4826a','#a7879c','#7b9a76'][v.buildings.indexOf(b)%5]);rect(plot.x+.6,plot.y+2,1,1.2,'#8aa8ad');rect(plot.x+plot.width-1.6,plot.y+2,1,1.2,'#8aa8ad');rect(plot.entranceX-.5,plot.y+3.4,1,1.6,'#876957');if(b.signMode!=='custom_image')p.text(b.displayName??b.name,ox+(plot.x+plot.width/2)*tile,oy+(plot.y+2.5)*tile,15,'#4e4a43');}
       else{rect(plot.x,plot.y,plot.width,plot.height,'#bed0ac');p.text('空置地块 · 待开发',ox+(plot.x+plot.width/2)*tile,oy+(plot.y+2.5)*tile,13,'#62765a');}

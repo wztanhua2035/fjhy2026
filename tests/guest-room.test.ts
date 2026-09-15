@@ -6,7 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { initialWorld } from '../packages/game-config/index.js';
 import { GUEST_ROOM_SCENE_ID, INN_LOBBY_SCENE_ID, INTRO_INN_KEEPER_DONE, guestRoomOpeningDialogue, innOpeningDialogue } from '../packages/game-config/inn-opening.js';
 import { canStand, sceneView } from '../packages/game-rules/index.js';
-import { GameController } from '../packages/client-runtime/index.js';
+import { GameController, remoteAsset } from '../packages/client-runtime/index.js';
 import { MemoryRepository } from '../apps/server/src/repository.js';
 import { GameService } from '../apps/server/src/service.js';
 import { baishiSyncPlan } from '../apps/server/src/sync-baishi.js';
@@ -37,9 +37,8 @@ test('临时房尺寸、美术、四件家具碰撞和独立可达交互点',asy
   const bed=zones.find(z=>z.id==='GUEST_BED')!,chest=zones.find(z=>z.id==='GUEST_CHEST')!;
   assert.ok(Math.hypot(bed.interactionPoint!.x-chest.interactionPoint!.x,bed.interactionPoint!.y-chest.interactionPoint!.y)>2.2);
   assert.equal(reachable({x:7,y:8.4},{x:7,y:10.2}),true);
-  const base='apps/admin/public/scene-layers/baishi/interiors/';
-  for(const file of ['interior_guest_room_v2.png','interior_guest_room_fg_v2.png']){
-    const png=await readFile(base+file);assert.equal(png.readUInt32BE(16),448);assert.equal(png.readUInt32BE(20),384);
+  for(const id of ['BAISHI_INTERIOR_GUEST_ROOM_BG','BAISHI_INTERIOR_GUEST_ROOM_FG']){
+    const png=await readFile('assets/remote/'+remoteAsset(id).path);assert.equal(png.readUInt32BE(16),448);assert.equal(png.readUInt32BE(20),384);
   }
 });
 

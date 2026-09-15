@@ -2,7 +2,9 @@
 
 本规格对应 `packages/game-config/index.ts` 的 `interiorZones`、五个 `SceneConfig`、`baishiPlots` 和核心 NPC 配置。这里的矩形均为连续 tile 坐标 `(x, y, width, height)`；原点在背景左上角，X 向右，Y 向下。单 tile 为 32×32 世界像素。五张正式背景均为 **768×640 px**（24×20 tile），保持原尺寸与左上角锚点；人物、交互提示和出口按钮不烙入背景。
 
-## 已接入资源 V1
+## 历史接入资源 V1（不再是运行路径）
+
+2026-09-15：以下旧本地 PNG 已原样归档至 `assets/source-archive/baishi-interiors-legacy/`，不得恢复为运行 fallback。当前唯一正式图像来源为 `assets/remote/manifests/remote-asset-manifest-v1.json` 所列版本文件；Web V3 运行链路见 `WEB_REGRESSION_V3.md`。本页后续坐标规格不因归档而改变。
 
 - `INTERIOR_B_SALON`：`scene-layers/baishi/interiors/interior_salon_v1.png` / `interior_salon_fg_v1.png`
 - `INTERIOR_B_GROCERY`：`scene-layers/baishi/interiors/interior_grocery_v1.png` / `interior_grocery_fg_v1.png`
