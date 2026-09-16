@@ -51,19 +51,21 @@ export function installHairService(scene:Phaser.Scene,game:GameController,sprite
   const depth=UI_DEPTH_BASE+100,objects:Phaser.GameObjects.GameObject[]=[];
   const text=(x:number,y:number,label:string)=>{const t=scene.add.text(x,y,label,{fontFamily:'Microsoft YaHei, Arial',fontSize:`${uiTokens.typography.bodyL}px`,color:uiTokens.colors.textPrimary,align:'center'}).setOrigin(.5).setDepth(depth+2);objects.push(t);return t;};
   const run=(action:()=>Promise<unknown>)=>void action().catch((error:Error)=>{game.message=error.message;game.onChange();});
-  const button=(x:number,y:number,label:string,action:()=>void)=>{const t=addUiButton(scene,x,y,label,depth+2,()=>{if(!game.busy)action();});objects.push(t);return t;};
+  const button=(x:number,y:number,label:string,action:()=>void,variant:'primary'|'secondary'|'ghost'='secondary')=>{const t=addUiButton(scene,x,y,label,depth+2,()=>{if(!game.busy)action();},variant);objects.push(t);return t;};
   const open=button(width-110,height-218,'做个发型',()=>run(()=>game.openHairService()));
-  const backdrop=addUiPanel(scene,width/2,height/2,Math.min(600,width-40),320,depth);objects.push(backdrop);
-  const title=text(width/2,height/2-112,'青丝美发室');
-  const info=text(width/2+65,height/2-48,'').setWordWrapWidth(350);
+  const panelWidth=Math.min(700,width-36),panelLeft=width/2-panelWidth/2;
+  const backdrop=addUiPanel(scene,width/2,height/2,panelWidth,400,depth);objects.push(backdrop);
+  backdrop.setStrokeStyle(2,Number.parseInt(uiTokens.colors.divider.slice(1),16),1);
+  const title=text(width/2,height/2-165,'青丝美发室 · 发型服务').setFontSize(24).setColor(uiTokens.colors.accent);
+  const info=text(panelLeft+panelWidth*.67,height/2-72,'').setWordWrapWidth(panelWidth*.42).setAlign('left').setFontSize(19);
   let previewDirection=0;
-  const preview=scene.add.sprite(width/2-200,height/2+25,'formal-player-female',0).setOrigin(.5,59/64).setDisplaySize(110,110).setDepth(depth+2).setInteractive();objects.push(preview);
+  const preview=scene.add.sprite(panelLeft+panelWidth*.28,height/2+5,'formal-player-female',0).setOrigin(.5,59/64).setDisplaySize(160,160).setDepth(depth+2).setInteractive();objects.push(preview);
   preview.on('pointerdown',()=>{previewDirection=(previewDirection+1)%4;});
-  const previewHint=text(width/2-195,height/2+65,'点人物转向').setFontSize(16);
-  const previous=button(width/2-25,height/2+20,'上一个',()=>game.cycleHair(-1));
-  const next=button(width/2+170,height/2+20,'下一个',()=>game.cycleHair(1));
-  const confirm=button(width/2+120,height/2+90,'确认更换',()=>run(()=>game.confirmHair()));
-  const cancel=button(width/2-120,height/2+90,'返回',()=>game.closeHairService());
+  const previewHint=text(panelLeft+panelWidth*.28,height/2+108,'点击角色可切换朝向').setFontSize(16).setColor(uiTokens.colors.textMuted);
+  const previous=button(panelLeft+panelWidth*.60,height/2+82,'‹ 上一个',()=>game.cycleHair(-1));
+  const next=button(panelLeft+panelWidth*.84,height/2+82,'下一个 ›',()=>game.cycleHair(1));
+  const confirm=button(panelLeft+panelWidth*.73,height/2+145,'确认更换',()=>run(()=>game.confirmHair()),'primary');
+  const cancel=button(panelLeft+panelWidth*.48,height/2+145,'返回',()=>game.closeHairService(),'ghost');
   const panel=[backdrop,title,info,preview,previewHint,previous,next,confirm,cancel];
   scene.cameras.main.ignore(objects);
   const update=()=>{
@@ -75,9 +77,10 @@ export function installHairService(scene:Phaser.Scene,game:GameController,sprite
     if(!game.hairPanelOpen)return;
     const current=game.hairPanel();
     if(ap){preview.setTexture(`formal-player-${ap.gender.toLowerCase()}`,previewDirection*4);applyHairTexture(scene,preview,ap.gender,current?.hair.hairId,configs,ap.faceId,'outfitId' in ap?ap.outfitId:undefined);}
-    info.setText(current?`${current.hair.displayName}${current.current?' · 当前发型':''}\n服务费 ${current.price} 文　铜钱 ${game.player?.cash??0} 文`:'暂无可用发型');
-    confirm.setText(current?.current?'当前发型':game.busy?'正在确认…':'确认更换');
-    confirm.setAlpha(!current||current.current||game.busy||!!game.pending? .5:1);
+    const cash=game.player?.cash??0,insufficient=!!current&&cash<current.price;
+    info.setText(current?`正在浏览\n${current.hair.displayName}\n\n当前状态：${current.current?'当前发型':insufficient?'铜钱不足':'可更换'}\n服务费：${current.price} 文\n当前铜钱：${cash} 文`:'暂无可用发型');
+    confirm.setText(current?.current?'当前发型':game.busy?'正在确认…':insufficient?'铜钱不足':`花费 ${current?.price??0} 文更换`);
+    confirm.setAlpha(!current||current.current||insufficient||game.busy||!!game.pending? .5:1);
   };
   update();scene.events.on('postupdate',update);
   scene.events.once('shutdown',()=>{scene.events.off('postupdate',update);game.closeHairService();});
