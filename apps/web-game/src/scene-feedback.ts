@@ -20,5 +20,8 @@ export function transitionLoading(pending:boolean,startedAt:number,now:number){r
 /** Maps the existing Hair Service result into the shared Web RPG result-card copy. */
 export function formatRpgEventNotice(text:string){
   const hairChange=/^已更换：(.+)，支出\s*(\d+)\s*文$/.exec(text.trim());
-  return hairChange?`更换发型成功\n\n${hairChange[1]}\n−${hairChange[2]}文`:text;
+  if(hairChange)return `更换发型成功\n\n${hairChange[1]}\n−${hairChange[2]}文`;
+  const trade=/^(购买成功|出售成功)\n([^\n]+)\n(支出|收入)：\s*(\d+)文$/.exec(text.trim());
+  if(trade)return `${trade[1]}\n\n${trade[2]}\n${trade[3]==='支出'?'−':'+'}${trade[4]}文`;
+  return text;
 }

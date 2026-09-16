@@ -34,7 +34,14 @@ test('technical transitions are never enqueued as ordinary notifications',()=>{
 });
 test('hair changes use the shared RPG result-card copy without changing service logic',()=>{
   assert.equal(formatRpgEventNotice('已更换：规整中短发 · 蓝黑，支出 36 文'),'更换发型成功\n\n规整中短发 · 蓝黑\n−36文');
+  assert.equal(formatRpgEventNotice('购买成功\n鸣山大米 ×2\n支出：36文'),'购买成功\n\n鸣山大米 ×2\n−36文');
+  assert.equal(formatRpgEventNotice('出售成功\n鸣山大米 ×1\n收入：16文'),'出售成功\n\n鸣山大米 ×1\n+16文');
   assert.equal(formatRpgEventNotice('铜钱不足'),'铜钱不足');
+});
+test('shop controls expose explicit tabs, money display and bounded quantity stepper',async()=>{
+  const source=await readFile('apps/web-game/src/main.ts','utf8'),css=await readFile('apps/web-game/src/web-polish.css','utf8');
+  assert.match(source,/className='shop-tab'/);assert.match(source,/moneyDisplay\(shop\.balance\)/);assert.match(source,/quantity-stepper-button/);assert.match(source,/minus\.disabled=quantity<=1/);assert.match(source,/plus\.disabled=quantity>=maxQuantity/);
+  assert.match(css,/\.money-display strong/);assert.match(css,/\.shop-tabs \.shop-tab\.active/);assert.match(css,/\.quantity-stepper-button/);assert.match(css,/#shop-feedback\.has-result/);
 });
 test('Web hair service reuses the Spring Clothing modal template and suppresses the canvas panel',async()=>{
   const source=await readFile('apps/web-game/src/main.ts','utf8'),hair=await readFile('packages/client-runtime/hair-phaser.ts','utf8'),ui=await readFile('apps/web-game/src/hair-ui.ts','utf8');

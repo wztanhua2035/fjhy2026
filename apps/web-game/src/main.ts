@@ -153,6 +153,7 @@ function refreshFormalCreation(){
 }
 const shopToggle=document.createElement('button');shopToggle.id='shop-toggle';shopToggle.className='context-action';shopToggle.textContent='看看商品';hud.append(shopToggle);shopToggle.onclick=()=>void run(async()=>{if(controller.shopOpen)controller.closeShop();else await controller.openShop();});const shopClose=document.createElement('button');shopClose.type='button';shopClose.className='shop-close';shopClose.textContent='关闭';shopClose.onclick=()=>controller.closeShop();shopPanel.querySelector('header')?.append(shopClose);
 let selectedShopItemId='',shopResult='';
+const moneyDisplay=(value:number)=>{const node=document.createElement('span');node.className='money-display';node.append(document.createTextNode('铜钱 '));const amount=document.createElement('strong');amount.textContent=`${value}`;node.append(amount,document.createTextNode(' 文'));return node;};
 let previousShopOpen=false;
 function refreshShopPanel(){
   if(controller.shopOpen&&!previousShopOpen)shopResult='';previousShopOpen=controller.shopOpen;
@@ -161,13 +162,13 @@ function refreshShopPanel(){
   shopToggle.classList.toggle('hidden',!shop||!nearClerk);
   shopToggle.textContent=controller.shopOpen?'收起商品':'看看商品';
   shopPanel.classList.toggle('hidden',!visible);if(!shop||!visible)return;
-  shopTitle.textContent=shop.title;shopBalance.textContent=`铜钱 ${shop.balance} 文`;
-  shopFeedback.textContent=shopResult||'选择商品与数量后确认交易。';shopFeedback.setAttribute('role','status');
+  shopTitle.textContent=shop.title;shopBalance.replaceChildren(moneyDisplay(shop.balance));
+  shopFeedback.textContent=shopResult||'选择商品与数量后确认交易。';shopFeedback.classList.toggle('has-result',!!shopResult);shopFeedback.setAttribute('role','status');
   shopItems.replaceChildren();
   if(shop.buildingId==='B_TRADE'){
     const tabs=document.createElement('div');tabs.className='shop-tabs';
     for(const side of ['buy','sell'] as const){
-      const tab=document.createElement('button');tab.type='button';tab.textContent=side==='buy'?'买入':'出售';
+      const tab=document.createElement('button');tab.type='button';tab.className='shop-tab';tab.textContent=side==='buy'?'买入':'出售';
       tab.classList.toggle('active',controller.shopTab===side);
       tab.onclick=()=>controller.setShopTab(side);tabs.append(tab);
     }
@@ -200,13 +201,14 @@ function refreshShopPanel(){
   const quantity=controller.shopQuantities[selected.id]??1;
   total.className='shop-total';total.textContent=`预计${side==='buy'?'支出':'收入'} · ${unitPrice*quantity} 文`;
   const controls=document.createElement('div'),minus=document.createElement('button'),plus=document.createElement('button'),count=document.createElement('span');
-  controls.className='shop-quantity';minus.type='button';plus.type='button';minus.textContent='−';plus.textContent='+';count.textContent=`${quantity} 件`;
+  controls.className='shop-quantity';minus.type='button';plus.type='button';minus.className=plus.className='quantity-stepper-button';count.className='quantity-stepper-value';minus.textContent='−';plus.textContent='+';count.textContent=`${quantity}`;
+  const maxQuantity=side==='sell'?Math.max(1,selected.owned):99;minus.disabled=quantity<=1;plus.disabled=quantity>=maxQuantity;
   minus.onclick=()=>controller.setShopQuantity(selected.id,-1);plus.onclick=()=>controller.setShopQuantity(selected.id,1);
   controls.append(minus,count,plus);
   const action=document.createElement('button');action.type='button';action.className='shop-primary-action';
   action.textContent=side==='buy'?'确认买入':'确认出售';
   action.disabled=controller.busy||!!controller.pending||unitPrice===0||(side==='sell'&&selected.owned<quantity);
-  action.onclick=()=>void run(async()=>{shopResult='正在处理交易…';try{await controller.trade(side,selected.id,controller.shopQuantities[selected.id]??1);shopResult=controller.dialogue?'交易已处理，请继续对话。':controller.message;}catch(error){shopResult=error instanceof Error?error.message:'交易失败，请重试';throw error;}});
+  action.onclick=()=>void run(async()=>{shopResult='正在处理交易…';try{await controller.trade(side,selected.id,controller.shopQuantities[selected.id]??1);shopResult=controller.dialogue?'交易已处理，请继续对话。':formatRpgEventNotice(controller.message);}catch(error){shopResult=error instanceof Error?error.message:'交易失败，请重试';throw error;}});
   detail.append(icon,name,description,owned,price,controls,total,action);
   layout.append(list,detail);shopItems.append(layout);
 }
