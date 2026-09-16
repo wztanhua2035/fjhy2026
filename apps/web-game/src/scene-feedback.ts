@@ -17,3 +17,8 @@ export class WebFeedbackQueue {
 }
 export function isTransientSceneMessage(text:string){return /^(正在确认位置|正在进入|进入建筑|已到达)/.test(text);}
 export function transitionLoading(pending:boolean,startedAt:number,now:number){return pending&&now-startedAt>=300;}
+/** Maps the existing Hair Service result into the shared Web RPG result-card copy. */
+export function formatRpgEventNotice(text:string){
+  const hairChange=/^已更换：(.+)，支出\s*(\d+)\s*文$/.exec(text.trim());
+  return hairChange?`更换发型成功\n\n${hairChange[1]}\n−${hairChange[2]}文`:text;
+}
