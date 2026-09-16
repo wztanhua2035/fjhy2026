@@ -36,13 +36,12 @@ test('hair changes use the shared RPG result-card copy without changing service 
   assert.equal(formatRpgEventNotice('已更换：规整中短发 · 蓝黑，支出 36 文'),'更换发型成功\n\n规整中短发 · 蓝黑\n−36文');
   assert.equal(formatRpgEventNotice('铜钱不足'),'铜钱不足');
 });
-test('Web hair service opts into the two-column panel while other platforms retain their layout',async()=>{
-  const source=await readFile('apps/web-game/src/main.ts','utf8'),hair=await readFile('packages/client-runtime/hair-phaser.ts','utf8');
-  assert.match(source,/contextButton:false,webPanel:true/);
-  assert.match(hair,/const panelWidth=webPanel\?Math\.min\(820,width-40\)/);
-  assert.match(hair,/panelTop\+133\+index\*70/);
-  assert.match(hair,/isCurrent\?'当前':isPreview\?'预览中':''/);
-  assert.match(hair,/previous\.setVisible\(!webPanel\)/);
+test('Web hair service reuses the Spring Clothing modal template and suppresses the canvas panel',async()=>{
+  const source=await readFile('apps/web-game/src/main.ts','utf8'),hair=await readFile('packages/client-runtime/hair-phaser.ts','utf8'),ui=await readFile('apps/web-game/src/hair-ui.ts','utf8');
+  assert.match(source,/contextButton:false,webLife:true/);assert.match(source,/createHairUi\(controller,hud\)/);
+  assert.match(hair,/game\.hairPanelOpen&&!options\.webLife/);
+  assert.match(ui,/createRpgModal\(root,'hair-panel'/);assert.match(ui,/wardrobe-layout hair-service-layout/);
+  assert.match(ui,/isCurrent\?'当前发型':'预览中'/);assert.match(ui,/当前铜钱：\$\{cash\}文/);
 });
 test('inventory surface is a sibling of its HUD toggle, never nested in the old wrapper',async()=>{
   const source=await readFile('apps/web-game/src/inventory-ui.ts','utf8');
