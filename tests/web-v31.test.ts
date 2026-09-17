@@ -36,6 +36,7 @@ test('hair changes use the shared RPG result-card copy without changing service 
   assert.equal(formatRpgEventNotice('已更换：规整中短发 · 蓝黑，支出 36 文'),'更换发型成功\n\n规整中短发 · 蓝黑\n−36文');
   assert.equal(formatRpgEventNotice('购买成功\n鸣山大米 ×2\n支出：36文'),'购买成功\n\n鸣山大米 ×2\n−36文');
   assert.equal(formatRpgEventNotice('出售成功\n鸣山大米 ×1\n收入：16文'),'出售成功\n\n鸣山大米 ×1\n+16文');
+  assert.equal(formatRpgEventNotice('已存入物品\n饮用水 ×2'),'已存入物品\n饮用水 ×2');
   assert.equal(formatRpgEventNotice('铜钱不足'),'铜钱不足');
 });
 test('shop controls expose explicit tabs, money display and bounded quantity stepper',async()=>{

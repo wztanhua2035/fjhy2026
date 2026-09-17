@@ -208,7 +208,7 @@ function refreshShopPanel(){
   const action=document.createElement('button');action.type='button';action.className='shop-primary-action';
   action.textContent=side==='buy'?'确认买入':'确认出售';
   action.disabled=controller.busy||!!controller.pending||unitPrice===0||(side==='sell'&&selected.owned<quantity);
-  action.onclick=()=>void run(async()=>{shopResult='正在处理交易…';try{await controller.trade(side,selected.id,controller.shopQuantities[selected.id]??1);shopResult=controller.dialogue?'交易已处理，请继续对话。':formatRpgEventNotice(controller.message);}catch(error){shopResult=error instanceof Error?error.message:'交易失败，请重试';throw error;}});
+  action.onclick=()=>void run(async()=>{shopResult='正在处理交易…';try{await controller.trade(side,selected.id,controller.shopQuantities[selected.id]??1);const result=formatRpgEventNotice(controller.message);shopResult=controller.dialogue?'交易已处理，请继续对话。':`最近交易\n${result.split('\n').slice(-2).join(' ')}`;}catch(error){shopResult=error instanceof Error?error.message:'交易失败，请重试';throw error;}});
   detail.append(icon,name,description,owned,price,controls,total,action);
   layout.append(list,detail);shopItems.append(layout);
 }
@@ -253,8 +253,8 @@ function syncUi(){
   const player=controller.player;
   dialogueUi.sync(controller.dialogueSpeaker??'',controller.dialogue??'',!!controller.dialogue,player?.profile?player.profile.surname+player.profile.givenName:undefined,dialogueContext(controller.message));
    if(controller.guide){const sequential=/任务|奖励/.test(controller.guide);notices.enqueue('toast',controller.guide,sequential?'sequential':'low',sequential?{}:{sceneId:player?.sceneId,transitionId:controller.transitionId});controller.guide=null;}
-   if(controller.dialogue||controller.shopOpen||controller.facilityPanel||controller.outfitPanelOpen)lastNoticeSource=controller.message;
-  else if(!controller.actionPending&&player?.appearance&&controller.message&&controller.message!==lastNoticeSource&&!isTransientSceneMessage(controller.message)){lastNoticeSource=controller.message;notices.enqueue(/成功|完成|获得|支出|售出|购买/.test(controller.message)?'result':'toast',formatRpgEventNotice(controller.message).split('\n').slice(0,4).join('\n'),'immediate',{sceneId:controller.player?.sceneId,transitionId:controller.transitionId});presentNotice();}
+   if(controller.dialogue||controller.facilityPanel||controller.outfitPanelOpen)lastNoticeSource=controller.message;
+  else if(!controller.actionPending&&player?.appearance&&controller.message&&controller.message!==lastNoticeSource&&!isTransientSceneMessage(controller.message)){lastNoticeSource=controller.message;const isResult=/成功|完成|获得|支出|收入|售出|购买|已存入|已取出|已交付|接到任务|任务进展/.test(controller.message);notices.enqueue(isResult?'result':'toast',formatRpgEventNotice(controller.message).split('\n').slice(0,4).join('\n'),'immediate',{sceneId:controller.player?.sceneId});presentNotice();}
   presentNotice();
   const interactButton=byId<HTMLButtonElement>('interact');interactButton.disabled=controller.actionPending;interactButton.setAttribute('aria-busy',String(controller.actionPending));if(controller.actionPending)interactButton.textContent='处理中…';
 }

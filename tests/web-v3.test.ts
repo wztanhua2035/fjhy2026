@@ -59,7 +59,7 @@ test('Web has one speech renderer and never injects controller messages directly
 test('speech, relationship metadata and shop feedback have distinct destinations',()=>{
   assert.equal(dialogueContext('初次结识：陈掌柜。\n关系状态：已认识。\n起来了？'),'初次结识：陈掌柜 · 关系状态：已认识');
   assert.equal(notificationDestination(true,true),'dialogue');
-  assert.equal(notificationDestination(false,true),'shop');
+  assert.equal(notificationDestination(false,true),'toast');
   assert.equal(notificationDestination(false,false),'toast');
 });
 test('Chinese dialogue uses measured phrase wrapping rather than a fixed character count',()=>{

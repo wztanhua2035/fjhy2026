@@ -194,6 +194,7 @@ button[aria-busy=true] { opacity: .68; cursor: progress; }
 #interact, #shop-toggle { z-index: 4; border: 1px solid #e0c88f; background: linear-gradient(145deg, #3c715f, #285247); box-shadow: 0 9px 20px #101e19a8; }
 #interact { width: 176px; min-height: 55px; }
 #message { z-index: 8; min-width: 235px; max-width: 470px; padding: 11px 18px 11px 44px; color: #364739; background: #fff7e4; border: 2px solid #ccb584; border-radius: 13px; box-shadow: 0 10px 30px #111d19b0; text-align: left; animation: rpgNoticeIn .25s ease-out both; }
+#message { top: max(92px, calc(env(safe-area-inset-top) + 76px)); left: 50%; transform: translateX(-50%); }
 #message::before { content: "✦"; position: absolute; left: 14px; top: 10px; color: #a57a3a; font-size: 20px; }
 #message[data-event=item]::before { content: "◆"; }
 #message[data-event=quest]::before { content: "◈"; }
@@ -208,8 +209,7 @@ button[aria-busy=true] { opacity: .68; cursor: progress; }
 #dialogue-panel { height: 172px; }
 .dialogue-body { overflow-wrap: normal; word-break: normal; line-break: strict; }
 #resource-status { position: absolute; top: 62px; left: 18px; max-width: 280px; background: #fff4d9ee; color: #655435; padding: 8px 12px; border-radius: 9px; font-size: 12px; }
-#hud:has(#dialogue-panel:not(.hidden)) #message,
-#hud:has(#shop-panel:not(.hidden)) #message { display: none !important; }
+#hud:has(#dialogue-panel:not(.hidden)) #message { display: none !important; }
 
 @media (max-width: 1420px), (max-height: 800px) {
   .creation-panel { height: min(600px, 93dvh); padding: 14px 22px; grid-template-rows: 18px 30px 26px minmax(0,1fr) 50px 20px; }

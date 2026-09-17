@@ -3,7 +3,8 @@ export function dialogueContext(message: string): string {
   return message.split('\n').filter(line=>/^(初次结识|关系状态|身份说明)[：:]/.test(line)).join(' · ').replace(/。/g,'');
 }
 export function notificationDestination(dialogue: boolean, shopOpen: boolean): 'dialogue'|'shop'|'toast' {
-  return dialogue?'dialogue':shopOpen?'shop':'toast';
+  // Result cards live on the HUD layer and must remain visible above an open modal.
+  return dialogue?'dialogue':'toast';
 }
 export function wrapDialogue(text:string,measure:(value:string)=>number,width:number,linesPerPage=3):string[] {
   const lines:string[]=[];
